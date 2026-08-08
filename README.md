@@ -2,6 +2,10 @@
 
 A complete, asset-free Godot 4 top-down incremental bullet hell. Clear a focused first stage where movement, engagement range, and target selection continuously steer how four weapon systems evolve, then dismantle the modular Overseer Array. Bank Flux for permanent ship upgrades and build persistent mastery with the weapons you actually use.
 
+## Play online
+
+[Play Neon Requiem in your browser](https://marcoabcardoso.github.io/shooter-game/)
+
 ## Run
 
 Open `project.godot` in Godot 4.3 or newer and press **F6/F5**, or run:
