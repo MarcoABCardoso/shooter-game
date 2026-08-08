@@ -10,12 +10,15 @@ signal retry_requested
 signal menu_requested
 signal reset_requested
 signal meta_upgrade_requested(id: String)
+signal mastery_allocation_requested(id: String, delta: int)
 signal library_requested
 signal upgrades_requested
+signal callibrations_requested
 
 var hud: Control
 var start_screen: Control
 var upgrade_screen: Control
+var callibrations_screen: Control
 var overlay: Control
 var hp_bar: ProgressBar
 var resonance_bar: ProgressBar
@@ -33,6 +36,8 @@ var start_stats_label: Label
 var start_mastery_label: Label
 var upgrade_flux_label: Label
 var hangar_box: VBoxContainer
+var callibration_pool_label: Label
+var callibration_box: VBoxContainer
 var banner_tween: Tween
 
 
@@ -41,6 +46,7 @@ func _ready() -> void:
 	_build_hud()
 	_build_start_screen()
 	_build_upgrade_screen()
+	_build_callibrations_screen()
 	overlay = Control.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -52,6 +58,7 @@ func show_menu(profile: SaveProfile) -> void:
 	overlay.visible = false
 	start_screen.visible = true
 	upgrade_screen.visible = false
+	callibrations_screen.visible = false
 	start_flux_label.text = "◆  %d" % int(profile.data["flux"])
 	start_stats_label.text = "BEST  %s\nLEVEL  %02d\nRUNS  %02d" % [_format_time(float(profile.data["best_time"])), int(profile.data["best_level"]), int(profile.data["runs"])]
 	start_mastery_label.text = "PULSE %02d   ORBIT %02d\nARC %02d       NOVA %02d" % [profile.mastery_level("pulse"), profile.mastery_level("orbit"), profile.mastery_level("arc"), profile.mastery_level("nova")]
@@ -62,13 +69,25 @@ func show_upgrades(profile: SaveProfile) -> void:
 	overlay.visible = false
 	start_screen.visible = false
 	upgrade_screen.visible = true
+	callibrations_screen.visible = false
 	upgrade_flux_label.text = "◆  %d FLUX" % int(profile.data["flux"])
 	_rebuild_hangar(profile)
+
+
+func show_callibrations(profile: SaveProfile) -> void:
+	hud.visible = false
+	overlay.visible = false
+	start_screen.visible = false
+	upgrade_screen.visible = false
+	callibrations_screen.visible = true
+	callibration_pool_label.text = "%02d UNALLOCATED MASTERY" % profile.unallocated_mastery()
+	_rebuild_callibrations(profile)
 
 
 func show_run() -> void:
 	start_screen.visible = false
 	upgrade_screen.visible = false
+	callibrations_screen.visible = false
 	overlay.visible = false
 	hud.visible = true
 
@@ -78,6 +97,7 @@ func show_library(profile: SaveProfile) -> void:
 	hud.visible = false
 	start_screen.visible = false
 	upgrade_screen.visible = false
+	callibrations_screen.visible = false
 	overlay.visible = true
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -98,19 +118,30 @@ func show_library(profile: SaveProfile) -> void:
 	var back := UIFactory.button("RETURN", Vector2(870, 20), Vector2(160, 48))
 	back.pressed.connect(menu_requested.emit)
 	panel.add_child(back)
-	for i in LibraryCatalog.ORDER.size():
-		var id: String = LibraryCatalog.ORDER[i]
-		var column := i % 2
-		var row := int(i / 2)
-		_build_library_entry(panel, id, profile, Vector2(28 + column * 508, 88 + row * 158))
+	var scroll := ScrollContainer.new()
+	scroll.name = "LibraryScroll"
+	scroll.position = Vector2(28, 88)
+	scroll.size = Vector2(1004, 515)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.name = "LibraryGrid"
+	grid.columns = 2
+	grid.custom_minimum_size = Vector2(988, 0)
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 13)
+	scroll.add_child(grid)
+	for id: String in LibraryCatalog.ORDER:
+		_build_library_entry(grid, id, profile)
 
 
-func _build_library_entry(parent: Control, id: String, profile: SaveProfile, position: Vector2) -> void:
+func _build_library_entry(parent: Control, id: String, profile: SaveProfile) -> void:
 	var definition := LibraryCatalog.definition(id)
 	var discovered := profile.is_discovered(id)
 	var border := Color(GamePalette.GREEN, 0.38) if discovered else Color(GamePalette.MAGENTA, 0.24)
-	var card := UIFactory.panel(position, Vector2(490, 145), border)
+	var card := UIFactory.panel(Vector2.ZERO, Vector2(488, 145), border)
 	card.name = "LibraryEntry_" + id
+	card.custom_minimum_size = Vector2(488, 145)
 	parent.add_child(card)
 	var title_text := String(definition["name"]) if discovered else "UNDECODED %s" % definition["kind"]
 	var title_color := GamePalette.GREEN if discovered else Color(GamePalette.MAGENTA, 0.72)
@@ -121,8 +152,8 @@ func _build_library_entry(parent: Control, id: String, profile: SaveProfile, pos
 	if discovered and WeaponCatalog.ORDER.has(id):
 		status += "  //  MASTERY %02d" % profile.mastery_level(id)
 	var badge := UIFactory.label(status, 10, Color(title_color, 0.72))
-	badge.position = Vector2(315, 15)
-	badge.size = Vector2(155, 18)
+	badge.position = Vector2(292, 15)
+	badge.size = Vector2(178, 18)
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	card.add_child(badge)
 	var body_text: String
@@ -280,6 +311,10 @@ func _build_start_screen() -> void:
 	library.name = "LibraryButton"
 	library.pressed.connect(library_requested.emit)
 	panel.add_child(library)
+	var callibrations := UIFactory.button("CALLIBRATIONS", Vector2(58, 366), Vector2(310, 54))
+	callibrations.name = "CallibrationsButton"
+	callibrations.pressed.connect(callibrations_requested.emit)
+	panel.add_child(callibrations)
 
 	var status_panel := UIFactory.panel(Vector2(470, 54), Vector2(430, 350), Color(GamePalette.GREEN, 0.22))
 	panel.add_child(status_panel)
@@ -320,6 +355,39 @@ func _build_upgrade_screen() -> void:
 	panel.add_child(hangar_box)
 
 
+func _build_callibrations_screen() -> void:
+	callibrations_screen = Control.new()
+	callibrations_screen.name = "CallibrationsScreen"
+	callibrations_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(callibrations_screen)
+	var panel := UIFactory.panel(Vector2(160, 55), Vector2(960, 610), Color(GamePalette.CYAN, 0.3))
+	callibrations_screen.add_child(panel)
+	_add_menu_label(panel, "CALLIBRATIONS", 30, GamePalette.CYAN, Vector2(44, 30))
+	_add_menu_label(panel, "MASTERY ROUTING", 11, Color(GamePalette.CYAN, 0.55), Vector2(47, 72))
+	callibration_pool_label = _add_menu_label(panel, "00 UNALLOCATED MASTERY", 16, GamePalette.YELLOW, Vector2(490, 43))
+	callibration_pool_label.size = Vector2(245, 28)
+	callibration_pool_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var back := UIFactory.button("RETURN", Vector2(756, 26), Vector2(160, 50))
+	back.name = "CallibrationsReturnButton"
+	back.pressed.connect(menu_requested.emit)
+	panel.add_child(back)
+	var explanation := UIFactory.label("Route earned mastery between weapon systems. Each system is capped at 2x its native mastery; new ranks default to the weapon that earned them.", 12, Color(0.76, 0.9, 1.0))
+	explanation.position = Vector2(44, 102)
+	explanation.size = Vector2(872, 42)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(explanation)
+	var divider := ColorRect.new()
+	divider.position = Vector2(44, 151)
+	divider.size = Vector2(872, 2)
+	divider.color = Color(GamePalette.CYAN, 0.16)
+	panel.add_child(divider)
+	callibration_box = VBoxContainer.new()
+	callibration_box.position = Vector2(44, 174)
+	callibration_box.size = Vector2(872, 390)
+	callibration_box.add_theme_constant_override("separation", 12)
+	panel.add_child(callibration_box)
+
+
 func _add_menu_label(parent: Control, text: String, size: int, color: Color, position: Vector2) -> Label:
 	var node := UIFactory.label(text, size, color)
 	node.position = position
@@ -350,6 +418,35 @@ func _rebuild_hangar(profile: SaveProfile) -> void:
 	reset_button.add_theme_color_override("font_color", Color(GamePalette.MAGENTA, 0.65))
 	reset_button.pressed.connect(show_reset_confirmation)
 	hangar_box.add_child(reset_button)
+
+
+func _rebuild_callibrations(profile: SaveProfile) -> void:
+	for child: Node in callibration_box.get_children():
+		child.queue_free()
+	for weapon: String in WeaponCatalog.ORDER:
+		var native := profile.mastery_level(weapon)
+		var allocated := profile.allocated_mastery(weapon)
+		var cap := profile.mastery_allocation_cap(weapon)
+		var row := HBoxContainer.new()
+		row.name = "CallibrationRow_" + weapon
+		row.custom_minimum_size = Vector2(872, 76)
+		var description := UIFactory.label("%s\nNATIVE %02d   //   EFFECTIVE %02d/%02d   //   DAMAGE +%.1f%%" % [weapon.to_upper(), native, allocated, cap, profile.mastery_bonus(weapon) * 100.0], 14, Color.WHITE)
+		description.custom_minimum_size = Vector2(664, 70)
+		description.add_theme_constant_override("line_spacing", 5)
+		row.add_child(description)
+		var decrease := UIFactory.button("-", Vector2.ZERO, Vector2(92, 54))
+		decrease.name = "Decrease_" + weapon
+		decrease.custom_minimum_size = Vector2(92, 54)
+		decrease.disabled = allocated <= 0
+		decrease.pressed.connect(mastery_allocation_requested.emit.bind(weapon, -1))
+		row.add_child(decrease)
+		var increase := UIFactory.button("+", Vector2.ZERO, Vector2(92, 54))
+		increase.name = "Increase_" + weapon
+		increase.custom_minimum_size = Vector2(92, 54)
+		increase.disabled = profile.unallocated_mastery() <= 0 or allocated >= cap
+		increase.pressed.connect(mastery_allocation_requested.emit.bind(weapon, 1))
+		row.add_child(increase)
+		callibration_box.add_child(row)
 
 
 func _show_message(title_text: String, body_text: String, primary_text: String, primary_action: Callable, secondary_text: String, secondary_action: Callable) -> void:

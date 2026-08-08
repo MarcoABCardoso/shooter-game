@@ -27,6 +27,8 @@ func _validate_weapons() -> void:
 	assert(loadout.keys().size() == WeaponCatalog.ORDER.size(), "Weapon order and definitions must match")
 	for id: String in WeaponCatalog.ORDER:
 		assert(loadout.has(id), "Missing weapon definition: %s" % id)
+		assert(SaveProfile.DEFAULT_DATA["mastery_xp"].has(id), "Save mastery defaults are missing %s" % id)
+		assert(SaveProfile.DEFAULT_DATA["mastery_allocations"].has(id), "Save allocation defaults are missing %s" % id)
 		assert(loadout[id].has("level"), "Weapon %s needs a level" % id)
 		assert(loadout[id].has("damage"), "Weapon %s needs damage" % id)
 	assert(loadout["pulse"].has("projectile_speed"), "Pulse needs a tunable projectile speed")
@@ -48,6 +50,9 @@ func _validate_evolutions() -> void:
 
 func _validate_library() -> void:
 	assert(LibraryCatalog.ORDER.size() == LibraryCatalog.DEFINITIONS.size(), "Library order and definitions must match")
+	for evolution_id: String in EvolutionCatalog.DEFINITIONS:
+		assert(LibraryCatalog.DEFINITIONS.has(evolution_id), "Library is missing evolution %s" % evolution_id)
+		assert(LibraryCatalog.DEFINITIONS[evolution_id]["name"] == EvolutionCatalog.DEFINITIONS[evolution_id]["name"], "Evolution and Library names must match for %s" % evolution_id)
 	for id: String in LibraryCatalog.ORDER:
 		assert(LibraryCatalog.DEFINITIONS.has(id), "Library is missing %s" % id)
 		assert(SaveProfile.DEFAULT_DATA["discovered"].has(id), "Save discovery defaults are missing %s" % id)

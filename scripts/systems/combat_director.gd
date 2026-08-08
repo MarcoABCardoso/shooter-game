@@ -4,7 +4,7 @@ extends Node
 signal damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int)
 signal enemy_defeated(kind: String)
 signal resonance_gained(amount: int)
-signal flux_collected(amount: int)
+signal flux_gained(amount: int)
 signal repair_collected(amount: float)
 signal banner_requested(text: String, color: Color)
 signal shake_requested(amount: float)
@@ -98,27 +98,25 @@ func _on_enemy_fired(origin: Vector2, direction: Vector2, damage: float, speed: 
 func _on_enemy_destroyed(_enemy: NeonEnemy, kind: String, flux: int, resonance: int, world_position: Vector2) -> void:
 	enemy_defeated.emit(kind)
 	resonance_gained.emit(resonance)
-	var fortune := 1.0 + profile.bonus("fortune")
-	if rng.randf() < minf(0.88, 0.35 * fortune) or kind == "boss":
-		var offset := Vector2(rng.randf_range(-8.0, 8.0), rng.randf_range(-8.0, 8.0))
-		_spawn_pickup(world_position + offset, "flux", maxi(1, int(round(flux * session.combo))))
-	if rng.randf() < 0.018 * fortune:
-		_spawn_pickup(world_position, "repair", 12)
+	var fortune_bonus := profile.bonus("fortune")
+	var awarded_flux := maxi(1, int(round(flux * session.combo * (1.0 + fortune_bonus))))
+	flux_gained.emit(awarded_flux)
+	if rng.randf() < 0.018 * (1.0 + fortune_bonus):
+		_spawn_repair(world_position, 12)
 	spawn_burst(world_position, GamePalette.MAGENTA if kind != "boss" else GamePalette.ORANGE, 70.0 if kind == "boss" else 26.0, 14 if kind == "boss" else 7)
 	if kind == "boss":
-		banner_requested.emit("OVERSEER ERASED // +%d FLUX CACHE" % flux, GamePalette.YELLOW)
+		banner_requested.emit("OVERSEER ERASED // +%d FLUX" % awarded_flux, GamePalette.YELLOW)
 		shake_requested.emit(11.0)
 
 
-func _spawn_pickup(world_position: Vector2, kind: String, amount: int) -> void:
+func _spawn_repair(world_position: Vector2, amount: int) -> void:
 	var pickup: NeonPickup = PickupScene.new()
-	pickup.kind = kind
 	pickup.amount = amount
 	pickup.target = player
 	pickup.global_position = world_position
 	pickup.velocity = Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(25.0, 90.0)
 	pickup.add_to_group("run_entities")
-	pickup.collected.connect(_on_pickup_collected)
+	pickup.collected.connect(_on_repair_collected)
 	# Enemy destruction can originate inside an Area2D body_entered callback.
 	# Wait until the physics server finishes flushing that query before the new
 	# Area2D enters the tree and enables its collision monitoring.
@@ -134,14 +132,9 @@ func _attach_pickup(pickup: NeonPickup) -> void:
 	get_parent().add_child(pickup)
 
 
-func _on_pickup_collected(kind: String, amount: int, _world_position: Vector2) -> void:
-	match kind:
-		"flux":
-			flux_collected.emit(amount)
-			tone_requested.emit(760.0, 0.035, 0.08, 260.0)
-		"repair":
-			repair_collected.emit(float(amount))
-			banner_requested.emit("HULL RESTORED", GamePalette.GREEN)
+func _on_repair_collected(amount: int, _world_position: Vector2) -> void:
+	repair_collected.emit(float(amount))
+	banner_requested.emit("HULL RESTORED", GamePalette.GREEN)
 
 
 func _random_edge_position() -> Vector2:

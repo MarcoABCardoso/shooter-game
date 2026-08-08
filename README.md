@@ -20,7 +20,7 @@ godot --path .
 
 The live behavior readout shows three continuous axes: Anchored/Roaming, Close/Distant, and Focus/Spread. Resonance levels do not pause combat or ask for a choice; the current combined profile mutates the build automatically.
 
-The start screen links to a discovery-gated Arsenal Library. Permanent augments live on their own upgrade screen and are purchased with banked Flux.
+The start screen links to a discovery-gated Arsenal Library covering weapons, abilities, and all eight behavior-driven in-run evolutions. Permanent augments live on their own upgrade screen and are purchased with banked Flux. The Callibrations screen can reroute earned weapon mastery into a shared pool; each weapon can reach at most twice its native mastery, and new ranks default to the weapon that earned them.
 
 ## Design notes
 

@@ -1,9 +1,8 @@
 class_name NeonPickup
 extends Area2D
 
-signal collected(kind: String, amount: int, world_position: Vector2)
+signal collected(amount: int, world_position: Vector2)
 
-var kind := "flux"
 var amount := 1
 var target: NeonPlayer
 var velocity := Vector2.ZERO
@@ -39,13 +38,12 @@ func _physics_process(delta: float) -> void:
 
 func _on_body_entered(body: Node) -> void:
 	if body is NeonPlayer:
-		collected.emit(kind, amount, global_position)
+		collected.emit(amount, global_position)
 		queue_free()
 
 
 func _draw() -> void:
-	var c := Color("ffe45c") if kind == "flux" else Color("65ff9a")
-	if kind == "repair": c = Color("ff688e")
+	var c := Color("ff688e")
 	draw_circle(Vector2.ZERO, 12.0 + sin(age * 5.0) * 2.0, Color(c, 0.08))
 	var points := PackedVector2Array([Vector2(0, -7), Vector2(6, 0), Vector2(0, 7), Vector2(-6, 0), Vector2(0, -7)])
 	draw_colored_polygon(PackedVector2Array([Vector2(0, -6), Vector2(5, 0), Vector2(0, 6), Vector2(-5, 0)]), Color(c, 0.25))

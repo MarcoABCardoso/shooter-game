@@ -12,7 +12,7 @@ This file is the adjustable design contract for the game. Change a value in the 
 
 ### D002: Behavior-driven run evolution plus persistent growth
 
-- **Decision:** Combat continuously measures Anchored/Roaming, Close/Distant, and Focus/Spread tendencies. Defeating enemies grants resonance directly, setting the cadence for automatic mutations without littering the arena with progression drops. Flux earned from kills buys permanent ship upgrades, and weapon damage grants persistent mastery.
+- **Decision:** Combat continuously measures Anchored/Roaming, Close/Distant, and Focus/Spread tendencies. Defeating enemies grants resonance and Flux directly, avoiding progression drops entirely. Resonance sets the cadence for automatic mutations, Flux buys permanent ship upgrades, and weapon damage grants persistent mastery.
 - **Why:** The run's build should record how the player fought, while remaining understandable and deliberately steerable.
 - **Adjust:** Sampling and smoothing live in `scripts/core/behavior_profile.gd`; combined mutations live in `scripts/content/evolution_catalog.gd`; permanent bonuses and mastery curves live in `scripts/profile.gd`.
 
@@ -71,6 +71,12 @@ This file is the adjustable design contract for the game. Change a value in the 
 
 - **Decision:** Pause and run-end states disable processing for the entire `run_entities` group. Evolution never pauses the simulation.
 - **Why:** Enemy AI, bullets, pickups, and effects must freeze consistently while menus remain interactive. Toggling only player input creates hidden state drift.
+
+### D013: Reallocatable weapon mastery
+
+- **Decision:** Earned mastery ranks enter a shared pool and default to the weapon that earned them. The Callibrations screen can move ranks between weapons, while each weapon's effective mastery is capped at twice its native earned mastery.
+- **Why:** Use-based progression still rewards learning every weapon, but players can trade effectiveness away from less-favored systems to specialize in a preferred combat style.
+- **Adjust:** Rank curves, allocation transactions, the 2x cap, and effective damage bonuses live in `scripts/profile.gd`; presentation lives in `scripts/ui/game_ui.gd`.
 
 ## Initial balance reference
 

@@ -27,9 +27,9 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 | `systems/spawn_director.gd` | Difficulty cadence and spawn requests | Enemy construction |
 | `systems/combat_director.gd` | Entity construction, collisions, drops, combat events | Weapon cadence, UI, profile mutation |
 | `systems/weapon_system.gd` | Weapon timers, targeting, damage, weapon effects | Drops, behavioral classification |
-| `ui/game_ui.gd` | Screens, HUD, and gated Arsenal Library projection | Gameplay mutation; it emits intent signals |
+| `ui/game_ui.gd` | Screens, HUD, and scrollable discovery-gated Arsenal Library projection | Gameplay mutation; it emits intent signals |
 | `presentation/arena_view.gd` | Arena, grid, crosshair, screen shake | Rules and entity lifecycle |
-| `profile.gd` | Versioned serialization, discovery state, and profile transactions | Upgrade balance definitions |
+| `profile.gd` | Versioned serialization, discovery state, mastery allocation, and profile transactions | Upgrade balance definitions |
 
 ## Extension recipes
 
@@ -45,12 +45,13 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 1. Add or tune a combined profile in `content/evolution_catalog.gd`.
 2. Apply its weapon/player mutation in `EvolutionCatalog.apply()`.
 3. Keep measurement formulas isolated in `core/behavior_profile.gd`; mutations consume the profile rather than changing how behavior is measured.
+4. Add matching player-facing mechanics and acquisition text to `content/library_catalog.gd`.
 
 ### Add a new weapon family
 
 1. Add default runtime data and order to `content/weapon_catalog.gd`.
 2. Implement its cadence and targeting inside `systems/weapon_system.gd`.
-3. Add its mastery key to `SaveProfile.DEFAULT_DATA` and `RunSession.mastery`.
+3. Add its mastery XP and allocation keys to `SaveProfile.DEFAULT_DATA` and its run key to `RunSession.mastery`.
 4. Add the family to relevant profiles in `content/evolution_catalog.gd` and its HUD label in `ui/game_ui.gd` if needed.
 
 ### Add a permanent augment
@@ -62,8 +63,9 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 ## Communication contracts
 
 - Directors request visual/audio feedback with signals.
-- `CombatDirector` reports kills, direct resonance, resource pickups, and weapon damage; `game.gd` commits them to `RunSession`.
+- `CombatDirector` reports kills, direct resonance and Flux, rare repair pickups, and weapon damage; `game.gd` commits them to `RunSession`.
 - `GameUI` reports menu intent; `game.gd` decides whether a state transition is valid.
+- Mastery ranks enter a profile-owned shared allocation pool at run banking time; the UI requests one-point allocation transactions and combat reads the resulting effective bonus.
 - Resonance levels snapshot the live behavioral profile and mutate the build without pausing combat.
 - Manual pausing changes process mode for the `run_entities` group, freezing the simulation without freezing the UI.
 

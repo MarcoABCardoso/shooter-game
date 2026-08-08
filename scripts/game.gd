@@ -82,7 +82,7 @@ func _connect_modules() -> void:
 	combat_director.damage_dealt.connect(_on_damage_dealt)
 	combat_director.enemy_defeated.connect(_on_enemy_defeated)
 	combat_director.resonance_gained.connect(add_resonance)
-	combat_director.flux_collected.connect(session.add_flux)
+	combat_director.flux_gained.connect(session.add_flux)
 	combat_director.repair_collected.connect(_repair_player)
 	combat_director.banner_requested.connect(ui.show_banner)
 	combat_director.shake_requested.connect(arena_view.shake)
@@ -94,8 +94,10 @@ func _connect_modules() -> void:
 	ui.menu_requested.connect(show_menu)
 	ui.reset_requested.connect(_reset_profile)
 	ui.meta_upgrade_requested.connect(_buy_meta_upgrade)
+	ui.mastery_allocation_requested.connect(_adjust_mastery_allocation)
 	ui.library_requested.connect(_show_library)
 	ui.upgrades_requested.connect(show_upgrades)
+	ui.callibrations_requested.connect(show_callibrations)
 
 
 func start_run() -> void:
@@ -142,6 +144,11 @@ func show_upgrades() -> void:
 		ui.show_upgrades(profile)
 
 
+func show_callibrations() -> void:
+	if state == GameState.MENU:
+		ui.show_callibrations(profile)
+
+
 func pause_game() -> void:
 	state = GameState.PAUSED
 	_set_combat_active(false)
@@ -159,7 +166,9 @@ func _abandon_run() -> void:
 
 
 func _on_player_died() -> void:
-	_end_run(true)
+	# Player death can be emitted from an Area2D body_entered callback. Defer the
+	# run teardown so collision objects are disabled after physics query flushing.
+	call_deferred("_end_run", true)
 
 
 func _end_run(defeated: bool) -> void:
@@ -217,6 +226,7 @@ func _on_level_gained(count: int) -> void:
 		for weapon_id: String in WeaponCatalog.ORDER:
 			if int(weapon_system.weapons[weapon_id]["level"]) > 0:
 				active_weapons.append(weapon_id)
+		active_weapons.append(id)
 		profile.discover_entries(active_weapons)
 		weapon_system.on_evolution_applied()
 		session.pending_levels = maxi(0, session.pending_levels - 1)
@@ -228,6 +238,12 @@ func _buy_meta_upgrade(id: String) -> void:
 	if profile.buy_upgrade(id):
 		audio.tone(420.0, 0.1, 0.15, 500.0)
 		ui.show_upgrades(profile)
+
+
+func _adjust_mastery_allocation(id: String, delta: int) -> void:
+	if state == GameState.MENU and profile.adjust_mastery_allocation(id, delta):
+		audio.tone(460.0 if delta > 0 else 280.0, 0.06, 0.1, 220.0)
+		ui.show_callibrations(profile)
 
 
 func _show_library() -> void:

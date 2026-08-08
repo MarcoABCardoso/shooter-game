@@ -6,8 +6,8 @@ const DEFINITIONS: Array[Dictionary] = [
 	{"id":"damage", "name":"AMPLIFIER", "description":"+6% all weapon damage / rank", "bonus_per_rank":0.06},
 	{"id":"hull", "name":"HULL PLATING", "description":"+12 maximum hull / rank", "bonus_per_rank":12.0},
 	{"id":"thrusters", "name":"VECTOR THRUSTERS", "description":"+3.5% movement speed / rank", "bonus_per_rank":0.035},
-	{"id":"magnet", "name":"GRAVITY LENS", "description":"+14 pickup range / rank", "bonus_per_rank":14.0},
-	{"id":"fortune", "name":"FLUX SYNCHRONIZER", "description":"+5% resource luck / rank", "bonus_per_rank":0.05},
+	{"id":"magnet", "name":"GRAVITY LENS", "description":"+14 repair collection range / rank", "bonus_per_rank":14.0},
+	{"id":"fortune", "name":"FLUX SYNCHRONIZER", "description":"+5% Flux earned / rank", "bonus_per_rank":0.05},
 ]
 
 
