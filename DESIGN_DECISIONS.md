@@ -1,8 +1,8 @@
-# Neon Requiem — Decision Log
+# Neon Requiem — Design Reference
 
-This file is the adjustable design contract for the game. Change a value in the noted script when tuning; update this log when changing direction.
+This file is the adjustable design contract for the game. Change a value in the noted script when tuning.
 
-## 2026-08-08 — Product direction
+## Product direction
 
 ### D001: One-arena incremental bullet hell
 
@@ -10,11 +10,11 @@ This file is the adjustable design contract for the game. Change a value in the 
 - **Why:** A single arena keeps the project asset-light while allowing the build to invest in combat feel and progression depth.
 - **Adjust:** Spawn pacing and scaling live in `scripts/game.gd` under `DIFFICULTY` and `_update_spawning()`.
 
-### D002: Two progression horizons plus weapon mastery
+### D002: Behavior-driven run evolution plus persistent growth
 
-- **Decision:** XP creates build choices inside a run. Flux earned from kills is banked on defeat and buys permanent ship upgrades. Damage dealt by each weapon grants persistent weapon mastery, improving that weapon automatically over many runs.
-- **Why:** The player should feel meaningful growth within minutes, across sessions, and simply by favoring a weapon.
-- **Adjust:** Upgrade pools are in `scripts/game.gd`; permanent bonuses and mastery curves are in `scripts/profile.gd`.
+- **Decision:** Combat continuously measures Anchored/Roaming, Close/Distant, and Focus/Spread tendencies. Defeating enemies grants resonance directly, setting the cadence for automatic mutations without littering the arena with progression drops. Flux earned from kills buys permanent ship upgrades, and weapon damage grants persistent mastery.
+- **Why:** The run's build should record how the player fought, while remaining understandable and deliberately steerable.
+- **Adjust:** Sampling and smoothing live in `scripts/core/behavior_profile.gd`; combined mutations live in `scripts/content/evolution_catalog.gd`; permanent bonuses and mastery curves live in `scripts/profile.gd`.
 
 ### D003: Movement aims, weapons auto-fire
 
@@ -24,9 +24,9 @@ This file is the adjustable design contract for the game. Change a value in the 
 
 ### D004: Four synergistic weapon families
 
-- **Decision:** Pulse Cannon (aimed projectile), Orbit Blades (defensive contact ring), Arc Lash (chain lightning), and Nova Burst (periodic radial clear). They unlock through run upgrades rather than random drops.
+- **Decision:** Pulse Cannon (aimed projectile), Orbit Blades (defensive contact ring), Arc Lash (chain lightning), and Nova Burst (periodic radial clear). They unlock and develop through combined behavioral mutations.
 - **Why:** The set covers focused DPS, close defense, crowd chaining, and emergency area control with readable visual identities.
-- **Adjust:** Base weapon data is in `scripts/player.gd`; upgrade definitions are in `scripts/game.gd`.
+- **Adjust:** Base weapon data is in `scripts/content/weapon_catalog.gd`; evolution definitions are in `scripts/content/evolution_catalog.gd`.
 
 ### D005: Neon vector geometry only
 
@@ -69,16 +69,16 @@ This file is the adjustable design contract for the game. Change a value in the 
 
 ### D012: Simulation-level pause
 
-- **Decision:** Pause, level-up, and run-end states disable processing for the entire `run_entities` group.
+- **Decision:** Pause and run-end states disable processing for the entire `run_entities` group. Evolution never pauses the simulation.
 - **Why:** Enemy AI, bullets, pickups, and effects must freeze consistently while menus remain interactive. Toggling only player input creates hidden state drift.
 
 ## Initial balance reference
 
 | System | Starting value | Growth |
 |---|---:|---:|
-| Player hull | 100 | +20 run choice; +12 permanent rank |
-| Player speed | 300 px/s | +10% run choice; +3.5% permanent rank |
-| Pulse cannon | 15 damage / 0.34 s | Upgrade choices + 2.5% per mastery rank |
+| Player hull | 100 | Behavioral mutations; +12 permanent rank |
+| Player speed | 300 px/s | Behavioral mutations; +3.5% permanent rank |
+| Pulse cannon | 15 damage / 0.34 s | Behavioral mutations + 2.5% per mastery rank |
 | Enemy durability | Type-specific | Multiplied by `1 + elapsed / 155` |
 | Spawn interval | 0.82 s | Divided by `1 + elapsed / 105`, floor 0.16 s |
 | Elite cadence | 60 s | Fixed |
@@ -87,8 +87,8 @@ This file is the adjustable design contract for the game. Change a value in the 
 
 ## Scope included in the first playable build
 
-- Title/hangar screen, control guide, permanent upgrade shop, and save reset.
-- Complete run lifecycle: spawn, combat, XP choices, elites, bosses, defeat, rewards, retry.
+- Focused title screen, separate permanent-upgrade hangar, discovery-gated Arsenal Library, and save reset.
+- Complete run lifecycle: spawn, combat, continuous behavior sampling, automatic resonance mutations, elites, bosses, defeat, rewards, retry.
 - Four weapons, use-based mastery, five permanent upgrades, combo multiplier, dash, pickups, damage feedback, particles, screen shake, and pause.
 - Mouse/keyboard and keyboard-only movement; gamepad support is a later decision.
 

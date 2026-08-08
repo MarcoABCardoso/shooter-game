@@ -1,9 +1,9 @@
 class_name CombatDirector
 extends Node
 
-signal damage_dealt(weapon: String, amount: float, world_position: Vector2)
+signal damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int)
 signal enemy_defeated(kind: String)
-signal xp_collected(amount: int)
+signal resonance_gained(amount: int)
 signal flux_collected(amount: int)
 signal repair_collected(amount: float)
 signal banner_requested(text: String, color: Color)
@@ -95,9 +95,9 @@ func _on_enemy_fired(origin: Vector2, direction: Vector2, damage: float, speed: 
 	tone_requested.emit(120.0, 0.035, 0.035, 0.0)
 
 
-func _on_enemy_destroyed(_enemy: NeonEnemy, kind: String, flux: int, xp: int, world_position: Vector2) -> void:
+func _on_enemy_destroyed(_enemy: NeonEnemy, kind: String, flux: int, resonance: int, world_position: Vector2) -> void:
 	enemy_defeated.emit(kind)
-	_spawn_pickup(world_position, "xp", xp)
+	resonance_gained.emit(resonance)
 	var fortune := 1.0 + profile.bonus("fortune")
 	if rng.randf() < minf(0.88, 0.35 * fortune) or kind == "boss":
 		var offset := Vector2(rng.randf_range(-8.0, 8.0), rng.randf_range(-8.0, 8.0))
@@ -119,12 +119,23 @@ func _spawn_pickup(world_position: Vector2, kind: String, amount: int) -> void:
 	pickup.velocity = Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(25.0, 90.0)
 	pickup.add_to_group("run_entities")
 	pickup.collected.connect(_on_pickup_collected)
+	# Enemy destruction can originate inside an Area2D body_entered callback.
+	# Wait until the physics server finishes flushing that query before the new
+	# Area2D enters the tree and enables its collision monitoring.
+	call_deferred("_attach_pickup", pickup)
+
+
+func _attach_pickup(pickup: NeonPickup) -> void:
+	if not is_instance_valid(pickup):
+		return
+	if not is_instance_valid(player) or not player.is_inside_tree() or not player.active:
+		pickup.free()
+		return
 	get_parent().add_child(pickup)
 
 
 func _on_pickup_collected(kind: String, amount: int, _world_position: Vector2) -> void:
 	match kind:
-		"xp": xp_collected.emit(amount)
 		"flux":
 			flux_collected.emit(amount)
 			tone_requested.emit(760.0, 0.035, 0.08, 260.0)

@@ -3,7 +3,7 @@ extends Area2D
 
 signal collected(kind: String, amount: int, world_position: Vector2)
 
-var kind := "xp"
+var kind := "flux"
 var amount := 1
 var target: NeonPlayer
 var velocity := Vector2.ZERO

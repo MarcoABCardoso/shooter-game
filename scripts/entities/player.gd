@@ -25,7 +25,9 @@ var hit_flash := 0.0
 
 func _ready() -> void:
 	collision_layer = 1
-	collision_mask = 2 | 8
+	# Contact damage is resolved by CombatDirector. Only hostile projectiles
+	# participate in physical queries so enemies can never pin the ship.
+	collision_mask = 8
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = 13.0

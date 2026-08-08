@@ -2,7 +2,7 @@ class_name SaveProfile
 extends RefCounted
 
 const SAVE_PATH := "user://neon_requiem_save.json"
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 const UPGRADE_MAX := 10
 const MetaUpgradeData := preload("res://scripts/content/meta_upgrade_catalog.gd")
 const DEFAULT_DATA := {
@@ -25,6 +25,13 @@ const DEFAULT_DATA := {
 		"arc": 0.0,
 		"nova": 0.0,
 	},
+	"discovered": {
+		"pulse": true,
+		"orbit": false,
+		"arc": false,
+		"nova": false,
+		"dash": true,
+	},
 }
 
 var data: Dictionary = DEFAULT_DATA.duplicate(true)
@@ -39,7 +46,12 @@ func load_profile() -> void:
 		return
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	if parsed is Dictionary:
+		var previous_version := int(parsed.get("version", 0))
 		_merge_known(data, parsed)
+		data["version"] = SAVE_VERSION
+		_repair_discovery()
+		if previous_version < SAVE_VERSION:
+			save_profile()
 
 
 func save_profile() -> void:
@@ -76,6 +88,21 @@ func buy_upgrade(id: String) -> bool:
 
 func bonus(id: String) -> float:
 	return MetaUpgradeData.bonus(id, upgrade_level(id))
+
+
+func is_discovered(id: String) -> bool:
+	return bool(data["discovered"].get(id, false))
+
+
+func discover_entries(ids: Array[String]) -> bool:
+	var changed := false
+	for id: String in ids:
+		if data["discovered"].has(id) and not bool(data["discovered"][id]):
+			data["discovered"][id] = true
+			changed = true
+	if changed:
+		save_profile()
+	return changed
 
 
 func mastery_level(weapon: String) -> int:
@@ -117,3 +144,11 @@ func _merge_known(target: Dictionary, source: Dictionary) -> void:
 			_merge_known(target[key], source[key])
 		else:
 			target[key] = source[key]
+
+
+func _repair_discovery() -> void:
+	data["discovered"]["pulse"] = true
+	data["discovered"]["dash"] = true
+	for weapon_id in ["orbit", "arc", "nova"]:
+		if float(data["mastery_xp"].get(weapon_id, 0.0)) > 0.0:
+			data["discovered"][weapon_id] = true

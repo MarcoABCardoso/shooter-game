@@ -3,7 +3,7 @@ extends Node2D
 # Composition root: owns lifecycle and wires independent systems together.
 # Gameplay rules, content, rendering, and widgets live in their own modules.
 
-enum GameState { MENU, RUNNING, LEVEL_UP, PAUSED, GAME_OVER }
+enum GameState { MENU, RUNNING, PAUSED, GAME_OVER }
 
 const PlayerScene := preload("res://scripts/entities/player.gd")
 const AudioScene := preload("res://scripts/audio.gd")
@@ -44,6 +44,8 @@ func _process(delta: float) -> void:
 		spawn_director.tick(delta)
 		weapon_system.tick(delta)
 		combat_director.tick_contacts()
+		if is_instance_valid(player):
+			session.behavior.tick(delta, player.velocity, player.speed, get_tree().get_nodes_in_group("enemies").size())
 		ui.update_hud(session, weapon_system.weapons)
 	if Input.is_action_just_pressed("pause"):
 		if state == GameState.RUNNING:
@@ -79,7 +81,7 @@ func _connect_modules() -> void:
 	weapon_system.tone_requested.connect(audio.tone)
 	combat_director.damage_dealt.connect(_on_damage_dealt)
 	combat_director.enemy_defeated.connect(_on_enemy_defeated)
-	combat_director.xp_collected.connect(add_xp)
+	combat_director.resonance_gained.connect(add_resonance)
 	combat_director.flux_collected.connect(session.add_flux)
 	combat_director.repair_collected.connect(_repair_player)
 	combat_director.banner_requested.connect(ui.show_banner)
@@ -92,7 +94,8 @@ func _connect_modules() -> void:
 	ui.menu_requested.connect(show_menu)
 	ui.reset_requested.connect(_reset_profile)
 	ui.meta_upgrade_requested.connect(_buy_meta_upgrade)
-	ui.upgrade_selected.connect(_select_upgrade)
+	ui.library_requested.connect(_show_library)
+	ui.upgrades_requested.connect(show_upgrades)
 
 
 func start_run() -> void:
@@ -132,6 +135,11 @@ func show_menu() -> void:
 	_clear_run()
 	arena_view.combat_visible = false
 	ui.show_menu(profile)
+
+
+func show_upgrades() -> void:
+	if state == GameState.MENU:
+		ui.show_upgrades(profile)
 
 
 func pause_game() -> void:
@@ -181,8 +189,10 @@ func _on_enemy_defeated(_kind: String) -> void:
 	session.register_kill()
 
 
-func _on_damage_dealt(weapon: String, amount: float, world_position: Vector2) -> void:
+func _on_damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int) -> void:
 	session.record_damage(weapon, amount)
+	if is_instance_valid(player):
+		session.behavior.record_damage(target_id, player.global_position.distance_to(world_position), amount)
 	if amount > 0.0 and randf() < 0.12:
 		combat_director.spawn_burst(world_position, GamePalette.CYAN if weapon == "pulse" else GamePalette.GREEN, 12.0, 4)
 
@@ -192,40 +202,37 @@ func _repair_player(amount: float) -> void:
 		player.heal(amount)
 
 
-func add_xp(amount: int) -> void:
-	session.add_xp(amount)
+func add_resonance(amount: int) -> void:
+	session.add_resonance(amount)
 
 
-func _on_level_gained(_count: int) -> void:
-	if state == GameState.RUNNING and session.pending_levels > 0:
-		_open_next_level()
-
-
-func _open_next_level() -> void:
-	state = GameState.LEVEL_UP
-	_set_combat_active(false)
-	session.pending_levels -= 1
-	var choices := UpgradeCatalog.available(session.level, weapon_system.weapons)
-	choices.shuffle()
-	ui.show_upgrade_choices(session.level, choices.slice(0, mini(3, choices.size())))
-	audio.tone(360.0, 0.14, 0.18, 900.0)
-
-
-func _select_upgrade(id: String) -> void:
-	UpgradeCatalog.apply(id, weapon_system.weapons, player)
-	weapon_system.on_upgrade_applied(id)
-	if session.pending_levels > 0:
-		_open_next_level()
-	else:
-		state = GameState.RUNNING
-		_set_combat_active(true)
-		ui.show_run()
+func _on_level_gained(count: int) -> void:
+	if state != GameState.RUNNING or not is_instance_valid(player):
+		return
+	for _index in count:
+		var id := session.behavior.corner_id()
+		var rank := session.register_evolution(id)
+		var mutation := EvolutionCatalog.apply(id, rank, weapon_system.weapons, player)
+		var active_weapons: Array[String] = []
+		for weapon_id: String in WeaponCatalog.ORDER:
+			if int(weapon_system.weapons[weapon_id]["level"]) > 0:
+				active_weapons.append(weapon_id)
+		profile.discover_entries(active_weapons)
+		weapon_system.on_evolution_applied()
+		session.pending_levels = maxi(0, session.pending_levels - 1)
+		ui.show_evolution(mutation, session.behavior.display_profile())
+		audio.tone(360.0 + rank * 18.0, 0.14, 0.18, 900.0)
 
 
 func _buy_meta_upgrade(id: String) -> void:
 	if profile.buy_upgrade(id):
 		audio.tone(420.0, 0.1, 0.15, 500.0)
-		ui.show_menu(profile)
+		ui.show_upgrades(profile)
+
+
+func _show_library() -> void:
+	if state == GameState.MENU:
+		ui.show_library(profile)
 
 
 func _reset_profile() -> void:

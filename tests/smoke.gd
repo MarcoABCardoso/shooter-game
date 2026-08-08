@@ -13,6 +13,19 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	assert(game.state == 0, "Game should boot to menu")
+	assert(game.ui.start_screen.visible, "Game should boot to the start screen")
+	assert(not game.ui.upgrade_screen.visible, "Upgrade screen should be separate from the start screen")
+	game.show_upgrades()
+	await process_frame
+	assert(game.ui.upgrade_screen.visible, "Upgrade screen should open independently")
+	assert(not game.ui.start_screen.visible, "Start screen should hide behind upgrades")
+	game.show_menu()
+	game._show_library()
+	await process_frame
+	assert(game.ui.overlay.visible, "Arsenal library should open from the hangar")
+	assert(game.ui.overlay.find_child("LibraryEntry_pulse", true, false) != null, "Library should render weapon entries")
+	assert(game.ui.overlay.find_child("LibraryEntry_dash", true, false) != null, "Library should render ability entries")
+	game.show_menu()
 	game.start_run()
 	await process_frame
 	assert(game.state == 1, "Deploy should start a run")
@@ -21,21 +34,35 @@ func _run() -> void:
 	game.spawn_enemy("drone", false)
 	await physics_frame
 	assert(get_nodes_in_group("enemies").size() >= 1, "Director should spawn enemies")
-	var spawned_enemy: Node = get_nodes_in_group("enemies")[0]
+	var spawned_enemy: NeonEnemy = get_nodes_in_group("enemies")[0]
+	assert(game.player.collision_mask == 8, "Player movement should only collide with hostile projectiles")
+	assert(spawned_enemy.collision_mask == 0, "Enemies should not physically pin the player")
+	spawned_enemy.global_position = game.player.global_position - Vector2(100.0, 0.0)
+	await physics_frame
+	assert(spawned_enemy.facing_direction.dot(Vector2.RIGHT) > 0.99, "Enemies should face the player's center")
 	game.pause_game()
-	assert(game.state == 3, "Pause should enter paused state")
+	assert(game.state == 2, "Pause should enter paused state")
 	assert(spawned_enemy.process_mode == Node.PROCESS_MODE_DISABLED, "Pause should freeze all run entities")
 	game.resume_game()
 	assert(spawned_enemy.process_mode == Node.PROCESS_MODE_INHERIT, "Resume should restore entity processing")
-	game.add_xp(28)
+	var resonance_before_kill: int = game.session.resonance
+	game.combat_director.spawn_projectile(spawned_enemy.global_position - Vector2(24.0, 0.0), Vector2.RIGHT, 99999.0, 500.0, true, "pulse")
+	for _frame in 10:
+		await physics_frame
+		if not is_instance_valid(spawned_enemy):
+			break
 	await process_frame
-	assert(game.run_level >= 2, "XP should increase run level")
-	assert(game.state == 2, "Level-up should open an upgrade choice")
-	while game.state == 2:
-		game._select_upgrade("pulse_damage")
-		await process_frame
-	assert(game.state == 1, "Selecting upgrades should resume play")
+	assert(not is_instance_valid(spawned_enemy), "Projectile should destroy the test enemy through a physics callback")
+	assert(game.session.resonance == resonance_before_kill + 5, "Kills should grant resonance immediately")
+	for node: Node in get_nodes_in_group("run_entities"):
+		if node is NeonPickup:
+			assert(node.kind != "xp", "Enemy defeats should never create XP drops")
+	game.add_resonance(game.session.resonance_needed - game.session.resonance)
+	await process_frame
+	assert(game.run_level >= 2, "Resonance should increase run level")
+	assert(game.state == 1, "Evolution should not interrupt combat")
+	assert(not game.session.evolutions.is_empty(), "Combat behavior should produce an automatic evolution")
 	game._fire_nova()
 	await process_frame
-	print("SMOKE_OK menu, run, spawn, progression, and weapon systems initialized")
+	print("SMOKE_OK menu, run, spawn, behavior evolution, and weapon systems initialized")
 	quit(0)

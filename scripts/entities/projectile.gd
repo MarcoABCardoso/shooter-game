@@ -1,7 +1,7 @@
 class_name NeonProjectile
 extends Area2D
 
-signal damage_dealt(weapon: String, amount: float, world_position: Vector2)
+signal damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int)
 
 var velocity := Vector2.ZERO
 var damage := 10.0
@@ -44,7 +44,7 @@ func _on_body_entered(body: Node) -> void:
 	if friendly and body is NeonEnemy:
 		var dealt: float = body.take_damage(damage, weapon)
 		if dealt > 0.0:
-			damage_dealt.emit(weapon, dealt, global_position)
+			damage_dealt.emit(weapon, dealt, global_position, body.get_instance_id())
 	elif not friendly and body is NeonPlayer:
 		body.take_damage(damage)
 	else:

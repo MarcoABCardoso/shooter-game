@@ -1,6 +1,6 @@
 # Neon Requiem
 
-A complete, asset-free Godot 4 top-down incremental bullet hell. Survive an escalating neon arena, evolve four weapon systems during each run, bank Flux for permanent ship upgrades, and build persistent mastery with the weapons you actually use.
+A complete, asset-free Godot 4 top-down incremental bullet hell. Survive an escalating neon arena where movement, engagement range, and target selection continuously steer how four weapon systems evolve. Bank Flux for permanent ship upgrades and build persistent mastery with the weapons you actually use.
 
 ## Run
 
@@ -18,6 +18,10 @@ godot --path .
 - **Esc / P:** pause
 - Weapons fire automatically.
 
+The live behavior readout shows three continuous axes: Anchored/Roaming, Close/Distant, and Focus/Spread. Resonance levels do not pause combat or ask for a choice; the current combined profile mutates the build automatically.
+
+The start screen links to a discovery-gated Arsenal Library. Permanent augments live on their own upgrade screen and are purchased with banked Flux.
+
 ## Design notes
 
 See [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) for the living design record and tuning locations.
@@ -29,4 +33,5 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for module responsibilities, dependency r
 ```powershell
 godot --headless --path . --script res://tests/smoke.gd
 godot --headless --path . --script res://tests/catalog_validation.gd
+godot --headless --path . --script res://tests/behavior_progression.gd
 ```

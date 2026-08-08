@@ -2,7 +2,7 @@ class_name WeaponSystem
 extends Node2D
 
 signal projectile_requested(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int, radius: float)
-signal damage_dealt(weapon: String, amount: float, world_position: Vector2)
+signal damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int)
 signal burst_requested(world_position: Vector2, color: Color, size: float, spokes: int)
 signal shake_requested(amount: float)
 signal tone_requested(frequency: float, duration: float, volume: float, slide: float)
@@ -53,10 +53,10 @@ func tick(delta: float) -> void:
 	queue_redraw()
 
 
-func on_upgrade_applied(id: String) -> void:
-	if id == "unlock_arc":
+func on_evolution_applied() -> void:
+	if int(weapons["arc"]["level"]) > 0 and float(timers["arc"]) <= 0.0:
 		timers["arc"] = 0.2
-	elif id == "unlock_nova":
+	if int(weapons["nova"]["level"]) > 0 and float(timers["nova"]) <= 0.0:
 		timers["nova"] = 1.0
 
 
@@ -65,7 +65,7 @@ func fire_pulse() -> void:
 	var count := int(spec["count"])
 	for i in count:
 		var offset := (float(i) - float(count - 1) * 0.5) * 0.13
-		projectile_requested.emit(player.global_position + player.aim_direction * 24.0, player.aim_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), 720.0, true, "pulse", int(spec["pierce"]), 4.0)
+		projectile_requested.emit(player.global_position + player.aim_direction * 24.0, player.aim_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), float(spec["projectile_speed"]), true, "pulse", int(spec["pierce"]), 4.0)
 	tone_requested.emit(520.0, 0.025, 0.06, 900.0)
 
 
@@ -82,7 +82,7 @@ func fire_arc() -> void:
 		current = target.global_position
 		points.append(current)
 		var dealt := target.take_damage(_scaled_damage("arc", float(spec["damage"])) * pow(0.83, chain), "arc")
-		damage_dealt.emit("arc", dealt, current)
+		damage_dealt.emit("arc", dealt, current, target.get_instance_id())
 	if points.size() > 1:
 		arc_visuals.append({"points": points, "life": 0.16})
 		tone_requested.emit(180.0, 0.09, 0.12, 1500.0)
@@ -96,7 +96,7 @@ func fire_nova() -> void:
 	for node: Node in get_tree().get_nodes_in_group("enemies"):
 		if node is NeonEnemy and is_instance_valid(node) and node.global_position.distance_to(player.global_position) <= radius + node.radius:
 			var dealt: float = node.take_damage(_scaled_damage("nova", float(spec["damage"])), "nova")
-			damage_dealt.emit("nova", dealt, node.global_position)
+			damage_dealt.emit("nova", dealt, node.global_position, node.get_instance_id())
 	for bullet: Node in get_tree().get_nodes_in_group("enemy_projectiles"):
 		if is_instance_valid(bullet) and bullet.global_position.distance_to(player.global_position) <= radius:
 			bullet.queue_free()
@@ -118,7 +118,7 @@ func _update_orbits() -> void:
 				if session.elapsed >= float(orbit_hit_time.get(key, 0.0)):
 					orbit_hit_time[key] = session.elapsed + 0.34
 					var dealt: float = node.take_damage(_scaled_damage("orbit", float(spec["damage"])), "orbit")
-					damage_dealt.emit("orbit", dealt, blade_position)
+					damage_dealt.emit("orbit", dealt, blade_position, node.get_instance_id())
 
 
 func _scaled_damage(weapon: String, base: float) -> float:

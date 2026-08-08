@@ -5,27 +5,33 @@ signal level_gained(count: int)
 
 var elapsed := 0.0
 var level := 1
-var xp := 0
-var xp_needed := 25
+var resonance := 0
+var resonance_needed := 25
 var flux := 0
 var kills := 0
 var combo := 1.0
 var combo_timer := 0.0
 var pending_levels := 0
 var mastery := {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0}
+var behavior := BehaviorProfile.new()
+var evolutions: Dictionary = {}
+var last_evolution := ""
 
 
 func reset() -> void:
 	elapsed = 0.0
 	level = 1
-	xp = 0
-	xp_needed = 25
+	resonance = 0
+	resonance_needed = 25
 	flux = 0
 	kills = 0
 	combo = 1.0
 	combo_timer = 0.0
 	pending_levels = 0
 	mastery = {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0}
+	behavior.reset()
+	evolutions.clear()
+	last_evolution = ""
 
 
 func tick(delta: float) -> void:
@@ -35,13 +41,13 @@ func tick(delta: float) -> void:
 		combo = move_toward(combo, 1.0, delta * 1.8)
 
 
-func add_xp(amount: int) -> void:
-	xp += amount
+func add_resonance(amount: int) -> void:
+	resonance += amount
 	var gained := 0
-	while xp >= xp_needed:
-		xp -= xp_needed
+	while resonance >= resonance_needed:
+		resonance -= resonance_needed
 		level += 1
-		xp_needed = int(round(25.0 + pow(level, 1.32) * 11.0))
+		resonance_needed = int(round(25.0 + pow(level, 1.32) * 11.0))
 		pending_levels += 1
 		gained += 1
 	if gained > 0:
@@ -61,3 +67,10 @@ func add_flux(amount: int) -> void:
 func record_damage(weapon: String, amount: float) -> void:
 	if amount > 0.0 and mastery.has(weapon):
 		mastery[weapon] = float(mastery[weapon]) + amount * 0.12
+
+
+func register_evolution(id: String) -> int:
+	var rank := int(evolutions.get(id, 0)) + 1
+	evolutions[id] = rank
+	last_evolution = id
+	return rank

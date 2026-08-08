@@ -6,23 +6,23 @@ extends RefCounted
 const DEFINITIONS := {
 	"drone": {
 		"health": 19.0, "speed": 125.0, "contact_damage": 10.0,
-		"flux": 1, "xp": 5, "radius": 12.0, "shoot_interval": 0.0,
+		"flux": 1, "resonance": 5, "radius": 12.0, "shoot_interval": 0.0,
 	},
 	"striker": {
 		"health": 31.0, "speed": 178.0, "contact_damage": 14.0,
-		"flux": 2, "xp": 8, "radius": 11.0, "shoot_interval": 0.0,
+		"flux": 2, "resonance": 8, "radius": 11.0, "shoot_interval": 0.0,
 	},
 	"gunner": {
 		"health": 45.0, "speed": 78.0, "contact_damage": 9.0,
-		"flux": 3, "xp": 10, "radius": 15.0, "shoot_interval": 1.7,
+		"flux": 3, "resonance": 10, "radius": 15.0, "shoot_interval": 1.7,
 	},
 	"tank": {
 		"health": 135.0, "speed": 52.0, "contact_damage": 22.0,
-		"flux": 5, "xp": 18, "radius": 23.0, "shoot_interval": 0.0,
+		"flux": 5, "resonance": 18, "radius": 23.0, "shoot_interval": 0.0,
 	},
 	"boss": {
 		"health": 1250.0, "speed": 52.0, "contact_damage": 28.0,
-		"flux": 45, "xp": 150, "radius": 47.0, "shoot_interval": 0.72,
+		"flux": 45, "resonance": 150, "radius": 47.0, "shoot_interval": 0.72,
 	},
 }
 
