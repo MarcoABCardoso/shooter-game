@@ -2,7 +2,7 @@ class_name LibraryCatalog
 extends RefCounted
 
 const ORDER: Array[String] = [
-	"pulse", "orbit", "arc", "nova", "dash",
+	"pulse", "orbit", "arc", "nova", "dash", "vector_parry",
 	"anchored_close_focus", "anchored_close_spread", "anchored_distant_focus", "anchored_distant_spread",
 	"roaming_close_focus", "roaming_close_spread", "roaming_distant_focus", "roaming_distant_spread",
 ]
@@ -47,6 +47,14 @@ const DEFINITIONS := {
 		"mechanics": "Press Space while moving to surge in that direction. The ship is briefly invulnerable during the dash.",
 		"acquisition": "Standard issue. Available from deployment with a short recharge.",
 		"clue": "Already installed on the starting ship.",
+	},
+	"vector_parry": {
+		"kind": "ABILITY",
+		"name": "VECTOR PARRY",
+		"role": "Directional defense and counterfire",
+		"mechanics": "Press Space to flash a shield toward the cursor. Nearby hostile projectiles caught in its arc return as amplified focused fire.",
+		"acquisition": "Erase the Overseer Array and clear Stage 1. Equip it in place of Phase Dash at the stage-clear screen.",
+		"clue": "A command signal is protected by the Stage 1 Overseer.",
 	},
 	"anchored_close_focus": {
 		"kind": "EVOLUTION",

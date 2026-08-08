@@ -2,7 +2,7 @@ class_name SaveProfile
 extends RefCounted
 
 const SAVE_PATH := "user://neon_requiem_save.json"
-const SAVE_VERSION := 4
+const SAVE_VERSION := 5
 const UPGRADE_MAX := 10
 const MASTERY_MAX := 20
 const MASTERY_BONUS_PER_POINT := 0.025
@@ -14,6 +14,8 @@ const DEFAULT_DATA := {
 	"best_level": 1,
 	"total_kills": 0,
 	"runs": 0,
+	"stages_cleared": {"stage_1": false},
+	"equipped_ability": "dash",
 	"upgrades": {
 		"damage": 0,
 		"hull": 0,
@@ -39,6 +41,7 @@ const DEFAULT_DATA := {
 		"arc": false,
 		"nova": false,
 		"dash": true,
+		"vector_parry": false,
 		"anchored_close_focus": false,
 		"anchored_close_spread": false,
 		"anchored_distant_focus": false,
@@ -120,6 +123,31 @@ func discover_entries(ids: Array[String]) -> bool:
 	if changed:
 		save_profile()
 	return changed
+
+
+func clear_stage_one() -> bool:
+	var first_clear := not bool(data["stages_cleared"].get("stage_1", false))
+	data["stages_cleared"]["stage_1"] = true
+	data["discovered"]["vector_parry"] = true
+	save_profile()
+	return first_clear
+
+
+func equipped_ability() -> String:
+	var id := String(data.get("equipped_ability", "dash"))
+	if id == "vector_parry" and not is_discovered(id):
+		return "dash"
+	return id
+
+
+func equip_ability(id: String) -> bool:
+	if id not in ["dash", "vector_parry"]:
+		return false
+	if id == "vector_parry" and not is_discovered(id):
+		return false
+	data["equipped_ability"] = id
+	save_profile()
+	return true
 
 
 func mastery_level(weapon: String) -> int:

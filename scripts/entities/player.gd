@@ -4,6 +4,7 @@ extends CharacterBody2D
 signal died
 signal health_changed(current: float, maximum: float)
 signal dash_changed(ratio: float)
+signal parry_requested(world_position: Vector2, direction: Vector2)
 
 const CYAN := Color("45f3ff")
 const WHITE := Color("eaffff")
@@ -21,6 +22,8 @@ var dash_cooldown := 0.0
 var dash_duration := 0.0
 var dash_direction := Vector2.ZERO
 var hit_flash := 0.0
+var ability_mode := "dash"
+var parry_flash := 0.0
 
 
 func _ready() -> void:
@@ -41,6 +44,7 @@ func configure(meta_bonuses: Dictionary) -> void:
 	speed = 300.0 * (1.0 + float(meta_bonuses.get("thrusters", 0.0)))
 	damage_multiplier = 1.0 + float(meta_bonuses.get("damage", 0.0))
 	pickup_radius = 110.0 + float(meta_bonuses.get("magnet", 0.0))
+	ability_mode = String(meta_bonuses.get("ability", "dash"))
 	health_changed.emit(health, max_health)
 
 
@@ -49,6 +53,7 @@ func _physics_process(delta: float) -> void:
 	dash_cooldown = maxf(0.0, dash_cooldown - delta)
 	dash_duration = maxf(0.0, dash_duration - delta)
 	hit_flash = maxf(0.0, hit_flash - delta)
+	parry_flash = maxf(0.0, parry_flash - delta)
 	dash_changed.emit(1.0 - dash_cooldown / 1.25)
 	if not active:
 		velocity = Vector2.ZERO
@@ -58,11 +63,17 @@ func _physics_process(delta: float) -> void:
 	var mouse_delta := get_global_mouse_position() - global_position
 	if mouse_delta.length_squared() > 16.0:
 		aim_direction = mouse_delta.normalized()
-	if Input.is_action_just_pressed("dash") and dash_cooldown <= 0.0 and input_vector != Vector2.ZERO:
-		dash_direction = input_vector.normalized()
-		dash_duration = 0.18
-		dash_cooldown = 1.25
-		invulnerable = 0.30
+	if Input.is_action_just_pressed("dash") and dash_cooldown <= 0.0:
+		if ability_mode == "vector_parry":
+			dash_cooldown = 1.25
+			parry_flash = 0.24
+			invulnerable = maxf(invulnerable, 0.16)
+			parry_requested.emit(global_position, aim_direction)
+		elif input_vector != Vector2.ZERO:
+			dash_direction = input_vector.normalized()
+			dash_duration = 0.18
+			dash_cooldown = 1.25
+			invulnerable = 0.30
 	if dash_duration > 0.0:
 		velocity = dash_direction * speed * 3.2
 	else:
@@ -103,3 +114,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0)
 	if invulnerable > 0.0:
 		draw_arc(Vector2.ZERO, 26.0, -PI * 0.8, PI * 0.8, 24, Color(CYAN, 0.55), 2.0)
+	if parry_flash > 0.0:
+		var shield_angle := aim_direction.angle()
+		draw_arc(Vector2.ZERO, 52.0 + parry_flash * 45.0, shield_angle - 0.82, shield_angle + 0.82, 24, Color.WHITE, 5.0)
+		draw_arc(Vector2.ZERO, 60.0, shield_angle - 0.72, shield_angle + 0.72, 20, Color(CYAN, parry_flash / 0.24), 2.0)

@@ -55,6 +55,19 @@ func _on_body_entered(body: Node) -> void:
 		pierce -= 1
 
 
+func reflect(new_direction: Vector2) -> void:
+	friendly = true
+	weapon = "parry"
+	damage *= 2.0
+	velocity = new_direction.normalized() * maxf(480.0, velocity.length() * 1.35)
+	color = GamePalette.CYAN
+	collision_layer = 4
+	collision_mask = 2
+	hit_ids.clear()
+	remove_from_group("enemy_projectiles")
+	queue_redraw()
+
+
 func _draw() -> void:
 	draw_circle(Vector2(-8, 0), radius * 1.7, Color(color, 0.10))
 	draw_line(Vector2(-13, 0), Vector2(2, 0), Color(color, 0.38), radius * 1.3, true)

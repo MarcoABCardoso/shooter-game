@@ -4,11 +4,11 @@ This file is the adjustable design contract for the game. Change a value in the 
 
 ## Product direction
 
-### D001: One-arena incremental bullet hell
+### D001: Finite stage progression in one bounded arena
 
-- **Decision:** Runs take place in an endless, bounded neon arena. Enemy density, health, speed, and bullet pressure rise continuously; an elite arrives every 60 seconds and a boss every 120 seconds.
-- **Why:** A single arena keeps the project asset-light while allowing the build to invest in combat feel and progression depth.
-- **Adjust:** Spawn pacing and scaling live in `scripts/game.gd` under `DIFFICULTY` and `_update_spawning()`.
+- **Decision:** Stage 1 escalates for 120 seconds, evacuates its surviving swarm, and concludes with the Overseer Array. Normal spawning remains suspended throughout the boss encounter. Additional finite stages can provide their own encounter scripts, bosses, and rewards; an endless Overdrive mode is reserved for future expansion.
+- **Why:** Authored conclusions give build growth a destination and let bosses test a different skill than crowd control while preserving the asset-light arena.
+- **Adjust:** Stage timing and intro duration live in `scripts/core/game_balance.gd`; lifecycle cadence lives in `scripts/systems/spawn_director.gd`.
 
 ### D002: Behavior-driven run evolution plus persistent growth
 
@@ -78,6 +78,18 @@ This file is the adjustable design contract for the game. Change a value in the 
 - **Why:** Use-based progression still rewards learning every weapon, but players can trade effectiveness away from less-favored systems to specialize in a preferred combat style.
 - **Adjust:** Rank curves, allocation transactions, the 2x cap, and effective damage bonuses live in `scripts/profile.gd`; presentation lives in `scripts/ui/game_ui.gd`.
 
+### D014: Bosses interrupt the crowd-control rhythm
+
+- **Decision:** The Stage 1 Overseer is assembled from a central core and three connected geometric modules. Its Target Lock, Firewall, and Vector Charge attacks are separately telegraphed; armor reduces damage between white-core recovery windows. Wide-area weapons retain useful armor-stripping damage.
+- **Why:** The encounter redirects attention toward readable timing and focused exploitation without invalidating the build developed during the stage.
+- **Adjust:** Boss behavior and vector presentation live in `scripts/entities/enemy.gd`; projectile patterns and swarm evacuation live in `scripts/systems/combat_director.gd`.
+
+### D015: Stage bosses award ability-slot alternatives
+
+- **Decision:** Clearing Stage 1 unlocks Vector Parry. It occupies the same Space input and recharge HUD slot as Phase Dash, reflects nearby projectiles caught in a forward arc, and can be equipped or declined at stage clear.
+- **Why:** A mechanical alternative is more memorable than a numeric reward and turns the boss's telegraph lesson into a tool for later stages.
+- **Adjust:** Ability execution lives in `scripts/entities/player.gd`; ownership and equip state live in `scripts/profile.gd`.
+
 ## Initial balance reference
 
 | System | Starting value | Growth |
@@ -88,13 +100,13 @@ This file is the adjustable design contract for the game. Change a value in the 
 | Enemy durability | Type-specific | Multiplied by `1 + elapsed / 155` |
 | Spawn interval | 0.82 s | Divided by `1 + elapsed / 105`, floor 0.16 s |
 | Elite cadence | 60 s | Fixed |
-| Boss cadence | 120 s | Fixed |
+| Stage 1 boss | 120 s | Ends normal spawning; 2.4 s evacuation intro |
 | Dash | 0.18 s movement, 0.30 s invulnerability | 1.25 s cooldown |
 
 ## Scope included in the first playable build
 
 - Focused title screen, separate permanent-upgrade hangar, discovery-gated Arsenal Library, and save reset.
-- Complete run lifecycle: spawn, combat, continuous behavior sampling, automatic resonance mutations, elites, bosses, defeat, rewards, retry.
+- Complete Stage 1 lifecycle: spawn, combat, continuous behavior sampling, automatic resonance mutations, elite, swarm evacuation, modular boss, defeat or stage clear, reward, retry.
 - Four weapons, use-based mastery, five permanent upgrades, combo multiplier, dash, pickups, damage feedback, particles, screen shake, and pause.
 - Mouse/keyboard and keyboard-only movement; gamepad support is a later decision.
 

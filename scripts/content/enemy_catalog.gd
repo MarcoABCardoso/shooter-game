@@ -21,8 +21,8 @@ const DEFINITIONS := {
 		"flux": 5, "resonance": 18, "radius": 23.0, "shoot_interval": 0.0,
 	},
 	"boss": {
-		"health": 1250.0, "speed": 52.0, "contact_damage": 28.0,
-		"flux": 45, "resonance": 150, "radius": 47.0, "shoot_interval": 0.72,
+		"health": 1650.0, "speed": 48.0, "contact_damage": 28.0,
+		"flux": 75, "resonance": 180, "radius": 66.0, "shoot_interval": 0.0,
 	},
 }
 

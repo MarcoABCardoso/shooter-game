@@ -24,7 +24,7 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 | `core/run_session.gd` | Time, resonance, Flux, kills, combo, mastery, evolution history | Nodes or presentation |
 | `core/behavior_profile.gd` | Rolling movement, range, and target-distribution measurements | Weapons, nodes, or presentation |
 | `content/*.gd` | Enemy, weapon, evolution, library, and permanent-upgrade definitions | Runtime state |
-| `systems/spawn_director.gd` | Difficulty cadence and spawn requests | Enemy construction |
+| `systems/spawn_director.gd` | Difficulty cadence and stage encounter states | Enemy construction |
 | `systems/combat_director.gd` | Entity construction, collisions, drops, combat events | Weapon cadence, UI, profile mutation |
 | `systems/weapon_system.gd` | Weapon timers, targeting, damage, weapon effects | Drops, behavioral classification |
 | `ui/game_ui.gd` | Screens, HUD, and scrollable discovery-gated Arsenal Library projection | Gameplay mutation; it emits intent signals |
@@ -64,6 +64,7 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 
 - Directors request visual/audio feedback with signals.
 - `CombatDirector` reports kills, direct resonance and Flux, rare repair pickups, and weapon damage; `game.gd` commits them to `RunSession`.
+- `SpawnDirector` emits the Stage 1 boss transition; `CombatDirector` disperses the swarm and constructs the boss while `game.gd` owns stage completion and reward persistence.
 - `GameUI` reports menu intent; `game.gd` decides whether a state transition is valid.
 - Mastery ranks enter a profile-owned shared allocation pool at run banking time; the UI requests one-point allocation transactions and combat reads the resulting effective bonus.
 - Resonance levels snapshot the live behavioral profile and mutate the build without pausing combat.
@@ -75,4 +76,6 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 - `tests/catalog_validation.gd` validates content IDs, evolution profiles, required fields, and save/catalog consistency.
 - `tests/behavior_progression.gd` validates continuous sampling, deliberate profile steering, and mutation application.
 - `tests/capture_run.gd` stages a deterministic-looking combat frame for visual regression checks.
+- `tests/capture_boss.gd` stages the Overseer during a focused attack telegraph.
 - `tests/capture_library.gd` stages the discovery-gated Arsenal Library for visual regression checks.
+- `tests/stage_one_encounter.gd` validates evacuation, boss construction, stage completion, and Vector Parry acquisition.

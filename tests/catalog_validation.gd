@@ -58,3 +58,5 @@ func _validate_library() -> void:
 		assert(SaveProfile.DEFAULT_DATA["discovered"].has(id), "Save discovery defaults are missing %s" % id)
 		for field in ["kind", "name", "role", "mechanics", "acquisition", "clue"]:
 			assert(LibraryCatalog.DEFINITIONS[id].has(field), "Library entry %s is missing %s" % [id, field])
+	assert(SaveProfile.DEFAULT_DATA["equipped_ability"] == "dash", "Phase Dash should remain the default ability")
+	assert(not SaveProfile.DEFAULT_DATA["discovered"]["vector_parry"], "Vector Parry should begin locked")

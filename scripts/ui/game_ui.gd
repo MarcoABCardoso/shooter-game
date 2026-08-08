@@ -14,6 +14,7 @@ signal mastery_allocation_requested(id: String, delta: int)
 signal library_requested
 signal upgrades_requested
 signal callibrations_requested
+signal ability_selected(id: String)
 
 var hud: Control
 var start_screen: Control
@@ -23,6 +24,7 @@ var overlay: Control
 var hp_bar: ProgressBar
 var resonance_bar: ProgressBar
 var dash_bar: ProgressBar
+var ability_caption: Label
 var time_label: Label
 var stats_label: Label
 var combo_label: Label
@@ -206,6 +208,16 @@ func set_dash(ratio: float) -> void:
 	dash_bar.value = clampf(ratio, 0.0, 1.0) * 100.0
 
 
+func set_ability(id: String) -> void:
+	ability_caption.text = "VECTOR PARRY" if id == "vector_parry" else "PHASE DASH"
+
+
+func show_stage_clear(session: RunSession, first_clear: bool) -> void:
+	var reward_line := "NEW ABILITY DECODED // VECTOR PARRY" if first_clear else "VECTOR PARRY LOADOUT AVAILABLE"
+	var body := "Overseer Array erased  •  Level %d\n%d hostiles erased  •  %d Flux banked\n\n%s" % [session.level, session.kills, session.flux, reward_line]
+	_show_message("STAGE 1 CLEARED", body, "EQUIP PARRY", ability_selected.emit.bind("vector_parry"), "KEEP DASH", ability_selected.emit.bind("dash"))
+
+
 func show_evolution(mutation: Dictionary, profile_name: String) -> void:
 	show_banner("%s  RANK %d  //  %s" % [mutation["name"], int(mutation["rank"]), profile_name], GamePalette.GREEN)
 
@@ -257,7 +269,7 @@ func _build_hud() -> void:
 	dash_bar = UIFactory.progress_bar(Vector2(895, 681), Vector2(330, 9), GamePalette.CYAN); hud.add_child(dash_bar)
 	_add_hud_caption("HULL", Vector2(55, 658), GamePalette.MAGENTA)
 	_add_hud_caption("RESONANCE", Vector2(430, 658), GamePalette.GREEN)
-	_add_hud_caption("PHASE DASH", Vector2(895, 658), GamePalette.CYAN)
+	ability_caption = _add_hud_caption("PHASE DASH", Vector2(895, 658), GamePalette.CYAN)
 	weapon_label = UIFactory.label("PULSE I", 12, Color(GamePalette.CYAN, 0.8)); weapon_label.position = Vector2(55, 82); hud.add_child(weapon_label)
 	evolution_label = UIFactory.label("EVOLUTION  LISTENING TO COMBAT...", 12, Color(GamePalette.GREEN, 0.78)); evolution_label.position = Vector2(55, 104); hud.add_child(evolution_label)
 	_build_behavior_readout()
@@ -283,10 +295,11 @@ func _build_behavior_readout() -> void:
 		var right := UIFactory.label(axes[i][1], 9, Color(axes[i][2], 0.7)); right.position = Vector2(322, y - 3.0); right.size = Vector2(70, 18); panel.add_child(right)
 
 
-func _add_hud_caption(text: String, position: Vector2, color: Color) -> void:
+func _add_hud_caption(text: String, position: Vector2, color: Color) -> Label:
 	var caption := UIFactory.label(text, 11, color)
 	caption.position = position
 	hud.add_child(caption)
+	return caption
 
 
 func _build_start_screen() -> void:
@@ -296,7 +309,7 @@ func _build_start_screen() -> void:
 	add_child(start_screen)
 	var panel := UIFactory.panel(Vector2(160, 80), Vector2(960, 560), Color(GamePalette.CYAN, 0.25))
 	start_screen.add_child(panel)
-	_add_menu_label(panel, "// INCREMENTAL BULLET HELL", 13, Color(GamePalette.CYAN, 0.66), Vector2(58, 48))
+	_add_menu_label(panel, "// STAGE-BASED BULLET HELL", 13, Color(GamePalette.CYAN, 0.66), Vector2(58, 48))
 	_add_menu_label(panel, "NEON REQUIEM", 52, GamePalette.CYAN, Vector2(53, 73))
 	_add_menu_label(panel, "HOW YOU FIGHT BECOMES WHAT YOU ARE.", 15, Color.WHITE, Vector2(58, 143))
 	var deploy := UIFactory.button("DEPLOY", Vector2(58, 216), Vector2(310, 64))
@@ -326,7 +339,7 @@ func _build_start_screen() -> void:
 	_add_menu_label(status_panel, "MASTERY", 11, Color(GamePalette.GREEN, 0.58), Vector2(224, 112))
 	start_mastery_label = _add_menu_label(status_panel, "PULSE 00   ORBIT 00\nARC 00       NOVA 00", 14, Color(GamePalette.GREEN, 0.86), Vector2(223, 136))
 	start_mastery_label.add_theme_constant_override("line_spacing", 10)
-	_add_menu_label(panel, "MOVE  WASD / ARROWS     AIM  MOUSE     DASH  SPACE     PAUSE  ESC / P", 12, Color(GamePalette.CYAN, 0.62), Vector2(58, 489))
+	_add_menu_label(panel, "MOVE  WASD / ARROWS     AIM  MOUSE     ABILITY  SPACE     PAUSE  ESC / P", 12, Color(GamePalette.CYAN, 0.62), Vector2(58, 489))
 
 
 func _build_upgrade_screen() -> void:

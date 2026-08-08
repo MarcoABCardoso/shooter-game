@@ -30,6 +30,7 @@ func _run() -> void:
 	assert(game.ui.overlay.visible, "Arsenal library should open from the hangar")
 	assert(game.ui.overlay.find_child("LibraryEntry_pulse", true, false) != null, "Library should render weapon entries")
 	assert(game.ui.overlay.find_child("LibraryEntry_dash", true, false) != null, "Library should render ability entries")
+	assert(game.ui.overlay.find_child("LibraryEntry_vector_parry", true, false) != null, "Library should render the Stage 1 reward")
 	assert(game.ui.overlay.find_child("LibraryEntry_roaming_distant_focus", true, false) != null, "Library should render in-run evolution entries")
 	game.show_menu()
 	game.start_run()
@@ -37,6 +38,7 @@ func _run() -> void:
 	assert(game.state == 1, "Deploy should start a run")
 	assert(is_instance_valid(game.player), "Player should spawn")
 	assert(game.player.health > 0.0, "Player should have hull")
+	assert(game.player.ability_mode == game.profile.equipped_ability(), "Deployment should use the equipped ability")
 	game.spawn_enemy("drone", false)
 	await physics_frame
 	assert(get_nodes_in_group("enemies").size() >= 1, "Director should spawn enemies")

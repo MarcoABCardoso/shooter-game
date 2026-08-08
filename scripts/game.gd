@@ -3,7 +3,7 @@ extends Node2D
 # Composition root: owns lifecycle and wires independent systems together.
 # Gameplay rules, content, rendering, and widgets live in their own modules.
 
-enum GameState { MENU, RUNNING, PAUSED, GAME_OVER }
+enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, STAGE_CLEAR }
 
 const PlayerScene := preload("res://scripts/entities/player.gd")
 const AudioScene := preload("res://scripts/audio.gd")
@@ -72,6 +72,7 @@ func _build_modules() -> void:
 func _connect_modules() -> void:
 	session.level_gained.connect(_on_level_gained)
 	spawn_director.spawn_requested.connect(combat_director.spawn_enemy)
+	spawn_director.boss_arrival_requested.connect(combat_director.begin_boss_arrival)
 	spawn_director.banner_requested.connect(ui.show_banner)
 	spawn_director.shake_requested.connect(arena_view.shake)
 	weapon_system.projectile_requested.connect(combat_director.spawn_projectile)
@@ -81,6 +82,7 @@ func _connect_modules() -> void:
 	weapon_system.tone_requested.connect(audio.tone)
 	combat_director.damage_dealt.connect(_on_damage_dealt)
 	combat_director.enemy_defeated.connect(_on_enemy_defeated)
+	combat_director.boss_defeated.connect(_on_boss_defeated)
 	combat_director.resonance_gained.connect(add_resonance)
 	combat_director.flux_gained.connect(session.add_flux)
 	combat_director.repair_collected.connect(_repair_player)
@@ -98,6 +100,7 @@ func _connect_modules() -> void:
 	ui.library_requested.connect(_show_library)
 	ui.upgrades_requested.connect(show_upgrades)
 	ui.callibrations_requested.connect(show_callibrations)
+	ui.ability_selected.connect(_on_ability_selected)
 
 
 func start_run() -> void:
@@ -111,11 +114,13 @@ func start_run() -> void:
 	player.died.connect(_on_player_died)
 	player.health_changed.connect(ui.set_health)
 	player.dash_changed.connect(ui.set_dash)
+	player.parry_requested.connect(combat_director.parry_projectiles)
 	player.configure({
 		"damage": profile.bonus("damage"),
 		"hull": profile.bonus("hull"),
 		"thrusters": profile.bonus("thrusters"),
 		"magnet": profile.bonus("magnet"),
+		"ability": profile.equipped_ability(),
 	})
 	add_child(player)
 	combat_director.configure(player, profile, session)
@@ -126,6 +131,7 @@ func start_run() -> void:
 	player.active = true
 	state = GameState.RUNNING
 	ui.show_run()
+	ui.set_ability(profile.equipped_ability())
 	ui.show_banner("SECTOR 01 // SIGNAL ACQUIRED", GamePalette.CYAN)
 	ui.update_hud(session, weapon_system.weapons)
 	audio.tone(220.0, 0.18, 0.2, 600.0)
@@ -196,6 +202,26 @@ func _set_run_entities_paused(value: bool) -> void:
 
 func _on_enemy_defeated(_kind: String) -> void:
 	session.register_kill()
+
+
+func _on_boss_defeated() -> void:
+	call_deferred("_complete_stage_one")
+
+
+func _complete_stage_one() -> void:
+	if state != GameState.RUNNING:
+		return
+	state = GameState.STAGE_CLEAR
+	_set_combat_active(false)
+	profile.bank_run(session.flux, session.elapsed, session.level, session.kills, session.mastery)
+	var first_clear := profile.clear_stage_one()
+	ui.show_stage_clear(session, first_clear)
+	audio.tone(330.0, 0.5, 0.22, 880.0)
+
+
+func _on_ability_selected(id: String) -> void:
+	if state == GameState.STAGE_CLEAR and profile.equip_ability(id):
+		show_menu()
 
 
 func _on_damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int) -> void:
