@@ -68,6 +68,8 @@ func _run() -> void:
 	await physics_frame
 	assert(get_nodes_in_group("enemies").size() >= 1, "Director should spawn enemies")
 	var spawned_enemy: NeonEnemy = get_nodes_in_group("enemies")[0]
+	assert(spawned_enemy is Area2D, "Enemies should use lightweight area movement")
+	assert(game.combat_director.enemies.size() == get_nodes_in_group("enemies").size(), "Director enemy cache should match the scene tree")
 	assert(game.player.collision_mask == 8, "Player movement should only collide with hostile projectiles")
 	assert(spawned_enemy.collision_mask == 0, "Enemies should not physically pin the player")
 	spawned_enemy.global_position = game.player.global_position - Vector2(100.0, 0.0)
@@ -87,6 +89,7 @@ func _run() -> void:
 			break
 	await process_frame
 	assert(not is_instance_valid(spawned_enemy), "Projectile should destroy the test enemy through a physics callback")
+	assert(game.combat_director.enemies.size() == get_nodes_in_group("enemies").size(), "Destroyed enemies should leave the director cache")
 	assert(game.session.resonance == resonance_before_kill + 5, "Kills should grant resonance immediately")
 	assert(game.session.flux > flux_before_kill, "Kills should grant Flux immediately")
 	var pulse_damage_before := float(game.weapons["pulse"]["damage"])

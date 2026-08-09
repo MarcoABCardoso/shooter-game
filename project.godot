@@ -1,6 +1,7 @@
 [application]
 config/name="Neon Requiem"
 run/main_scene="res://main.tscn"
+run/max_fps=60
 config/features=PackedStringArray("4.3")
 config/icon="res://icon.svg"
 

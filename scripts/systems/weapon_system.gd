@@ -7,26 +7,35 @@ signal burst_requested(world_position: Vector2, color: Color, size: float, spoke
 signal shake_requested(amount: float)
 signal tone_requested(frequency: float, duration: float, volume: float, slide: float)
 
+const ORBIT_CHECK_INTERVAL := 1.0 / 30.0
+const VISUAL_UPDATE_INTERVAL := 1.0 / 30.0
+
 var player: NeonPlayer
 var profile: SaveProfile
 var session: RunSession
+var enemies: Array[NeonEnemy] = []
 var weapons: Dictionary = WeaponCatalog.fresh_loadout()
 var timers := {"pulse": 0.0, "arc": 0.0, "nova": 0.0}
 var orbit_hit_time := {}
 var arc_visuals: Array[Dictionary] = []
 var nova_visual := 0.0
 var active := false
+var orbit_check_timer := 0.0
+var visual_update_timer := 0.0
 
 
-func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession) -> void:
+func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession, tracked_enemies: Array[NeonEnemy]) -> void:
 	player = run_player
 	profile = save_profile
 	session = run_session
+	enemies = tracked_enemies
 	weapons = WeaponCatalog.fresh_loadout(profile.equipped_weapons())
 	timers = {"pulse": 0.1, "arc": 0.1, "nova": 1.0}
 	orbit_hit_time.clear()
 	arc_visuals.clear()
 	nova_visual = 0.0
+	orbit_check_timer = 0.0
+	visual_update_timer = 0.0
 	active = true
 
 
@@ -52,6 +61,7 @@ func has_available_run_upgrade() -> bool:
 
 
 func tick(delta: float) -> void:
+	var transient_visuals_were_active := not arc_visuals.is_empty() or nova_visual > 0.0
 	_update_visuals(delta)
 	if not active or not is_instance_valid(player):
 		return
@@ -61,7 +71,10 @@ func tick(delta: float) -> void:
 			timers["pulse"] += float(weapons["pulse"]["interval"])
 			fire_pulse()
 	if int(weapons["orbit"]["level"]) > 0:
-		_update_orbits()
+		orbit_check_timer -= delta
+		if orbit_check_timer <= 0.0:
+			orbit_check_timer += ORBIT_CHECK_INTERVAL
+			_update_orbits()
 	if int(weapons["arc"]["level"]) > 0:
 		timers["arc"] -= delta
 		if timers["arc"] <= 0.0:
@@ -72,7 +85,10 @@ func tick(delta: float) -> void:
 		if timers["nova"] <= 0.0:
 			timers["nova"] += float(weapons["nova"]["interval"])
 			fire_nova()
-	queue_redraw()
+	visual_update_timer -= delta
+	if visual_update_timer <= 0.0 and (_has_dynamic_visuals() or transient_visuals_were_active):
+		visual_update_timer += VISUAL_UPDATE_INTERVAL
+		queue_redraw()
 
 
 func fire_pulse() -> void:
@@ -109,15 +125,19 @@ func fire_nova() -> void:
 		return
 	var spec: Dictionary = weapons["nova"]
 	var radius := float(spec["radius"])
-	for node: Node in get_tree().get_nodes_in_group("enemies"):
-		if node is NeonEnemy and is_instance_valid(node) and node.global_position.distance_to(player.global_position) <= radius + node.radius:
-			var dealt: float = node.take_damage(_scaled_damage("nova", float(spec["damage"]), node.global_position), "nova")
-			node.apply_knockback(player.global_position, profile.skill_effect("knockback"))
-			damage_dealt.emit("nova", dealt, node.global_position, node.get_instance_id())
+	for enemy: NeonEnemy in enemies:
+		if not is_instance_valid(enemy) or not enemy.active:
+			continue
+		var hit_radius := radius + enemy.radius
+		if enemy.global_position.distance_squared_to(player.global_position) <= hit_radius * hit_radius:
+			var dealt: float = enemy.take_damage(_scaled_damage("nova", float(spec["damage"]), enemy.global_position), "nova")
+			enemy.apply_knockback(player.global_position, profile.skill_effect("knockback"))
+			damage_dealt.emit("nova", dealt, enemy.global_position, enemy.get_instance_id())
 	for bullet: Node in get_tree().get_nodes_in_group("enemy_projectiles"):
-		if is_instance_valid(bullet) and bullet.global_position.distance_to(player.global_position) <= radius:
+		if is_instance_valid(bullet) and bullet.global_position.distance_squared_to(player.global_position) <= radius * radius:
 			bullet.queue_free()
 	nova_visual = 0.42
+	queue_redraw()
 	shake_requested.emit(5.0)
 	burst_requested.emit(player.global_position, GamePalette.GREEN, radius * 0.7, 18)
 	tone_requested.emit(90.0, 0.22, 0.25, 600.0)
@@ -129,14 +149,17 @@ func _update_orbits() -> void:
 	for i in count:
 		var angle := session.elapsed * float(spec["speed"]) + TAU * i / count
 		var blade_position := player.global_position + Vector2.from_angle(angle) * float(spec["radius"])
-		for node: Node in get_tree().get_nodes_in_group("enemies"):
-			if node is NeonEnemy and is_instance_valid(node) and node.active and node.global_position.distance_to(blade_position) < node.radius + 12.0:
-				var key := node.get_instance_id()
+		for enemy: NeonEnemy in enemies:
+			if is_instance_valid(enemy) and enemy.active:
+				var hit_radius := enemy.radius + 12.0
+				if enemy.global_position.distance_squared_to(blade_position) >= hit_radius * hit_radius:
+					continue
+				var key := enemy.get_instance_id()
 				if session.elapsed >= float(orbit_hit_time.get(key, 0.0)):
 					orbit_hit_time[key] = session.elapsed + 0.34
-					var dealt: float = node.take_damage(_scaled_damage("orbit", float(spec["damage"]), node.global_position), "orbit")
-					node.apply_knockback(player.global_position, profile.skill_effect("knockback"))
-					damage_dealt.emit("orbit", dealt, blade_position, node.get_instance_id())
+					var dealt: float = enemy.take_damage(_scaled_damage("orbit", float(spec["damage"]), enemy.global_position), "orbit")
+					enemy.apply_knockback(player.global_position, profile.skill_effect("knockback"))
+					damage_dealt.emit("orbit", dealt, blade_position, enemy.get_instance_id())
 
 
 func _scaled_damage(weapon: String, base: float, target_position := Vector2.INF) -> float:
@@ -144,20 +167,20 @@ func _scaled_damage(weapon: String, base: float, target_position := Vector2.INF)
 	multiplier *= 1.0 + profile.skill_effect(weapon + "_damage")
 	if player.stationary_time >= 2.0:
 		multiplier *= 1.0 + profile.skill_effect("stationary_damage")
-	if target_position != Vector2.INF and player.global_position.distance_to(target_position) >= 280.0:
+	if target_position != Vector2.INF and player.global_position.distance_squared_to(target_position) >= 280.0 * 280.0:
 		multiplier *= 1.0 + profile.skill_effect("distant_damage")
 	return base * multiplier
 
 
 func _nearest_enemy(from: Vector2, max_distance: float, excluded: Array[int]) -> NeonEnemy:
 	var best: NeonEnemy = null
-	var best_distance := max_distance
-	for node: Node in get_tree().get_nodes_in_group("enemies"):
-		if node is NeonEnemy and is_instance_valid(node) and node.active and not excluded.has(node.get_instance_id()):
-			var distance := from.distance_to(node.global_position)
-			if distance < best_distance:
-				best_distance = distance
-				best = node
+	var best_distance_squared := max_distance * max_distance
+	for enemy: NeonEnemy in enemies:
+		if is_instance_valid(enemy) and enemy.active and not excluded.has(enemy.get_instance_id()):
+			var distance_squared := from.distance_squared_to(enemy.global_position)
+			if distance_squared < best_distance_squared:
+				best_distance_squared = distance_squared
+				best = enemy
 	return best
 
 
@@ -168,6 +191,10 @@ func _update_visuals(delta: float) -> void:
 	for i in range(arc_visuals.size() - 1, -1, -1):
 		if float(arc_visuals[i]["life"]) <= 0.0:
 			arc_visuals.remove_at(i)
+
+
+func _has_dynamic_visuals() -> bool:
+	return int(weapons["orbit"]["level"]) > 0 or not arc_visuals.is_empty() or nova_visual > 0.0
 
 
 func _draw() -> void:

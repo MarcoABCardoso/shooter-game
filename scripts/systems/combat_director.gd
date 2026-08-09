@@ -15,12 +15,15 @@ const EnemyScene := preload("res://scripts/entities/enemy.gd")
 const ProjectileScene := preload("res://scripts/entities/projectile.gd")
 const PickupScene := preload("res://scripts/entities/pickup.gd")
 const BurstScene := preload("res://scripts/entities/burst.gd")
+const CONTACT_CHECK_INTERVAL := 1.0 / 30.0
 
 var player: NeonPlayer
 var profile: SaveProfile
 var session: RunSession
 var arena := GameBalance.ARENA
 var rng := RandomNumberGenerator.new()
+var enemies: Array[NeonEnemy] = []
+var contact_check_timer := 0.0
 
 
 func _ready() -> void:
@@ -31,21 +34,30 @@ func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: R
 	player = run_player
 	profile = save_profile
 	session = run_session
+	enemies.clear()
+	contact_check_timer = 0.0
 
 
-func tick_contacts() -> void:
+func tick_contacts(delta: float) -> void:
+	contact_check_timer -= delta
+	if contact_check_timer > 0.0:
+		return
+	contact_check_timer += CONTACT_CHECK_INTERVAL
 	if not is_instance_valid(player):
 		return
-	for node: Node in get_tree().get_nodes_in_group("enemies"):
-		if node is NeonEnemy and is_instance_valid(node) and node.active and node.global_position.distance_to(player.global_position) < node.radius + 14.0:
-			if player.take_damage(node.contact_damage):
+	for enemy: NeonEnemy in enemies:
+		if is_instance_valid(enemy) and enemy.active:
+			var contact_radius := enemy.radius + 14.0
+			if enemy.global_position.distance_squared_to(player.global_position) >= contact_radius * contact_radius:
+				continue
+			if player.take_damage(enemy.contact_damage):
 				shake_requested.emit(7.0)
 				spawn_burst(player.global_position, GamePalette.MAGENTA, 35.0, 10)
 				tone_requested.emit(90.0, 0.12, 0.22, -200.0)
 
 
 func spawn_enemy(kind: String, elite: bool) -> void:
-	if get_tree().get_nodes_in_group("enemies").size() >= GameBalance.MAX_ENEMIES or not is_instance_valid(player):
+	if enemies.size() >= GameBalance.MAX_ENEMIES or not is_instance_valid(player):
 		return
 	var enemy: NeonEnemy = EnemyScene.new()
 	enemy.configure(kind, GameBalance.enemy_difficulty(session.elapsed), elite)
@@ -57,13 +69,15 @@ func spawn_enemy(kind: String, elite: bool) -> void:
 	enemy.fired.connect(_on_enemy_fired)
 	enemy.attack_requested.connect(_on_enemy_attack_requested)
 	enemy.module_broken.connect(_on_boss_module_broken)
+	enemy.tree_exiting.connect(_untrack_enemy.bind(enemy))
+	enemies.append(enemy)
 	get_parent().add_child(enemy)
 
 
 func begin_boss_arrival() -> void:
-	for node: Node in get_tree().get_nodes_in_group("enemies"):
-		if node is NeonEnemy and is_instance_valid(node):
-			node.begin_disperse()
+	for enemy: NeonEnemy in enemies:
+		if is_instance_valid(enemy):
+			enemy.begin_disperse()
 	for bullet: Node in get_tree().get_nodes_in_group("enemy_projectiles"):
 		if is_instance_valid(bullet):
 			bullet.queue_free()
@@ -208,11 +222,15 @@ func _random_edge_position() -> Vector2:
 
 func _nearest_enemy_to(origin: Vector2) -> NeonEnemy:
 	var nearest: NeonEnemy = null
-	var distance := INF
-	for node: Node in get_tree().get_nodes_in_group("enemies"):
-		if node is NeonEnemy and is_instance_valid(node) and node.active:
-			var candidate := origin.distance_to(node.global_position)
-			if candidate < distance:
-				distance = candidate
-				nearest = node
+	var distance_squared := INF
+	for enemy: NeonEnemy in enemies:
+		if is_instance_valid(enemy) and enemy.active:
+			var candidate := origin.distance_squared_to(enemy.global_position)
+			if candidate < distance_squared:
+				distance_squared = candidate
+				nearest = enemy
 	return nearest
+
+
+func _untrack_enemy(enemy: NeonEnemy) -> void:
+	enemies.erase(enemy)

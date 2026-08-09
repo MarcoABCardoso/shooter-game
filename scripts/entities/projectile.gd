@@ -30,7 +30,8 @@ func _ready() -> void:
 	circle.radius = radius
 	shape.shape = circle
 	add_child(shape)
-	body_entered.connect(_on_body_entered)
+	body_entered.connect(_on_collision_entered)
+	area_entered.connect(_on_collision_entered)
 	queue_redraw()
 
 
@@ -42,13 +43,13 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 
 
-func _on_body_entered(body: Node) -> void:
+func _on_collision_entered(body: Node) -> void:
 	if hit_ids.has(body.get_instance_id()):
 		return
 	hit_ids[body.get_instance_id()] = true
 	if friendly and body is NeonEnemy:
 		var final_damage := damage
-		if launch_position.distance_to(global_position) >= distant_threshold:
+		if launch_position.distance_squared_to(global_position) >= distant_threshold * distant_threshold:
 			final_damage *= 1.0 + distant_damage_bonus
 		var dealt: float = body.take_damage(final_damage, weapon)
 		if dealt > 0.0:

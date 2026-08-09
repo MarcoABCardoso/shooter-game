@@ -9,6 +9,8 @@ signal active_skill_used(id: String, mastery_xp: float)
 
 const CYAN := Color("45f3ff")
 const WHITE := Color("eaffff")
+const VISUAL_UPDATE_INTERVAL := 1.0 / 30.0
+const HUD_SIGNAL_INTERVAL := 0.1
 
 var arena := Rect2(54.0, 76.0, 1172.0, 590.0)
 var active := false
@@ -31,6 +33,8 @@ var mobile_controls_enabled := false
 var mobile_movement := Vector2.ZERO
 var mobile_aim := Vector2.ZERO
 var mobile_ability_queued := false
+var visual_update_timer := 0.0
+var hud_signal_timer := 0.0
 
 
 func _ready() -> void:
@@ -57,15 +61,19 @@ func configure(meta_bonuses: Dictionary) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	visual_update_timer -= delta
+	hud_signal_timer -= delta
 	invulnerable = maxf(0.0, invulnerable - delta)
 	dash_cooldown = maxf(0.0, dash_cooldown - delta)
 	dash_duration = maxf(0.0, dash_duration - delta)
 	hit_flash = maxf(0.0, hit_flash - delta)
 	parry_flash = maxf(0.0, parry_flash - delta)
-	dash_changed.emit(1.0 - dash_cooldown / ability_cooldown)
+	if hud_signal_timer <= 0.0:
+		hud_signal_timer += HUD_SIGNAL_INTERVAL
+		dash_changed.emit(1.0 - dash_cooldown / ability_cooldown)
 	if not active:
 		velocity = Vector2.ZERO
-		queue_redraw()
+		_update_visual_if_due()
 		return
 	var input_vector := mobile_movement if mobile_controls_enabled else Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	stationary_time = stationary_time + delta if input_vector.length() <= 0.1 and dash_duration <= 0.0 else 0.0
@@ -98,6 +106,13 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	global_position.x = clampf(global_position.x, arena.position.x, arena.end.x)
 	global_position.y = clampf(global_position.y, arena.position.y, arena.end.y)
+	_update_visual_if_due()
+
+
+func _update_visual_if_due() -> void:
+	if visual_update_timer > 0.0:
+		return
+	visual_update_timer += VISUAL_UPDATE_INTERVAL
 	queue_redraw()
 
 

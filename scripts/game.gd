@@ -7,6 +7,7 @@ enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, STAGE_CLEAR, LEVEL_UP }
 
 const PlayerScene := preload("res://scripts/entities/player.gd")
 const AudioScene := preload("res://scripts/audio.gd")
+const HUD_UPDATE_INTERVAL := 0.1
 
 var state := GameState.MENU
 var profile := SaveProfile.new()
@@ -19,6 +20,7 @@ var spawn_director: SpawnDirector
 var combat_director: CombatDirector
 var weapon_system: WeaponSystem
 var ui: GameUI
+var hud_update_timer := 0.0
 
 # Read-only compatibility views are useful for the console and test harness.
 var elapsed: float:
@@ -37,18 +39,24 @@ func _ready() -> void:
 	get_viewport().get_window().min_size = Vector2i(960, 540)
 
 
-func _process(delta: float) -> void:
-	if state == GameState.RUNNING:
-		session.tick(delta)
-		spawn_director.tick(delta)
-		weapon_system.tick(delta)
-		combat_director.tick_contacts()
-		ui.update_hud(session, weapon_system.weapons)
+func _process(_delta: float) -> void:
 	if Input.is_action_just_pressed("pause"):
 		if state == GameState.RUNNING:
 			pause_game()
 		elif state == GameState.PAUSED:
 			resume_game()
+
+
+func _physics_process(delta: float) -> void:
+	if state == GameState.RUNNING:
+		session.tick(delta)
+		spawn_director.tick(delta)
+		weapon_system.tick(delta)
+		combat_director.tick_contacts(delta)
+		hud_update_timer -= delta
+		if hud_update_timer <= 0.0:
+			hud_update_timer += HUD_UPDATE_INTERVAL
+			ui.update_hud(session, weapon_system.weapons)
 
 
 func _build_modules() -> void:
@@ -138,7 +146,7 @@ func start_run() -> void:
 	player.set_mobile_controls_enabled(ui.mobile_controls_available)
 	add_child(player)
 	combat_director.configure(player, profile, session)
-	weapon_system.configure(player, profile, session)
+	weapon_system.configure(player, profile, session, combat_director.enemies)
 	spawn_director.configure(session)
 	arena_view.player = player
 	arena_view.combat_visible = true
@@ -148,6 +156,7 @@ func start_run() -> void:
 	ui.show_run()
 	ui.set_ability(profile.equipped_ability())
 	ui.show_banner("SECTOR 01 // SIGNAL ACQUIRED", GamePalette.CYAN)
+	hud_update_timer = HUD_UPDATE_INTERVAL
 	ui.update_hud(session, weapon_system.weapons)
 	audio.play_music(&"combat")
 	audio.tone(220.0, 0.18, 0.2, 600.0)

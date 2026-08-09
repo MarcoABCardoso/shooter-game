@@ -26,14 +26,13 @@ func _physics_process(delta: float) -> void:
 	age += delta
 	rotation += delta * 2.5
 	if is_instance_valid(target):
-		var distance := global_position.distance_to(target.global_position)
-		if distance < target.pickup_radius:
+		if global_position.distance_squared_to(target.global_position) < target.pickup_radius * target.pickup_radius:
 			collecting = true
 		if collecting:
 			velocity = velocity.move_toward((target.global_position - global_position).normalized() * 620.0, 1500.0 * delta)
 	position += velocity * delta
 	velocity *= pow(0.08, delta)
-	queue_redraw()
+	modulate.a = 0.82 + sin(age * 5.0) * 0.18
 
 
 func _on_body_entered(body: Node) -> void:
@@ -44,7 +43,7 @@ func _on_body_entered(body: Node) -> void:
 
 func _draw() -> void:
 	var c := Color("ff688e")
-	draw_circle(Vector2.ZERO, 12.0 + sin(age * 5.0) * 2.0, Color(c, 0.08))
+	draw_circle(Vector2.ZERO, 12.0, Color(c, 0.08))
 	var points := PackedVector2Array([Vector2(0, -7), Vector2(6, 0), Vector2(0, 7), Vector2(-6, 0), Vector2(0, -7)])
 	draw_colored_polygon(PackedVector2Array([Vector2(0, -6), Vector2(5, 0), Vector2(0, 6), Vector2(-5, 0)]), Color(c, 0.25))
 	draw_polyline(points, c, 2.0, true)

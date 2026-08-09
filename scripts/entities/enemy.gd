@@ -1,5 +1,5 @@
 class_name NeonEnemy
-extends CharacterBody2D
+extends Area2D
 
 signal destroyed(enemy: NeonEnemy, kind: String, flux: int, resonance: int, world_position: Vector2)
 signal fired(world_position: Vector2, direction: Vector2, damage: float, speed: float, spread_count: int)
@@ -9,6 +9,7 @@ signal module_broken(world_position: Vector2, remaining: int)
 const MAGENTA := Color("ff3bd4")
 const ORANGE := Color("ff8a3d")
 const RED := Color("ff365e")
+const VISUAL_UPDATE_INTERVAL := 1.0 / 30.0
 
 var kind := "drone"
 var target: NeonPlayer
@@ -38,6 +39,8 @@ var boss_direction_locked := false
 var boss_exposed := false
 var boss_modules := 3
 var knockback_velocity := Vector2.ZERO
+var velocity := Vector2.ZERO
+var visual_update_timer := 0.0
 
 
 func configure(enemy_kind: String, difficulty: float, is_elite: bool = false) -> void:
@@ -68,23 +71,27 @@ func _ready() -> void:
 	# Enemies remain detectable by weapons, but contact damage is handled by the
 	# combat director instead of solid-body collision response.
 	collision_mask = 0
+	monitoring = false
+	monitorable = true
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = radius
 	shape.shape = circle
 	add_child(shape)
 	phase = randf() * TAU
+	visual_update_timer = randf() * VISUAL_UPDATE_INTERVAL
 	queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
+	visual_update_timer -= delta
 	if dispersing:
 		velocity = velocity.move_toward(disperse_direction * 430.0, delta * 520.0)
-		move_and_slide()
+		position += velocity * delta
 		modulate.a = maxf(0.0, modulate.a - delta * 0.7)
 		if not GameBalance.ARENA.grow(90.0).has_point(global_position):
 			queue_free()
-		queue_redraw()
+		_update_visual_if_due()
 		return
 	if not active or not is_instance_valid(target):
 		velocity = Vector2.ZERO
@@ -98,7 +105,7 @@ func _physics_process(delta: float) -> void:
 		facing_angle = direction.angle()
 	match kind:
 		"gunner":
-			var desired := direction if offset.length() > 270.0 else -direction
+			var desired := direction if offset.length_squared() > 270.0 * 270.0 else -direction
 			velocity = (desired + direction.rotated(PI * 0.5) * sin(phase * 1.7) * 0.45).normalized() * speed
 		"boss":
 			_update_boss(delta, direction)
@@ -106,7 +113,7 @@ func _physics_process(delta: float) -> void:
 			velocity = direction * speed
 	velocity += knockback_velocity
 	knockback_velocity = knockback_velocity.move_toward(Vector2.ZERO, delta * 420.0)
-	move_and_slide()
+	position += velocity * delta
 	if kind == "boss":
 		var boss_bounds := GameBalance.ARENA.grow(-radius)
 		global_position.x = clampf(global_position.x, boss_bounds.position.x, boss_bounds.end.x)
@@ -115,6 +122,13 @@ func _physics_process(delta: float) -> void:
 	if shoot_timer <= 0.0 and kind == "gunner":
 		shoot_timer += shoot_interval
 		fired.emit(global_position, direction, 8.0, 260.0, 1)
+	_update_visual_if_due()
+
+
+func _update_visual_if_due() -> void:
+	if visual_update_timer > 0.0:
+		return
+	visual_update_timer += VISUAL_UPDATE_INTERVAL
 	queue_redraw()
 
 
