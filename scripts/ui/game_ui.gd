@@ -88,6 +88,21 @@ func _ready() -> void:
 	add_child(overlay)
 
 
+func _input(event: InputEvent) -> void:
+	if not OS.has_feature("web") or not mobile_controls_available:
+		return
+	if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
+		return
+	var pressed := false
+	if event is InputEventScreenTouch:
+		pressed = event.pressed
+	elif event is InputEventMouseButton:
+		pressed = event.pressed and event.button_index == MOUSE_BUTTON_LEFT
+	if pressed:
+		# Browsers only permit fullscreen while handling a user activation event.
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+
 func show_title() -> void:
 	_hide_all_screens()
 	title_screen.visible = true
@@ -419,6 +434,10 @@ func _build_title_screen() -> void:
 	options.name = "OptionsButton"
 	options.pressed.connect(options_requested.emit)
 	panel.add_child(options)
+	if OS.has_feature("web") and mobile_controls_available:
+		var fullscreen_hint := _add_menu_label(panel, "TAP ANYWHERE FOR FULLSCREEN", 11, Color(GamePalette.GREEN, 0.7), Vector2(0, 466))
+		fullscreen_hint.size = Vector2(600, 24)
+		fullscreen_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
 func _build_save_slot_screen() -> void:
