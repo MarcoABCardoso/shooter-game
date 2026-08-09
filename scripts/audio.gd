@@ -48,7 +48,6 @@ func _ready() -> void:
 	stinger_player = AudioStreamPlayer.new()
 	stinger_player.name = "StingerPlayer"
 	stinger_player.bus = &"Music"
-	stinger_player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE
 	stinger_player.volume_db = MUSIC_VOLUME_DB
 	add_child(stinger_player)
 
