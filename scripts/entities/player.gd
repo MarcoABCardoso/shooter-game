@@ -5,6 +5,7 @@ signal died
 signal health_changed(current: float, maximum: float)
 signal dash_changed(ratio: float)
 signal parry_requested(world_position: Vector2, direction: Vector2)
+signal active_skill_used(id: String, mastery_xp: float)
 
 const CYAN := Color("45f3ff")
 const WHITE := Color("eaffff")
@@ -24,6 +25,8 @@ var dash_direction := Vector2.ZERO
 var hit_flash := 0.0
 var ability_mode := "dash"
 var parry_flash := 0.0
+var ability_cooldown := 1.25
+var stationary_time := 0.0
 
 
 func _ready() -> void:
@@ -45,6 +48,7 @@ func configure(meta_bonuses: Dictionary) -> void:
 	damage_multiplier = 1.0 + float(meta_bonuses.get("damage", 0.0))
 	pickup_radius = 110.0 + float(meta_bonuses.get("magnet", 0.0))
 	ability_mode = String(meta_bonuses.get("ability", "dash"))
+	ability_cooldown = 1.25 * (1.0 - minf(0.30, float(meta_bonuses.get("ability_mastery", 0.0)) * 0.015))
 	health_changed.emit(health, max_health)
 
 
@@ -54,26 +58,29 @@ func _physics_process(delta: float) -> void:
 	dash_duration = maxf(0.0, dash_duration - delta)
 	hit_flash = maxf(0.0, hit_flash - delta)
 	parry_flash = maxf(0.0, parry_flash - delta)
-	dash_changed.emit(1.0 - dash_cooldown / 1.25)
+	dash_changed.emit(1.0 - dash_cooldown / ability_cooldown)
 	if not active:
 		velocity = Vector2.ZERO
 		queue_redraw()
 		return
 	var input_vector := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	stationary_time = stationary_time + delta if input_vector.length() <= 0.1 and dash_duration <= 0.0 else 0.0
 	var mouse_delta := get_global_mouse_position() - global_position
 	if mouse_delta.length_squared() > 16.0:
 		aim_direction = mouse_delta.normalized()
 	if Input.is_action_just_pressed("dash") and dash_cooldown <= 0.0:
 		if ability_mode == "vector_parry":
-			dash_cooldown = 1.25
+			dash_cooldown = ability_cooldown
 			parry_flash = 0.24
 			invulnerable = maxf(invulnerable, 0.16)
 			parry_requested.emit(global_position, aim_direction)
+			active_skill_used.emit("vector_parry", 18.0)
 		elif input_vector != Vector2.ZERO:
 			dash_direction = input_vector.normalized()
 			dash_duration = 0.18
-			dash_cooldown = 1.25
+			dash_cooldown = ability_cooldown
 			invulnerable = 0.30
+			active_skill_used.emit("dash", 18.0)
 	if dash_duration > 0.0:
 		velocity = dash_direction * speed * 3.2
 	else:

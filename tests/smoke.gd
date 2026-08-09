@@ -13,17 +13,42 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	assert(game.state == 0, "Game should boot to menu")
-	assert(game.ui.start_screen.visible, "Game should boot to the start screen")
+	assert(game.ui.title_screen.visible, "Game should boot to the title screen")
+	assert(not game.ui.hangar_screen.visible, "Hangar should remain hidden until a save is selected")
+	assert(game.ui.title_screen.find_child("NewGameButton", true, false) != null, "Title screen should offer New Game")
+	assert(game.ui.title_screen.find_child("LoadGameButton", true, false) != null, "Title screen should offer Load Game")
+	assert(game.ui.title_screen.find_child("OptionsButton", true, false) != null, "Title screen should offer Options")
+	game.ui.show_options()
+	assert(game.ui.options_screen.visible, "Options should open independently")
+	assert(_contains_label(game.ui.options_screen, "WASD / ARROW KEYS"), "Controls should live on the options screen")
+	game.ui.show_save_slots(true, [
+		{"slot": 1, "exists": false, "best_time": 0.0, "best_level": 1, "runs": 0, "flux": 0},
+		{"slot": 2, "exists": false, "best_time": 0.0, "best_level": 1, "runs": 0, "flux": 0},
+		{"slot": 3, "exists": false, "best_time": 0.0, "best_level": 1, "runs": 0, "flux": 0},
+	])
+	await process_frame
+	assert(game.ui.save_slot_screen.find_child("SaveSlot3Button", true, false) != null, "New Game should offer three save slots")
+	game.show_menu()
+	assert(game.ui.hangar_screen.visible, "Selecting a profile should open the hangar")
+	assert(not _contains_label(game.ui.hangar_screen, "NEON REQUIEM"), "Hangar should not repeat the game title")
+	assert(not _contains_label(game.ui.hangar_screen, "WASD / ARROWS"), "Hangar should not display controls")
 	assert(not game.ui.upgrade_screen.visible, "Upgrade screen should be separate from the start screen")
 	game.show_upgrades()
 	await process_frame
 	assert(game.ui.upgrade_screen.visible, "Upgrade screen should open independently")
-	assert(not game.ui.start_screen.visible, "Start screen should hide behind upgrades")
+	assert(not game.ui.hangar_screen.visible, "Hangar should hide behind upgrades")
 	game.show_menu()
-	game.show_callibrations()
+	game.show_loadout()
 	await process_frame
-	assert(game.ui.callibrations_screen.visible, "Callibrations should open independently")
-	assert(game.ui.callibrations_screen.find_child("CallibrationRow_pulse", true, false) != null, "Callibrations should render weapon allocation rows")
+	assert(game.ui.loadout_screen.visible, "Loadout should open independently")
+	assert(game.ui.loadout_screen.find_child("LoadoutRow_pulse", true, false) != null, "Loadout should render weapon rows")
+	assert(game.profile.is_discovered("pulse") and game.profile.is_discovered("orbit") and game.profile.is_discovered("arc"), "Three weapons should be available initially")
+	assert(game.profile.equipped_weapons() == ["pulse"], "A new profile should begin with one Pulse slot")
+	game.show_menu()
+	game.show_skill_tree()
+	await process_frame
+	assert(game.ui.skill_tree_screen.visible, "Skill tree should open from the hangar")
+	assert(game.ui.skill_tree_screen.find_child("SkillNode_core_damage", true, false) != null, "Skill graph should render its root node")
 	game.show_menu()
 	game._show_library()
 	await process_frame
@@ -31,7 +56,6 @@ func _run() -> void:
 	assert(game.ui.overlay.find_child("LibraryEntry_pulse", true, false) != null, "Library should render weapon entries")
 	assert(game.ui.overlay.find_child("LibraryEntry_dash", true, false) != null, "Library should render ability entries")
 	assert(game.ui.overlay.find_child("LibraryEntry_vector_parry", true, false) != null, "Library should render the Stage 1 reward")
-	assert(game.ui.overlay.find_child("LibraryEntry_roaming_distant_focus", true, false) != null, "Library should render in-run evolution entries")
 	game.show_menu()
 	game.start_run()
 	await process_frame
@@ -64,12 +88,18 @@ func _run() -> void:
 	assert(not is_instance_valid(spawned_enemy), "Projectile should destroy the test enemy through a physics callback")
 	assert(game.session.resonance == resonance_before_kill + 5, "Kills should grant resonance immediately")
 	assert(game.session.flux > flux_before_kill, "Kills should grant Flux immediately")
+	var pulse_damage_before := float(game.weapons["pulse"]["damage"])
 	game.add_resonance(game.session.resonance_needed - game.session.resonance)
 	await process_frame
 	assert(game.run_level >= 2, "Resonance should increase run level")
-	assert(game.state == 1, "Evolution should not interrupt combat")
-	assert(not game.session.evolutions.is_empty(), "Combat behavior should produce an automatic evolution")
-	assert(game.profile.is_discovered(game.session.last_evolution), "Triggered evolutions should be decoded in the Library")
+	assert(game.state == game.GameState.LEVEL_UP, "A resonance level should pause for a deterministic weapon choice")
+	assert(game.ui.overlay.find_child("RunUpgrade_pulse_damage", true, false) != null, "The choice should expose Pulse damage")
+	assert(game.ui.overlay.find_child("RunUpgrade_pulse_fire_rate", true, false) != null, "The choice should expose Pulse fire rate")
+	assert(game.ui.overlay.find_child("RunUpgrade_pulse_projectile_speed", true, false) != null, "The choice should expose Pulse projectile speed")
+	game._on_run_upgrade_selected("pulse", "damage")
+	assert(game.state == game.GameState.RUNNING, "Choosing an evolution should resume combat")
+	assert(float(game.weapons["pulse"]["damage"]) > pulse_damage_before, "The chosen dimension should mutate only the run weapon")
+	assert(game.session.weapon_upgrade_rank("pulse", "damage") == 1, "The run should track the selected capped rank")
 	game._fire_nova()
 	await process_frame
 	var run_player: NeonPlayer = game.player
@@ -82,5 +112,12 @@ func _run() -> void:
 	await process_frame
 	assert(game.state == 3, "Projectile death should end the run after the physics callback")
 	assert(run_player.process_mode == Node.PROCESS_MODE_DISABLED, "Deferred run teardown should freeze collision objects safely")
-	print("SMOKE_OK menu, run, direct rewards, deferred physics teardown, behavior evolution, and weapons initialized")
+	print("SMOKE_OK hangar build, deterministic resonance choice, run evolution, rewards, and combat flow validated")
 	quit(0)
+
+
+func _contains_label(root_node: Node, text_fragment: String) -> bool:
+	for child: Node in root_node.find_children("*", "Label", true, false):
+		if text_fragment in String(child.text):
+			return true
+	return false

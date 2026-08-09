@@ -37,6 +37,7 @@ var boss_locked_target := Vector2.ZERO
 var boss_direction_locked := false
 var boss_exposed := false
 var boss_modules := 3
+var knockback_velocity := Vector2.ZERO
 
 
 func configure(enemy_kind: String, difficulty: float, is_elite: bool = false) -> void:
@@ -103,6 +104,8 @@ func _physics_process(delta: float) -> void:
 			_update_boss(delta, direction)
 		_:
 			velocity = direction * speed
+	velocity += knockback_velocity
+	knockback_velocity = knockback_velocity.move_toward(Vector2.ZERO, delta * 420.0)
 	move_and_slide()
 	if kind == "boss":
 		var boss_bounds := GameBalance.ARENA.grow(-radius)
@@ -205,6 +208,16 @@ func take_damage(amount: float, source_weapon: String) -> float:
 	else:
 		queue_redraw()
 	return dealt
+
+
+func apply_knockback(origin: Vector2, amount: float) -> void:
+	if not active or amount <= 0.0:
+		return
+	var direction := global_position - origin
+	if direction.length_squared() <= 0.001:
+		return
+	var resistance := 0.18 if kind == "boss" else 1.0
+	knockback_velocity += direction.normalized() * amount * resistance
 
 
 func _draw() -> void:

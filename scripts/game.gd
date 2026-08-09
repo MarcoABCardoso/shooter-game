@@ -3,7 +3,7 @@ extends Node2D
 # Composition root: owns lifecycle and wires independent systems together.
 # Gameplay rules, content, rendering, and widgets live in their own modules.
 
-enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, STAGE_CLEAR }
+enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, STAGE_CLEAR, LEVEL_UP }
 
 const PlayerScene := preload("res://scripts/entities/player.gd")
 const AudioScene := preload("res://scripts/audio.gd")
@@ -31,10 +31,9 @@ var weapons: Dictionary:
 
 
 func _ready() -> void:
-	profile.load_profile()
 	_build_modules()
 	_connect_modules()
-	show_menu()
+	show_title()
 	get_viewport().get_window().min_size = Vector2i(960, 540)
 
 
@@ -44,8 +43,6 @@ func _process(delta: float) -> void:
 		spawn_director.tick(delta)
 		weapon_system.tick(delta)
 		combat_director.tick_contacts()
-		if is_instance_valid(player):
-			session.behavior.tick(delta, player.velocity, player.speed, get_tree().get_nodes_in_group("enemies").size())
 		ui.update_hud(session, weapon_system.weapons)
 	if Input.is_action_just_pressed("pause"):
 		if state == GameState.RUNNING:
@@ -89,6 +86,11 @@ func _connect_modules() -> void:
 	combat_director.banner_requested.connect(ui.show_banner)
 	combat_director.shake_requested.connect(arena_view.shake)
 	combat_director.tone_requested.connect(audio.tone)
+	ui.new_game_requested.connect(_show_new_game_slots)
+	ui.load_game_requested.connect(_show_load_game_slots)
+	ui.options_requested.connect(ui.show_options)
+	ui.title_requested.connect(show_title)
+	ui.slot_selected.connect(_select_save_slot)
 	ui.deploy_requested.connect(start_run)
 	ui.resume_requested.connect(resume_game)
 	ui.abandon_requested.connect(_abandon_run)
@@ -96,11 +98,15 @@ func _connect_modules() -> void:
 	ui.menu_requested.connect(show_menu)
 	ui.reset_requested.connect(_reset_profile)
 	ui.meta_upgrade_requested.connect(_buy_meta_upgrade)
-	ui.mastery_allocation_requested.connect(_adjust_mastery_allocation)
 	ui.library_requested.connect(_show_library)
 	ui.upgrades_requested.connect(show_upgrades)
-	ui.callibrations_requested.connect(show_callibrations)
+	ui.loadout_requested.connect(show_loadout)
+	ui.skills_requested.connect(show_skill_tree)
+	ui.weapon_selected.connect(_on_weapon_selected)
 	ui.ability_selected.connect(_on_ability_selected)
+	ui.skill_purchase_requested.connect(_buy_skill)
+	ui.skills_respec_requested.connect(_respec_skills)
+	ui.run_upgrade_requested.connect(_on_run_upgrade_selected)
 
 
 func start_run() -> void:
@@ -115,12 +121,14 @@ func start_run() -> void:
 	player.health_changed.connect(ui.set_health)
 	player.dash_changed.connect(ui.set_dash)
 	player.parry_requested.connect(combat_director.parry_projectiles)
+	player.active_skill_used.connect(session.record_mastery)
 	player.configure({
-		"damage": profile.bonus("damage"),
-		"hull": profile.bonus("hull"),
+		"damage": profile.bonus("damage") + profile.skill_effect("general_damage"),
+		"hull": profile.bonus("hull") + profile.skill_effect("hull"),
 		"thrusters": profile.bonus("thrusters"),
 		"magnet": profile.bonus("magnet"),
 		"ability": profile.equipped_ability(),
+		"ability_mastery": profile.mastery_level(profile.equipped_ability()),
 	})
 	add_child(player)
 	combat_director.configure(player, profile, session)
@@ -145,14 +153,50 @@ func show_menu() -> void:
 	ui.show_menu(profile)
 
 
+func show_title() -> void:
+	_set_run_entities_paused(false)
+	state = GameState.MENU
+	_clear_run()
+	arena_view.combat_visible = false
+	profile = SaveProfile.new()
+	ui.show_title()
+
+
+func _show_new_game_slots() -> void:
+	if state == GameState.MENU:
+		ui.show_save_slots(true, SaveProfile.slot_summaries())
+
+
+func _show_load_game_slots() -> void:
+	if state == GameState.MENU:
+		ui.show_save_slots(false, SaveProfile.slot_summaries())
+
+
+func _select_save_slot(slot: int, create_new: bool) -> void:
+	if state != GameState.MENU:
+		return
+	var selected := SaveProfile.new()
+	var ready := selected.create_slot(slot) if create_new else selected.load_slot(slot)
+	if not ready:
+		ui.show_save_slots(create_new, SaveProfile.slot_summaries())
+		return
+	profile = selected
+	show_menu()
+
+
 func show_upgrades() -> void:
 	if state == GameState.MENU:
 		ui.show_upgrades(profile)
 
 
-func show_callibrations() -> void:
+func show_loadout() -> void:
 	if state == GameState.MENU:
-		ui.show_callibrations(profile)
+		ui.show_loadout(profile)
+
+
+func show_skill_tree() -> void:
+	if state == GameState.MENU:
+		ui.show_skill_tree(profile)
 
 
 func pause_game() -> void:
@@ -209,8 +253,9 @@ func _on_boss_defeated() -> void:
 
 
 func _complete_stage_one() -> void:
-	if state != GameState.RUNNING:
+	if state not in [GameState.RUNNING, GameState.LEVEL_UP]:
 		return
+	session.pending_levels = 0
 	state = GameState.STAGE_CLEAR
 	_set_combat_active(false)
 	profile.bank_run(session.flux, session.elapsed, session.level, session.kills, session.mastery)
@@ -220,14 +265,14 @@ func _complete_stage_one() -> void:
 
 
 func _on_ability_selected(id: String) -> void:
-	if state == GameState.STAGE_CLEAR and profile.equip_ability(id):
-		show_menu()
+	if state == GameState.MENU and profile.equip_ability(id):
+		ui.show_loadout(profile)
 
 
-func _on_damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int) -> void:
+func _on_damage_dealt(weapon: String, amount: float, world_position: Vector2, _target_id: int) -> void:
 	session.record_damage(weapon, amount)
-	if is_instance_valid(player):
-		session.behavior.record_damage(target_id, player.global_position.distance_to(world_position), amount)
+	if weapon == "parry":
+		session.record_damage("vector_parry", amount)
 	if amount > 0.0 and randf() < 0.12:
 		combat_director.spawn_burst(world_position, GamePalette.CYAN if weapon == "pulse" else GamePalette.GREEN, 12.0, 4)
 
@@ -241,23 +286,46 @@ func add_resonance(amount: int) -> void:
 	session.add_resonance(amount)
 
 
-func _on_level_gained(count: int) -> void:
-	if state != GameState.RUNNING or not is_instance_valid(player):
+func _on_level_gained(_count: int) -> void:
+	if state != GameState.RUNNING:
 		return
-	for _index in count:
-		var id := session.behavior.corner_id()
-		var rank := session.register_evolution(id)
-		var mutation := EvolutionCatalog.apply(id, rank, weapon_system.weapons, player)
-		var active_weapons: Array[String] = []
-		for weapon_id: String in WeaponCatalog.ORDER:
-			if int(weapon_system.weapons[weapon_id]["level"]) > 0:
-				active_weapons.append(weapon_id)
-		active_weapons.append(id)
-		profile.discover_entries(active_weapons)
-		weapon_system.on_evolution_applied()
-		session.pending_levels = maxi(0, session.pending_levels - 1)
-		ui.show_evolution(mutation, session.behavior.display_profile())
-		audio.tone(360.0 + rank * 18.0, 0.14, 0.18, 900.0)
+	# Resonance may be awarded from a projectile collision callback. Defer UI and
+	# process-mode changes until physics has finished flushing the query.
+	call_deferred("_open_next_run_upgrade")
+
+
+func _open_next_run_upgrade() -> void:
+	if state not in [GameState.RUNNING, GameState.LEVEL_UP]:
+		return
+	if session.pending_levels <= 0:
+		_resume_after_run_upgrade()
+		return
+	if not weapon_system.has_available_run_upgrade():
+		session.pending_levels = 0
+		_resume_after_run_upgrade()
+		ui.show_banner("ALL WEAPON DIMENSIONS CAPPED", GamePalette.YELLOW)
+		return
+	state = GameState.LEVEL_UP
+	_set_combat_active(false)
+	ui.show_run_upgrade(session, weapon_system.weapons)
+	audio.tone(360.0 + session.level * 8.0, 0.14, 0.18, 900.0)
+
+
+func _on_run_upgrade_selected(weapon: String, dimension: String) -> void:
+	if state != GameState.LEVEL_UP or not weapon_system.apply_run_upgrade(weapon, dimension):
+		return
+	session.pending_levels = maxi(0, session.pending_levels - 1)
+	if session.pending_levels > 0:
+		_open_next_run_upgrade()
+	else:
+		_resume_after_run_upgrade()
+
+
+func _resume_after_run_upgrade() -> void:
+	state = GameState.RUNNING
+	_set_combat_active(true)
+	ui.show_run()
+	ui.show_banner("SIGNAL LEVEL %02d // BUILD UPDATED" % session.level, GamePalette.GREEN)
 
 
 func _buy_meta_upgrade(id: String) -> void:
@@ -266,10 +334,25 @@ func _buy_meta_upgrade(id: String) -> void:
 		ui.show_upgrades(profile)
 
 
-func _adjust_mastery_allocation(id: String, delta: int) -> void:
-	if state == GameState.MENU and profile.adjust_mastery_allocation(id, delta):
-		audio.tone(460.0 if delta > 0 else 280.0, 0.06, 0.1, 220.0)
-		ui.show_callibrations(profile)
+func _on_weapon_selected(id: String) -> void:
+	if state == GameState.MENU and profile.equip_weapon(id):
+		audio.tone(520.0, 0.06, 0.1, 180.0)
+		ui.show_loadout(profile)
+
+
+func _buy_skill(id: String) -> void:
+	if state == GameState.MENU and profile.buy_skill(id):
+		audio.tone(460.0, 0.1, 0.15, 620.0)
+		ui.show_skill_tree(profile)
+
+
+func _respec_skills() -> void:
+	if state != GameState.MENU:
+		return
+	var refunded := profile.respec_skills()
+	if refunded > 0:
+		audio.tone(260.0, 0.12, 0.12, -180.0)
+	ui.show_skill_tree(profile)
 
 
 func _show_library() -> void:

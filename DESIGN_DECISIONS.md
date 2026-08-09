@@ -10,11 +10,11 @@ This file is the adjustable design contract for the game. Change a value in the 
 - **Why:** Authored conclusions give build growth a destination and let bosses test a different skill than crowd control while preserving the asset-light arena.
 - **Adjust:** Stage timing and intro duration live in `scripts/core/game_balance.gd`; lifecycle cadence lives in `scripts/systems/spawn_director.gd`.
 
-### D002: Behavior-driven run evolution plus persistent growth
+### D002: Deliberate hangar builds plus persistent growth
 
-- **Decision:** Combat continuously measures Anchored/Roaming, Close/Distant, and Focus/Spread tendencies. Defeating enemies grants resonance and Flux directly, avoiding progression drops entirely. Resonance sets the cadence for automatic mutations, Flux buys permanent ship upgrades, and weapon damage grants persistent mastery.
-- **Why:** The run's build should record how the player fought, while remaining understandable and deliberately steerable.
-- **Adjust:** Sampling and smoothing live in `scripts/core/behavior_profile.gd`; combined mutations live in `scripts/content/evolution_catalog.gd`; permanent bonuses and mastery curves live in `scripts/profile.gd`.
+- **Decision:** Weapons, active skill, and graph skills are chosen in the hangar. Each resonance level then offers all three uncapped dimensions for every equipped weapon, letting the player deliberately evolve damage, cadence, projectile behavior, coverage, or weapon-specific capacity. There are no random offerings. Flux buys permanent augments or graph nodes, while damage and active-skill use grant native mastery.
+- **Why:** Bullet-hell movement naturally converges toward similar measured behavior, but a completely fixed run lacks tactical authorship. Explicit hangar choices plus deterministic per-level specialization keep builds legible and player-directed.
+- **Adjust:** Persistent loadout transactions live in `scripts/profile.gd`; graph content lives in `scripts/content/skill_tree_catalog.gd`; per-run choices and their five-rank cap live in `scripts/content/run_upgrade_catalog.gd` and `scripts/core/run_session.gd`.
 
 ### D003: Movement aims, weapons auto-fire
 
@@ -22,11 +22,11 @@ This file is the adjustable design contract for the game. Change a value in the 
 - **Why:** This keeps attention on positioning through dense patterns without removing directional agency.
 - **Adjust:** Input mappings are in `project.godot`; cadence and targeting are in `scripts/player.gd`.
 
-### D004: Four synergistic weapon families
+### D004: Unlockable weapon loadouts
 
-- **Decision:** Pulse Cannon (aimed projectile), Orbit Blades (defensive contact ring), Arc Lash (chain lightning), and Nova Burst (periodic radial clear). They unlock and develop through combined behavioral mutations.
-- **Why:** The set covers focused DPS, close defense, crowd chaining, and emergency area control with readable visual identities.
-- **Adjust:** Base weapon data is in `scripts/content/weapon_catalog.gd`; evolution definitions are in `scripts/content/evolution_catalog.gd`.
+- **Decision:** Pulse Cannon, Orbit Blades, and Arc Lash are available immediately, but a new profile has one weapon slot. Stage 1 unlocks Nova Burst and a second slot; future progression can unlock a third.
+- **Why:** The set covers precision, close defense, crowd chaining, and emergency clearing while slot pressure creates real build identity.
+- **Adjust:** Base weapon data is in `scripts/content/weapon_catalog.gd`; ownership, slots, and selection live in `scripts/profile.gd`.
 
 ### D005: Neon vector geometry only
 
@@ -69,14 +69,14 @@ This file is the adjustable design contract for the game. Change a value in the 
 
 ### D012: Simulation-level pause
 
-- **Decision:** Pause and run-end states disable processing for the entire `run_entities` group. Evolution never pauses the simulation.
+- **Decision:** Manual pause, run-end, and resonance-choice states disable processing for the entire `run_entities` group. The upgrade overlay stays responsive while combat is frozen.
 - **Why:** Enemy AI, bullets, pickups, and effects must freeze consistently while menus remain interactive. Toggling only player input creates hidden state drift.
 
-### D013: Reallocatable weapon mastery
+### D013: Native item mastery
 
-- **Decision:** Earned mastery ranks enter a shared pool and default to the weapon that earned them. The Callibrations screen can move ranks between weapons, while each weapon's effective mastery is capped at twice its native earned mastery.
-- **Why:** Use-based progression still rewards learning every weapon, but players can trade effectiveness away from less-favored systems to specialize in a preferred combat style.
-- **Adjust:** Rank curves, allocation transactions, the 2x cap, and effective damage bonuses live in `scripts/profile.gd`; presentation lives in `scripts/ui/game_ui.gd`.
+- **Decision:** Each weapon and active skill owns the mastery it earns. Weapon mastery increases that weapon's damage; active-skill mastery shortens its recharge. Mastery cannot be reassigned.
+- **Why:** Persistent familiarity remains valuable without recreating a second respec system beside the Flux skill graph.
+- **Adjust:** Rank curves and bonuses live in `scripts/profile.gd`; accrual lives in `scripts/core/run_session.gd`.
 
 ### D014: Bosses interrupt the crowd-control rhythm
 
@@ -84,9 +84,9 @@ This file is the adjustable design contract for the game. Change a value in the 
 - **Why:** The encounter redirects attention toward readable timing and focused exploitation without invalidating the build developed during the stage.
 - **Adjust:** Boss behavior and vector presentation live in `scripts/entities/enemy.gd`; projectile patterns and swarm evacuation live in `scripts/systems/combat_director.gd`.
 
-### D015: Stage bosses award ability-slot alternatives
+### D015: Stage bosses expand loadout options
 
-- **Decision:** Clearing Stage 1 unlocks Vector Parry. It occupies the same Space input and recharge HUD slot as Phase Dash, reflects nearby projectiles caught in a forward arc, and can be equipped or declined at stage clear.
+- **Decision:** Clearing Stage 1 unlocks Vector Parry, Nova Burst, and a second weapon slot. Vector Parry occupies the same Space input and recharge HUD slot as Phase Dash and is selected in the hangar.
 - **Why:** A mechanical alternative is more memorable than a numeric reward and turns the boss's telegraph lesson into a tool for later stages.
 - **Adjust:** Ability execution lives in `scripts/entities/player.gd`; ownership and equip state live in `scripts/profile.gd`.
 
@@ -96,7 +96,7 @@ This file is the adjustable design contract for the game. Change a value in the 
 |---|---:|---:|
 | Player hull | 100 | Behavioral mutations; +12 permanent rank |
 | Player speed | 300 px/s | Behavioral mutations; +3.5% permanent rank |
-| Pulse cannon | 15 damage / 0.34 s | Behavioral mutations + 2.5% per mastery rank |
+| Pulse cannon | 15 damage / 0.34 s | Skill tree + 2.5% per native mastery rank |
 | Enemy durability | Type-specific | Multiplied by `1 + elapsed / 155` |
 | Spawn interval | 0.82 s | Divided by `1 + elapsed / 105`, floor 0.16 s |
 | Elite cadence | 60 s | Fixed |
@@ -106,8 +106,8 @@ This file is the adjustable design contract for the game. Change a value in the 
 ## Scope included in the first playable build
 
 - Focused title screen, separate permanent-upgrade hangar, discovery-gated Arsenal Library, and save reset.
-- Complete Stage 1 lifecycle: spawn, combat, continuous behavior sampling, automatic resonance mutations, elite, swarm evacuation, modular boss, defeat or stage clear, reward, retry.
-- Four weapons, use-based mastery, five permanent upgrades, combo multiplier, dash, pickups, damage feedback, particles, screen shake, and pause.
+- Complete Stage 1 lifecycle: spawn, combat, deterministic resonance evolution choices, elite, swarm evacuation, modular boss, defeat or stage clear, reward, retry.
+- Hangar weapon and active-skill loadouts, ranked Flux skill graph with free respec, native mastery, four weapons, five permanent augments, combo multiplier, pickups, feedback, and pause.
 - Mouse/keyboard and keyboard-only movement; gamepad support is a later decision.
 
 ## Deferred decisions

@@ -41,7 +41,22 @@ func _run() -> void:
 	await process_frame
 	assert(game.state == game.GameState.STAGE_CLEAR, "Defeating the Overseer should complete Stage 1")
 	assert(game.profile.is_discovered("vector_parry"), "Stage clear should decode Vector Parry")
+	assert(game.profile.is_discovered("nova"), "Stage clear should unlock Nova Burst")
+	assert(game.profile.unlocked_weapon_slots() == 2, "Stage clear should unlock a second weapon slot")
+	assert(game.profile.equip_weapon("nova"), "The new weapon should be equippable in the unlocked slot")
+	assert(game.profile.equipped_weapons() == ["pulse", "nova"], "Stage rewards should expand the loadout without replacing its first weapon")
+	game.show_menu()
 	game._on_ability_selected("vector_parry")
 	assert(game.profile.equipped_ability() == "vector_parry", "The reward should equip into the Space ability slot")
-	print("STAGE_ONE_OK evacuation, modular boss, stage clear, and reward selection validated")
+	game.start_run()
+	await process_frame
+	game.add_resonance(game.session.resonance_needed)
+	await process_frame
+	await process_frame
+	assert(game.ui.overlay.find_child("RunUpgrade_pulse_damage", true, false) != null, "Multi-weapon evolution should include Pulse choices")
+	assert(game.ui.overlay.find_child("RunUpgrade_nova_blast_radius", true, false) != null, "Multi-weapon evolution should include Nova choices")
+	game._on_run_upgrade_selected("nova", "blast_radius")
+	assert(game.session.weapon_upgrade_rank("nova", "blast_radius") == 1, "The player should choose which equipped weapon evolves")
+	assert(game.session.weapon_upgrade_rank("pulse", "damage") == 0, "Improving Nova should leave Pulse unchanged")
+	print("STAGE_ONE_OK evacuation, modular boss, stage clear, slot/weapon unlocks, and active-skill loadout validated")
 	quit(0)

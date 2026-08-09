@@ -92,7 +92,7 @@ func parry_projectiles(origin: Vector2, facing: Vector2) -> void:
 		tone_requested.emit(240.0, 0.05, 0.08, -120.0)
 
 
-func spawn_projectile(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int = 0, radius: float = 4.0) -> void:
+func spawn_projectile(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int = 0, radius: float = 4.0, distant_bonus: float = 0.0, knockback: float = 0.0) -> void:
 	var projectile: NeonProjectile = ProjectileScene.new()
 	projectile.friendly = friendly
 	projectile.weapon = weapon
@@ -100,6 +100,8 @@ func spawn_projectile(origin: Vector2, direction: Vector2, damage: float, speed:
 	projectile.velocity = direction.normalized() * speed
 	projectile.pierce = pierce
 	projectile.radius = radius
+	projectile.distant_damage_bonus = distant_bonus
+	projectile.knockback = knockback
 	projectile.color = GamePalette.CYAN if friendly else GamePalette.MAGENTA
 	projectile.global_position = origin
 	projectile.arena = arena.grow(100.0)

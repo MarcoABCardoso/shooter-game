@@ -3,6 +3,13 @@ extends RefCounted
 
 const ORDER: Array[String] = ["pulse", "orbit", "arc", "nova"]
 
+const NAMES := {
+	"pulse": "PULSE CANNON",
+	"orbit": "ORBIT BLADES",
+	"arc": "ARC LASH",
+	"nova": "NOVA BURST",
+}
+
 # Runtime weapon dictionaries are copied from here at the start of each run.
 # Systems consume named fields so tuning a weapon does not require scene edits.
 const DEFAULTS := {
@@ -13,5 +20,12 @@ const DEFAULTS := {
 }
 
 
-static func fresh_loadout() -> Dictionary:
-	return DEFAULTS.duplicate(true)
+static func fresh_loadout(equipped: Array[String] = ["pulse"]) -> Dictionary:
+	var loadout := DEFAULTS.duplicate(true)
+	for id: String in ORDER:
+		loadout[id]["level"] = 1 if equipped.has(id) else 0
+	return loadout
+
+
+static func display_name(id: String) -> String:
+	return String(NAMES.get(id, id.to_upper()))

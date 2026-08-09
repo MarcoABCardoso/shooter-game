@@ -12,10 +12,13 @@ var kills := 0
 var combo := 1.0
 var combo_timer := 0.0
 var pending_levels := 0
-var mastery := {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0}
-var behavior := BehaviorProfile.new()
-var evolutions: Dictionary = {}
-var last_evolution := ""
+var mastery := {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0, "dash": 0.0, "vector_parry": 0.0}
+var weapon_upgrades := {
+	"pulse": {"damage": 0, "fire_rate": 0, "projectile_speed": 0},
+	"orbit": {"damage": 0, "blade_count": 0, "orbit_speed": 0},
+	"arc": {"damage": 0, "fire_rate": 0, "chain_count": 0},
+	"nova": {"damage": 0, "fire_rate": 0, "blast_radius": 0},
+}
 
 
 func reset() -> void:
@@ -28,10 +31,13 @@ func reset() -> void:
 	combo = 1.0
 	combo_timer = 0.0
 	pending_levels = 0
-	mastery = {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0}
-	behavior.reset()
-	evolutions.clear()
-	last_evolution = ""
+	mastery = {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0, "dash": 0.0, "vector_parry": 0.0}
+	weapon_upgrades = {
+		"pulse": {"damage": 0, "fire_rate": 0, "projectile_speed": 0},
+		"orbit": {"damage": 0, "blade_count": 0, "orbit_speed": 0},
+		"arc": {"damage": 0, "fire_rate": 0, "chain_count": 0},
+		"nova": {"damage": 0, "fire_rate": 0, "blast_radius": 0},
+	}
 
 
 func tick(delta: float) -> void:
@@ -69,8 +75,21 @@ func record_damage(weapon: String, amount: float) -> void:
 		mastery[weapon] = float(mastery[weapon]) + amount * 0.12
 
 
-func register_evolution(id: String) -> int:
-	var rank := int(evolutions.get(id, 0)) + 1
-	evolutions[id] = rank
-	last_evolution = id
-	return rank
+func record_mastery(item: String, amount: float) -> void:
+	if amount > 0.0 and mastery.has(item):
+		mastery[item] = float(mastery[item]) + amount
+
+
+func weapon_upgrade_rank(weapon: String, dimension: String) -> int:
+	return int(weapon_upgrades.get(weapon, {}).get(dimension, 0))
+
+
+func can_upgrade_weapon(weapon: String, dimension: String) -> bool:
+	return weapon_upgrades.has(weapon) and weapon_upgrades[weapon].has(dimension) and weapon_upgrade_rank(weapon, dimension) < RunUpgradeCatalog.MAX_RANK
+
+
+func register_weapon_upgrade(weapon: String, dimension: String) -> bool:
+	if not can_upgrade_weapon(weapon, dimension):
+		return false
+	weapon_upgrades[weapon][dimension] = weapon_upgrade_rank(weapon, dimension) + 1
+	return true

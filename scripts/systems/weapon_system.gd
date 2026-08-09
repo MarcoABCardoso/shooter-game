@@ -1,7 +1,7 @@
 class_name WeaponSystem
 extends Node2D
 
-signal projectile_requested(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int, radius: float)
+signal projectile_requested(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int, radius: float, distant_bonus: float, knockback: float)
 signal damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int)
 signal burst_requested(world_position: Vector2, color: Color, size: float, spokes: int)
 signal shake_requested(amount: float)
@@ -22,22 +22,44 @@ func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: R
 	player = run_player
 	profile = save_profile
 	session = run_session
-	weapons = WeaponCatalog.fresh_loadout()
-	timers = {"pulse": 0.1, "arc": 0.0, "nova": 0.0}
+	weapons = WeaponCatalog.fresh_loadout(profile.equipped_weapons())
+	timers = {"pulse": 0.1, "arc": 0.1, "nova": 1.0}
 	orbit_hit_time.clear()
 	arc_visuals.clear()
 	nova_visual = 0.0
 	active = true
 
 
+func apply_run_upgrade(weapon: String, dimension: String) -> bool:
+	if not weapons.has(weapon) or int(weapons[weapon]["level"]) <= 0:
+		return false
+	if not session.can_upgrade_weapon(weapon, dimension):
+		return false
+	if not RunUpgradeCatalog.apply(weapon, dimension, weapons):
+		return false
+	session.register_weapon_upgrade(weapon, dimension)
+	return true
+
+
+func has_available_run_upgrade() -> bool:
+	for weapon: String in WeaponCatalog.ORDER:
+		if int(weapons[weapon]["level"]) <= 0:
+			continue
+		for dimension: String in RunUpgradeCatalog.choices_for(weapon):
+			if session.can_upgrade_weapon(weapon, dimension):
+				return true
+	return false
+
+
 func tick(delta: float) -> void:
 	_update_visuals(delta)
 	if not active or not is_instance_valid(player):
 		return
-	timers["pulse"] -= delta
-	if timers["pulse"] <= 0.0:
-		timers["pulse"] += float(weapons["pulse"]["interval"])
-		fire_pulse()
+	if int(weapons["pulse"]["level"]) > 0:
+		timers["pulse"] -= delta
+		if timers["pulse"] <= 0.0:
+			timers["pulse"] += float(weapons["pulse"]["interval"])
+			fire_pulse()
 	if int(weapons["orbit"]["level"]) > 0:
 		_update_orbits()
 	if int(weapons["arc"]["level"]) > 0:
@@ -53,19 +75,12 @@ func tick(delta: float) -> void:
 	queue_redraw()
 
 
-func on_evolution_applied() -> void:
-	if int(weapons["arc"]["level"]) > 0 and float(timers["arc"]) <= 0.0:
-		timers["arc"] = 0.2
-	if int(weapons["nova"]["level"]) > 0 and float(timers["nova"]) <= 0.0:
-		timers["nova"] = 1.0
-
-
 func fire_pulse() -> void:
 	var spec: Dictionary = weapons["pulse"]
 	var count := int(spec["count"])
 	for i in count:
 		var offset := (float(i) - float(count - 1) * 0.5) * 0.13
-		projectile_requested.emit(player.global_position + player.aim_direction * 24.0, player.aim_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), float(spec["projectile_speed"]), true, "pulse", int(spec["pierce"]), 4.0)
+		projectile_requested.emit(player.global_position + player.aim_direction * 24.0, player.aim_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), float(spec["projectile_speed"]), true, "pulse", int(spec["pierce"]), 4.0, profile.skill_effect("distant_damage"), profile.skill_effect("knockback"))
 	tone_requested.emit(520.0, 0.025, 0.06, 900.0)
 
 
@@ -81,7 +96,8 @@ func fire_arc() -> void:
 		hit.append(target.get_instance_id())
 		current = target.global_position
 		points.append(current)
-		var dealt := target.take_damage(_scaled_damage("arc", float(spec["damage"])) * pow(0.83, chain), "arc")
+		var dealt := target.take_damage(_scaled_damage("arc", float(spec["damage"]), target.global_position) * pow(0.83, chain), "arc")
+		target.apply_knockback(player.global_position, profile.skill_effect("knockback"))
 		damage_dealt.emit("arc", dealt, current, target.get_instance_id())
 	if points.size() > 1:
 		arc_visuals.append({"points": points, "life": 0.16})
@@ -95,7 +111,8 @@ func fire_nova() -> void:
 	var radius := float(spec["radius"])
 	for node: Node in get_tree().get_nodes_in_group("enemies"):
 		if node is NeonEnemy and is_instance_valid(node) and node.global_position.distance_to(player.global_position) <= radius + node.radius:
-			var dealt: float = node.take_damage(_scaled_damage("nova", float(spec["damage"])), "nova")
+			var dealt: float = node.take_damage(_scaled_damage("nova", float(spec["damage"]), node.global_position), "nova")
+			node.apply_knockback(player.global_position, profile.skill_effect("knockback"))
 			damage_dealt.emit("nova", dealt, node.global_position, node.get_instance_id())
 	for bullet: Node in get_tree().get_nodes_in_group("enemy_projectiles"):
 		if is_instance_valid(bullet) and bullet.global_position.distance_to(player.global_position) <= radius:
@@ -117,12 +134,19 @@ func _update_orbits() -> void:
 				var key := node.get_instance_id()
 				if session.elapsed >= float(orbit_hit_time.get(key, 0.0)):
 					orbit_hit_time[key] = session.elapsed + 0.34
-					var dealt: float = node.take_damage(_scaled_damage("orbit", float(spec["damage"])), "orbit")
+					var dealt: float = node.take_damage(_scaled_damage("orbit", float(spec["damage"]), node.global_position), "orbit")
+					node.apply_knockback(player.global_position, profile.skill_effect("knockback"))
 					damage_dealt.emit("orbit", dealt, blade_position, node.get_instance_id())
 
 
-func _scaled_damage(weapon: String, base: float) -> float:
-	return base * player.damage_multiplier * (1.0 + profile.mastery_bonus(weapon))
+func _scaled_damage(weapon: String, base: float, target_position := Vector2.INF) -> float:
+	var multiplier := player.damage_multiplier * (1.0 + profile.mastery_bonus(weapon))
+	multiplier *= 1.0 + profile.skill_effect(weapon + "_damage")
+	if player.stationary_time >= 2.0:
+		multiplier *= 1.0 + profile.skill_effect("stationary_damage")
+	if target_position != Vector2.INF and player.global_position.distance_to(target_position) >= 280.0:
+		multiplier *= 1.0 + profile.skill_effect("distant_damage")
+	return base * multiplier
 
 
 func _nearest_enemy(from: Vector2, max_distance: float, excluded: Array[int]) -> NeonEnemy:

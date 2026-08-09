@@ -13,9 +13,14 @@ var radius := 4.0
 var color := Color("45f3ff")
 var arena := Rect2(-100.0, -100.0, 1480.0, 920.0)
 var hit_ids: Dictionary = {}
+var launch_position := Vector2.ZERO
+var distant_damage_bonus := 0.0
+var distant_threshold := 280.0
+var knockback := 0.0
 
 
 func _ready() -> void:
+	launch_position = global_position
 	collision_layer = 4 if friendly else 8
 	collision_mask = 2 if friendly else 1
 	monitoring = true
@@ -42,8 +47,12 @@ func _on_body_entered(body: Node) -> void:
 		return
 	hit_ids[body.get_instance_id()] = true
 	if friendly and body is NeonEnemy:
-		var dealt: float = body.take_damage(damage, weapon)
+		var final_damage := damage
+		if launch_position.distance_to(global_position) >= distant_threshold:
+			final_damage *= 1.0 + distant_damage_bonus
+		var dealt: float = body.take_damage(final_damage, weapon)
 		if dealt > 0.0:
+			body.apply_knockback(launch_position, knockback)
 			damage_dealt.emit(weapon, dealt, global_position, body.get_instance_id())
 	elif not friendly and body is NeonPlayer:
 		body.take_damage(damage)
