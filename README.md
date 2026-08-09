@@ -53,6 +53,7 @@ godot --headless --path . --script res://tests/smoke.gd
 godot --headless --path . --script res://tests/catalog_validation.gd
 godot --headless --path . --script res://tests/run_upgrade_progression.gd
 godot --headless --path . --script res://tests/skill_tree_progression.gd
+godot --headless --path . --script res://tests/skill_tree_ui.gd
 godot --headless --path . --script res://tests/mastery_progression.gd
 godot --headless --path . --script res://tests/stage_one_encounter.gd
 godot --headless --path . --script res://tests/mobile_controls.gd
