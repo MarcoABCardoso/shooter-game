@@ -2,6 +2,7 @@ class_name GameUI
 extends CanvasLayer
 
 const MetaUpgradeData := preload("res://scripts/content/meta_upgrade_catalog.gd")
+const MobileControlsScript := preload("res://scripts/ui/mobile_controls.gd")
 
 signal deploy_requested
 signal new_game_requested
@@ -24,6 +25,10 @@ signal ability_selected(id: String)
 signal skill_purchase_requested(id: String)
 signal skills_respec_requested
 signal run_upgrade_requested(weapon: String, dimension: String)
+signal master_volume_changed(value: float)
+signal mobile_input_changed(movement: Vector2, aim: Vector2)
+signal mobile_ability_requested
+signal mobile_pause_requested
 
 var hud: Control
 var title_screen: Control
@@ -58,12 +63,17 @@ var skill_tree_view: SkillTreeView
 var banner_tween: Tween
 var save_slot_box: VBoxContainer
 var save_slot_title: Label
+var master_volume_slider: HSlider
+var master_volume_value_label: Label
 var cached_slot_summaries: Array[Dictionary] = []
 var creating_new_slot := false
+var mobile_controls
+var mobile_controls_available := false
 
 
 func _ready() -> void:
 	layer = 10
+	mobile_controls_available = MobileControlsScript.should_be_available()
 	_build_hud()
 	_build_title_screen()
 	_build_save_slot_screen()
@@ -98,6 +108,13 @@ func show_save_slots(create_new: bool, summaries: Array) -> void:
 func show_options() -> void:
 	_hide_all_screens()
 	options_screen.visible = true
+	master_volume_slider.grab_focus()
+
+
+func set_master_volume(value: float) -> void:
+	var percentage := roundf(clampf(value, 0.0, 1.0) * 100.0)
+	master_volume_slider.set_value_no_signal(percentage)
+	_update_master_volume_label(percentage)
 
 
 func show_menu(profile: SaveProfile) -> void:
@@ -134,11 +151,13 @@ func show_skill_tree(profile: SaveProfile) -> void:
 func show_run() -> void:
 	_hide_all_screens()
 	hud.visible = true
+	mobile_controls.set_controls_active(mobile_controls_available)
 
 
 func show_run_upgrade(session: RunSession, weapons: Dictionary) -> void:
 	_clear_overlay()
 	hud.visible = true
+	mobile_controls.set_controls_active(false)
 	overlay.visible = true
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -307,10 +326,12 @@ func show_stage_clear(session: RunSession, first_clear: bool) -> void:
 
 
 func show_pause() -> void:
+	mobile_controls.set_controls_active(false)
 	_show_message("PAUSED", "The swarm is suspended.", "RESUME", resume_requested.emit, "ABANDON RUN", abandon_requested.emit)
 
 
 func show_run_end(defeated: bool, session: RunSession) -> void:
+	mobile_controls.set_controls_active(false)
 	var title := "SIGNAL LOST" if defeated else "RUN ABANDONED"
 	var body := "%s survived  •  Level %d\n%d hostiles erased  •  %d Flux banked\n\nWeapon mastery recorded permanently." % [_format_time(session.elapsed), session.level, session.kills, session.flux]
 	_show_message(title, body, "RUN AGAIN", retry_requested.emit, "RETURN TO HANGAR", menu_requested.emit)
@@ -357,6 +378,13 @@ func _build_hud() -> void:
 	weapon_label = UIFactory.label("PULSE I", 12, Color(GamePalette.CYAN, 0.8)); weapon_label.position = Vector2(55, 82); hud.add_child(weapon_label)
 	evolution_label = UIFactory.label("HANGAR BUILD ACTIVE", 12, Color(GamePalette.GREEN, 0.78)); evolution_label.position = Vector2(55, 104); hud.add_child(evolution_label)
 	banner_label = UIFactory.label("", 21, GamePalette.CYAN); banner_label.position = Vector2(0, 215); banner_label.size = Vector2(1280, 34); banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; hud.add_child(banner_label)
+	mobile_controls = MobileControlsScript.new()
+	mobile_controls.name = "MobileControls"
+	mobile_controls.input_changed.connect(mobile_input_changed.emit)
+	mobile_controls.ability_requested.connect(mobile_ability_requested.emit)
+	mobile_controls.pause_requested.connect(mobile_pause_requested.emit)
+	hud.add_child(mobile_controls)
+	mobile_controls.set_controls_active(false)
 
 
 func _add_hud_caption(text: String, position: Vector2, color: Color) -> Label:
@@ -424,13 +452,41 @@ func _build_options_screen() -> void:
 	back.name = "OptionsBackButton"
 	back.pressed.connect(title_requested.emit)
 	panel.add_child(back)
-	_add_menu_label(panel, "CONTROLS", 15, Color(GamePalette.GREEN, 0.8), Vector2(44, 115))
-	var controls := UIFactory.panel(Vector2(40, 150), Vector2(700, 330), Color(GamePalette.GREEN, 0.2))
+	_add_menu_label(panel, "AUDIO", 15, Color(GamePalette.GREEN, 0.8), Vector2(44, 102))
+	var audio_panel := UIFactory.panel(Vector2(40, 132), Vector2(700, 92), Color(GamePalette.CYAN, 0.22))
+	panel.add_child(audio_panel)
+	var volume_caption := _add_menu_label(audio_panel, "MASTER VOLUME", 14, Color(GamePalette.CYAN, 0.72), Vector2(24, 30))
+	volume_caption.size = Vector2(175, 30)
+	master_volume_slider = HSlider.new()
+	master_volume_slider.name = "MasterVolumeSlider"
+	master_volume_slider.position = Vector2(205, 22)
+	master_volume_slider.size = Vector2(380, 42)
+	master_volume_slider.min_value = 0.0
+	master_volume_slider.max_value = 100.0
+	master_volume_slider.step = 1.0
+	master_volume_slider.value = 100.0
+	master_volume_slider.tooltip_text = "Adjusts music and sound effects"
+	master_volume_slider.value_changed.connect(_on_master_volume_changed)
+	audio_panel.add_child(master_volume_slider)
+	master_volume_value_label = _add_menu_label(audio_panel, "100%", 16, Color.WHITE, Vector2(595, 29))
+	master_volume_value_label.size = Vector2(80, 30)
+	master_volume_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_add_menu_label(panel, "CONTROLS", 15, Color(GamePalette.GREEN, 0.8), Vector2(44, 252))
+	var controls := UIFactory.panel(Vector2(40, 282), Vector2(700, 248), Color(GamePalette.GREEN, 0.2))
 	panel.add_child(controls)
-	_add_control_row(controls, "MOVE", "WASD / ARROW KEYS", 35)
-	_add_control_row(controls, "AIM", "MOUSE", 95)
-	_add_control_row(controls, "ABILITY", "SPACE", 155)
-	_add_control_row(controls, "PAUSE", "ESC / P", 215)
+	_add_control_row(controls, "MOVE", "WASD / ARROW KEYS", 27)
+	_add_control_row(controls, "AIM", "MOUSE", 82)
+	_add_control_row(controls, "ABILITY", "SPACE", 137)
+	_add_control_row(controls, "PAUSE", "ESC / P", 192)
+
+
+func _on_master_volume_changed(value: float) -> void:
+	_update_master_volume_label(value)
+	master_volume_changed.emit(value / 100.0)
+
+
+func _update_master_volume_label(value: float) -> void:
+	master_volume_value_label.text = "%d%%" % int(roundf(value))
 
 
 func _add_control_row(parent: Control, action: String, binding: String, y: float) -> void:
@@ -563,6 +619,8 @@ func _build_skill_tree_screen() -> void:
 
 
 func _hide_all_screens() -> void:
+	if is_instance_valid(mobile_controls):
+		mobile_controls.set_controls_active(false)
 	hud.visible = false
 	title_screen.visible = false
 	save_slot_screen.visible = false
@@ -689,6 +747,7 @@ func _rebuild_loadout(profile: SaveProfile) -> void:
 
 
 func _show_message(title_text: String, body_text: String, primary_text: String, primary_action: Callable, secondary_text: String, secondary_action: Callable) -> void:
+	mobile_controls.set_controls_active(false)
 	_clear_overlay()
 	overlay.visible = true
 	var shade := ColorRect.new(); shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); shade.color = Color(0.0, 0.01, 0.04, 0.82); overlay.add_child(shade)

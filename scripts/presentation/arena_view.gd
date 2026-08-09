@@ -4,6 +4,7 @@ extends Node2D
 var player: NeonPlayer
 var combat_visible := false
 var shake_strength := 0.0
+var pointer_aim_visible := true
 
 
 func _process(delta: float) -> void:
@@ -31,7 +32,7 @@ func _draw() -> void:
 		draw_line(Vector2(GameBalance.ARENA.position.x, y), Vector2(GameBalance.ARENA.end.x, y), Color(GamePalette.CYAN, 0.035), 1.0)
 	draw_rect(GameBalance.ARENA, Color(GamePalette.CYAN, 0.38), false, 2.0)
 	draw_rect(GameBalance.ARENA.grow(6.0), Color(GamePalette.CYAN, 0.06), false, 5.0)
-	if combat_visible and is_instance_valid(player):
+	if combat_visible and pointer_aim_visible and is_instance_valid(player):
 		var mouse := get_global_mouse_position()
 		draw_arc(mouse, 10.0, 0.0, TAU, 16, Color(GamePalette.CYAN, 0.65), 1.5)
 		draw_line(mouse - Vector2(15, 0), mouse - Vector2(6, 0), GamePalette.CYAN, 1.0)

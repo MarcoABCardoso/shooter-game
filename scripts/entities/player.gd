@@ -27,6 +27,10 @@ var ability_mode := "dash"
 var parry_flash := 0.0
 var ability_cooldown := 1.25
 var stationary_time := 0.0
+var mobile_controls_enabled := false
+var mobile_movement := Vector2.ZERO
+var mobile_aim := Vector2.ZERO
+var mobile_ability_queued := false
 
 
 func _ready() -> void:
@@ -63,12 +67,18 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		queue_redraw()
 		return
-	var input_vector := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var input_vector := mobile_movement if mobile_controls_enabled else Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	stationary_time = stationary_time + delta if input_vector.length() <= 0.1 and dash_duration <= 0.0 else 0.0
-	var mouse_delta := get_global_mouse_position() - global_position
-	if mouse_delta.length_squared() > 16.0:
-		aim_direction = mouse_delta.normalized()
-	if Input.is_action_just_pressed("dash") and dash_cooldown <= 0.0:
+	if mobile_controls_enabled:
+		if mobile_aim.length() > 0.1:
+			aim_direction = mobile_aim.normalized()
+	else:
+		var mouse_delta := get_global_mouse_position() - global_position
+		if mouse_delta.length_squared() > 16.0:
+			aim_direction = mouse_delta.normalized()
+	var ability_requested := Input.is_action_just_pressed("dash") or mobile_ability_queued
+	mobile_ability_queued = false
+	if ability_requested and dash_cooldown <= 0.0:
 		if ability_mode == "vector_parry":
 			dash_cooldown = ability_cooldown
 			parry_flash = 0.24
@@ -89,6 +99,30 @@ func _physics_process(delta: float) -> void:
 	global_position.x = clampf(global_position.x, arena.position.x, arena.end.x)
 	global_position.y = clampf(global_position.y, arena.position.y, arena.end.y)
 	queue_redraw()
+
+
+func set_mobile_controls_enabled(value: bool) -> void:
+	mobile_controls_enabled = value
+	if not value:
+		mobile_movement = Vector2.ZERO
+		mobile_aim = Vector2.ZERO
+		mobile_ability_queued = false
+
+
+func set_mobile_input(movement: Vector2, aim: Vector2) -> void:
+	mobile_movement = movement.limit_length(1.0)
+	mobile_aim = aim.limit_length(1.0)
+
+
+func clear_mobile_input() -> void:
+	mobile_movement = Vector2.ZERO
+	mobile_aim = Vector2.ZERO
+	mobile_ability_queued = false
+
+
+func request_mobile_ability() -> void:
+	if mobile_controls_enabled:
+		mobile_ability_queued = true
 
 
 func take_damage(amount: float) -> bool:

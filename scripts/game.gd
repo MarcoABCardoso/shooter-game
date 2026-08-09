@@ -89,6 +89,8 @@ func _connect_modules() -> void:
 	ui.new_game_requested.connect(_show_new_game_slots)
 	ui.load_game_requested.connect(_show_load_game_slots)
 	ui.options_requested.connect(ui.show_options)
+	ui.master_volume_changed.connect(audio.set_master_volume)
+	ui.set_master_volume(audio.master_volume)
 	ui.title_requested.connect(show_title)
 	ui.slot_selected.connect(_select_save_slot)
 	ui.deploy_requested.connect(start_run)
@@ -107,6 +109,9 @@ func _connect_modules() -> void:
 	ui.skill_purchase_requested.connect(_buy_skill)
 	ui.skills_respec_requested.connect(_respec_skills)
 	ui.run_upgrade_requested.connect(_on_run_upgrade_selected)
+	ui.mobile_input_changed.connect(_on_mobile_input_changed)
+	ui.mobile_ability_requested.connect(_on_mobile_ability_requested)
+	ui.mobile_pause_requested.connect(_on_mobile_pause_requested)
 
 
 func start_run() -> void:
@@ -130,18 +135,21 @@ func start_run() -> void:
 		"ability": profile.equipped_ability(),
 		"ability_mastery": profile.mastery_level(profile.equipped_ability()),
 	})
+	player.set_mobile_controls_enabled(ui.mobile_controls_available)
 	add_child(player)
 	combat_director.configure(player, profile, session)
 	weapon_system.configure(player, profile, session)
 	spawn_director.configure(session)
 	arena_view.player = player
 	arena_view.combat_visible = true
+	arena_view.pointer_aim_visible = not ui.mobile_controls_available
 	player.active = true
 	state = GameState.RUNNING
 	ui.show_run()
 	ui.set_ability(profile.equipped_ability())
 	ui.show_banner("SECTOR 01 // SIGNAL ACQUIRED", GamePalette.CYAN)
 	ui.update_hud(session, weapon_system.weapons)
+	audio.play_music(&"combat")
 	audio.tone(220.0, 0.18, 0.2, 600.0)
 
 
@@ -151,6 +159,7 @@ func show_menu() -> void:
 	_clear_run()
 	arena_view.combat_visible = false
 	ui.show_menu(profile)
+	audio.play_music(&"hangar")
 
 
 func show_title() -> void:
@@ -160,6 +169,7 @@ func show_title() -> void:
 	arena_view.combat_visible = false
 	profile = SaveProfile.new()
 	ui.show_title()
+	audio.play_music(&"title")
 
 
 func _show_new_game_slots() -> void:
@@ -228,13 +238,17 @@ func _end_run(defeated: bool) -> void:
 	_set_combat_active(false)
 	profile.bank_run(session.flux, session.elapsed, session.level, session.kills, session.mastery)
 	ui.show_run_end(defeated, session)
-	audio.tone(180.0, 0.4, 0.2, -120.0)
+	audio.stop_music()
+	if defeated:
+		audio.play_stinger(&"defeat")
 
 
 func _set_combat_active(value: bool) -> void:
 	_set_run_entities_paused(not value)
 	if is_instance_valid(player):
 		player.active = value
+		if not value:
+			player.clear_mobile_input()
 	weapon_system.active = value
 
 
@@ -261,7 +275,8 @@ func _complete_stage_one() -> void:
 	profile.bank_run(session.flux, session.elapsed, session.level, session.kills, session.mastery)
 	var first_clear := profile.clear_stage_one()
 	ui.show_stage_clear(session, first_clear)
-	audio.tone(330.0, 0.5, 0.22, 880.0)
+	audio.stop_music()
+	audio.play_stinger(&"clear")
 
 
 func _on_ability_selected(id: String) -> void:
@@ -319,6 +334,21 @@ func _on_run_upgrade_selected(weapon: String, dimension: String) -> void:
 		_open_next_run_upgrade()
 	else:
 		_resume_after_run_upgrade()
+
+
+func _on_mobile_input_changed(movement: Vector2, aim: Vector2) -> void:
+	if is_instance_valid(player):
+		player.set_mobile_input(movement, aim)
+
+
+func _on_mobile_ability_requested() -> void:
+	if state == GameState.RUNNING and is_instance_valid(player):
+		player.request_mobile_ability()
+
+
+func _on_mobile_pause_requested() -> void:
+	if state == GameState.RUNNING:
+		pause_game()
 
 
 func _resume_after_run_upgrade() -> void:

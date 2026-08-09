@@ -21,6 +21,9 @@ godot --path .
 - **Space:** equipped active skill
 - **Esc / P:** pause
 
+On phones and tablets, the run HUD adds two touch sticks for movement and aim,
+plus dedicated ability and pause buttons. Touch controls stay hidden on desktop.
+
 Weapons fire automatically. Each resonance level pauses combat for a deterministic weapon-evolution choice.
 
 ## Progression
@@ -52,4 +55,5 @@ godot --headless --path . --script res://tests/run_upgrade_progression.gd
 godot --headless --path . --script res://tests/skill_tree_progression.gd
 godot --headless --path . --script res://tests/mastery_progression.gd
 godot --headless --path . --script res://tests/stage_one_encounter.gd
+godot --headless --path . --script res://tests/mobile_controls.gd
 ```

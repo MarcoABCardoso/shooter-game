@@ -27,6 +27,7 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 | `systems/combat_director.gd` | Entity construction, collisions, drops, combat outcomes | Weapon cadence or UI |
 | `systems/weapon_system.gd` | Equipped weapon timers, targeting, damage, skill effects, and selected run mutations | Drops or choice presentation |
 | `ui/game_ui.gd` | Screens, HUD, loadout editor, skill graph, and Arsenal Library | Gameplay mutation; it emits intent signals |
+| `ui/mobile_controls.gd` | Mobile detection, multi-touch sticks, and touch action intent | Player or game-state mutation |
 | `presentation/arena_view.gd` | Arena, grid, crosshair, screen shake | Rules and entity lifecycle |
 | `profile.gd` | Versioned slots, migration, unlocks, loadouts, native mastery, and Flux transactions | Balance definitions |
 
@@ -78,3 +79,4 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 - `tests/skill_tree_progression.gd` validates ranks, prerequisites, Flux costs, effects, and lossless respec.
 - `tests/mastery_progression.gd` validates native weapon and active-skill mastery.
 - `tests/stage_one_encounter.gd` validates the boss, stage completion, weapon/slot unlocks, and Vector Parry.
+- `tests/mobile_controls.gd` validates simultaneous touch-stick input, the ability button, and safe input release.

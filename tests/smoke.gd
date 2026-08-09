@@ -20,6 +20,7 @@ func _run() -> void:
 	assert(game.ui.title_screen.find_child("OptionsButton", true, false) != null, "Title screen should offer Options")
 	game.ui.show_options()
 	assert(game.ui.options_screen.visible, "Options should open independently")
+	assert(game.ui.options_screen.find_child("MasterVolumeSlider", true, false) != null, "Options should expose master volume")
 	assert(_contains_label(game.ui.options_screen, "WASD / ARROW KEYS"), "Controls should live on the options screen")
 	game.ui.show_save_slots(true, [
 		{"slot": 1, "exists": false, "best_time": 0.0, "best_level": 1, "runs": 0, "flux": 0},
