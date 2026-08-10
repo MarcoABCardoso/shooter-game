@@ -4,13 +4,14 @@ extends CharacterBody2D
 signal died
 signal health_changed(current: float, maximum: float)
 signal dash_changed(ratio: float)
-signal parry_requested(world_position: Vector2, direction: Vector2)
+signal parry_requested(world_position: Vector2)
 signal active_skill_used(id: String, mastery_xp: float)
 
 const CYAN := Color("45f3ff")
 const WHITE := Color("eaffff")
 const VISUAL_UPDATE_INTERVAL := 1.0 / 30.0
 const HUD_SIGNAL_INTERVAL := 0.1
+const FACING_TURN_SPEED := 8.0
 
 var arena := Rect2(54.0, 76.0, 1172.0, 590.0)
 var active := false
@@ -19,7 +20,11 @@ var health := 100.0
 var speed := 300.0
 var damage_multiplier := 1.0
 var pickup_radius := 110.0
-var aim_direction := Vector2.RIGHT
+var facing_direction := Vector2.RIGHT
+var desired_facing_direction := Vector2.RIGHT
+var shield_capacity := 0
+var shield_charges := 0
+var shield_recharge_timer := 0.0
 var invulnerable := 0.0
 var dash_cooldown := 0.0
 var dash_duration := 0.0
@@ -31,7 +36,6 @@ var ability_cooldown := 1.25
 var stationary_time := 0.0
 var mobile_controls_enabled := false
 var mobile_movement := Vector2.ZERO
-var mobile_aim := Vector2.ZERO
 var mobile_ability_queued := false
 var visual_update_timer := 0.0
 var hud_signal_timer := 0.0
@@ -52,11 +56,15 @@ func _ready() -> void:
 func configure(meta_bonuses: Dictionary) -> void:
 	max_health = 100.0 + float(meta_bonuses.get("hull", 0.0))
 	health = max_health
-	speed = 300.0 * (1.0 + float(meta_bonuses.get("thrusters", 0.0)))
+	speed = 300.0
 	damage_multiplier = 1.0 + float(meta_bonuses.get("damage", 0.0))
-	pickup_radius = 110.0 + float(meta_bonuses.get("magnet", 0.0))
+	pickup_radius = 110.0
+	shield_capacity = int(meta_bonuses.get("shield", 0.0))
+	shield_charges = shield_capacity
+	shield_recharge_timer = 0.0
 	ability_mode = String(meta_bonuses.get("ability", "dash"))
-	ability_cooldown = 1.25 * (1.0 - minf(0.30, float(meta_bonuses.get("ability_mastery", 0.0)) * 0.015))
+	var cooldown_reduction := float(meta_bonuses.get("ability_mastery", 0.0)) * 0.015 + float(meta_bonuses.get("ability_cooldown", 0.0))
+	ability_cooldown = 1.25 * (1.0 - minf(0.55, cooldown_reduction))
 	health_changed.emit(health, max_health)
 
 
@@ -68,6 +76,11 @@ func _physics_process(delta: float) -> void:
 	dash_duration = maxf(0.0, dash_duration - delta)
 	hit_flash = maxf(0.0, hit_flash - delta)
 	parry_flash = maxf(0.0, parry_flash - delta)
+	if shield_charges < shield_capacity:
+		shield_recharge_timer = maxf(0.0, shield_recharge_timer - delta)
+		if shield_recharge_timer <= 0.0:
+			shield_charges += 1
+			shield_recharge_timer = 8.0 if shield_charges < shield_capacity else 0.0
 	if hud_signal_timer <= 0.0:
 		hud_signal_timer += HUD_SIGNAL_INTERVAL
 		dash_changed.emit(1.0 - dash_cooldown / ability_cooldown)
@@ -77,13 +90,10 @@ func _physics_process(delta: float) -> void:
 		return
 	var input_vector := mobile_movement if mobile_controls_enabled else Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	stationary_time = stationary_time + delta if input_vector.length() <= 0.1 and dash_duration <= 0.0 else 0.0
-	if mobile_controls_enabled:
-		if mobile_aim.length() > 0.1:
-			aim_direction = mobile_aim.normalized()
-	else:
-		var mouse_delta := get_global_mouse_position() - global_position
-		if mouse_delta.length_squared() > 16.0:
-			aim_direction = mouse_delta.normalized()
+	if input_vector.length() > 0.1:
+		desired_facing_direction = input_vector.normalized()
+	var turn_weight := 1.0 - exp(-FACING_TURN_SPEED * delta)
+	facing_direction = Vector2.from_angle(lerp_angle(facing_direction.angle(), desired_facing_direction.angle(), turn_weight))
 	var ability_requested := Input.is_action_just_pressed("dash") or mobile_ability_queued
 	mobile_ability_queued = false
 	if ability_requested and dash_cooldown <= 0.0:
@@ -91,7 +101,7 @@ func _physics_process(delta: float) -> void:
 			dash_cooldown = ability_cooldown
 			parry_flash = 0.24
 			invulnerable = maxf(invulnerable, 0.16)
-			parry_requested.emit(global_position, aim_direction)
+			parry_requested.emit(global_position)
 			active_skill_used.emit("vector_parry", 18.0)
 		elif input_vector != Vector2.ZERO:
 			dash_direction = input_vector.normalized()
@@ -120,18 +130,15 @@ func set_mobile_controls_enabled(value: bool) -> void:
 	mobile_controls_enabled = value
 	if not value:
 		mobile_movement = Vector2.ZERO
-		mobile_aim = Vector2.ZERO
 		mobile_ability_queued = false
 
 
-func set_mobile_input(movement: Vector2, aim: Vector2) -> void:
+func set_mobile_input(movement: Vector2) -> void:
 	mobile_movement = movement.limit_length(1.0)
-	mobile_aim = aim.limit_length(1.0)
 
 
 func clear_mobile_input() -> void:
 	mobile_movement = Vector2.ZERO
-	mobile_aim = Vector2.ZERO
 	mobile_ability_queued = false
 
 
@@ -143,6 +150,13 @@ func request_mobile_ability() -> void:
 func take_damage(amount: float) -> bool:
 	if not active or invulnerable > 0.0:
 		return false
+	shield_recharge_timer = 8.0
+	if shield_charges > 0:
+		shield_charges -= 1
+		invulnerable = 0.42
+		hit_flash = 0.18
+		queue_redraw()
+		return true
 	health = maxf(0.0, health - amount)
 	invulnerable = 0.42
 	hit_flash = 0.18
@@ -159,7 +173,7 @@ func heal(amount: float) -> void:
 
 
 func _draw() -> void:
-	var a := aim_direction.angle()
+	var a := facing_direction.angle()
 	var flicker := 0.35 + sin(Time.get_ticks_msec() * 0.018) * 0.1
 	draw_set_transform(Vector2.ZERO, a)
 	draw_circle(Vector2.ZERO, 24.0, Color(CYAN, 0.05))
@@ -170,7 +184,10 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0)
 	if invulnerable > 0.0:
 		draw_arc(Vector2.ZERO, 26.0, -PI * 0.8, PI * 0.8, 24, Color(CYAN, 0.55), 2.0)
+	if shield_charges > 0:
+		for charge in shield_charges:
+			var radius := 31.0 + charge * 5.0
+			draw_arc(Vector2.ZERO, radius, -PI * 0.82, PI * 0.82, 28, Color(GamePalette.GREEN, 0.72), 2.0)
 	if parry_flash > 0.0:
-		var shield_angle := aim_direction.angle()
-		draw_arc(Vector2.ZERO, 52.0 + parry_flash * 45.0, shield_angle - 0.82, shield_angle + 0.82, 24, Color.WHITE, 5.0)
-		draw_arc(Vector2.ZERO, 60.0, shield_angle - 0.72, shield_angle + 0.72, 20, Color(CYAN, parry_flash / 0.24), 2.0)
+		draw_arc(Vector2.ZERO, 52.0 + parry_flash * 45.0, 0.0, TAU, 48, Color.WHITE, 5.0)
+		draw_arc(Vector2.ZERO, 60.0, 0.0, TAU, 48, Color(CYAN, parry_flash / 0.24), 2.0)

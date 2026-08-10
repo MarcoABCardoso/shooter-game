@@ -33,17 +33,20 @@ func _run() -> void:
 	assert(game.ui.hangar_screen.visible, "Selecting a profile should open the hangar")
 	assert(not _contains_label(game.ui.hangar_screen, "NEON REQUIEM"), "Hangar should not repeat the game title")
 	assert(not _contains_label(game.ui.hangar_screen, "WASD / ARROWS"), "Hangar should not display controls")
-	assert(not game.ui.upgrade_screen.visible, "Upgrade screen should be separate from the start screen")
-	game.show_upgrades()
+	assert(game.ui.hangar_screen.find_child("UpgradesButton", true, false) == null, "The removed Augments feature must not remain in the hangar")
+	assert(game.ui.hangar_screen.find_child("ResetProfileButton", true, false) != null, "Profile reset should remain available after Augments removal")
+	game.ui.hangar_screen.find_child("DeployButton", true, false).emit_signal("pressed")
 	await process_frame
-	assert(game.ui.upgrade_screen.visible, "Upgrade screen should open independently")
-	assert(not game.ui.hangar_screen.visible, "Hangar should hide behind upgrades")
+	assert(game.ui.stage_select_screen.visible, "Deploy should lead through a dedicated stage-select screen")
+	var first_stage_button: Button = game.ui.stage_select_screen.find_child("StageSelect_stage_1", true, false)
+	assert(first_stage_button != null and first_stage_button.text == "STAGE 1", "The route should show Stage 1 as a minimal graph node")
+	assert(game.ui.stage_select_screen.find_child("StageSelect_stage_2", true, false) == null, "Locked stages should remain hidden from the route")
 	game.show_menu()
 	game.show_loadout()
 	await process_frame
 	assert(game.ui.loadout_screen.visible, "Loadout should open independently")
 	assert(game.ui.loadout_screen.find_child("LoadoutRow_pulse", true, false) != null, "Loadout should render weapon rows")
-	assert(game.profile.is_discovered("pulse") and game.profile.is_discovered("orbit") and game.profile.is_discovered("arc"), "Three weapons should be available initially")
+	assert(game.profile.is_discovered("pulse") and not game.profile.is_discovered("orbit") and not game.profile.is_discovered("arc") and not game.profile.is_discovered("nova"), "Only Pulse Cannon should be available initially")
 	assert(game.profile.equipped_weapons() == ["pulse"], "A new profile should begin with one Pulse slot")
 	game.show_menu()
 	game.show_skill_tree()
@@ -56,7 +59,7 @@ func _run() -> void:
 	assert(game.ui.overlay.visible, "Arsenal library should open from the hangar")
 	assert(game.ui.overlay.find_child("LibraryEntry_pulse", true, false) != null, "Library should render weapon entries")
 	assert(game.ui.overlay.find_child("LibraryEntry_dash", true, false) != null, "Library should render ability entries")
-	assert(game.ui.overlay.find_child("LibraryEntry_vector_parry", true, false) != null, "Library should render the Stage 1 reward")
+	assert(game.ui.overlay.find_child("LibraryEntry_vector_parry", true, false) != null, "Library should render the Stage 5 reward")
 	game.show_menu()
 	game.start_run()
 	await process_frame
@@ -64,6 +67,15 @@ func _run() -> void:
 	assert(is_instance_valid(game.player), "Player should spawn")
 	assert(game.player.health > 0.0, "Player should have hull")
 	assert(game.player.ability_mode == game.profile.equipped_ability(), "Deployment should use the equipped ability")
+	game.player.set_mobile_controls_enabled(true)
+	game.player.set_mobile_input(Vector2.UP)
+	game.player._physics_process(1.0 / 60.0)
+	assert(game.player.facing_direction.y < 0.0 and game.player.facing_direction.x > 0.0, "Movement should begin rotating the ship without snapping to the new direction")
+	for _turn_frame in 60:
+		game.player._physics_process(1.0 / 60.0)
+	assert(game.player.facing_direction.dot(Vector2.UP) > 0.99, "The ship should smoothly settle on its movement direction")
+	game.player.clear_mobile_input()
+	game.player.set_mobile_controls_enabled(false)
 	game.spawn_enemy("drone", false)
 	await physics_frame
 	assert(get_nodes_in_group("enemies").size() >= 1, "Director should spawn enemies")
@@ -72,9 +84,28 @@ func _run() -> void:
 	assert(game.combat_director.enemies.size() == get_nodes_in_group("enemies").size(), "Director enemy cache should match the scene tree")
 	assert(game.player.collision_mask == 8, "Player movement should only collide with hostile projectiles")
 	assert(spawned_enemy.collision_mask == 0, "Enemies should not physically pin the player")
+	spawned_enemy.global_position = game.player.global_position - Vector2(500.0, 0.0)
+	assert(not game.weapon_system.fire_pulse(), "Pulse Cannon should not acquire targets beyond its maximum range")
 	spawned_enemy.global_position = game.player.global_position - Vector2(100.0, 0.0)
+	var facing_before_fire: Vector2 = game.player.facing_direction
+	assert(game.weapon_system.fire_pulse(), "Pulse Cannon should fire when an enemy is available")
+	assert(game.player.facing_direction.is_equal_approx(facing_before_fire), "Automatic targeting must not rotate the player's ship")
 	await physics_frame
 	assert(spawned_enemy.facing_direction.dot(Vector2.RIGHT) > 0.99, "Enemies should face the player's center")
+	game.spawn_enemy("gunner", false)
+	await process_frame
+	var gunner: NeonEnemy = null
+	for enemy: NeonEnemy in game.combat_director.enemies:
+		if is_instance_valid(enemy) and enemy.kind == "gunner":
+			gunner = enemy
+			break
+	assert(gunner != null, "The test should spawn a gunner")
+	gunner.global_position = game.player.global_position + Vector2(100.0, 0.0)
+	var toward_player: Vector2 = (game.player.global_position - gunner.global_position).normalized()
+	gunner._physics_process(1.0 / 60.0)
+	assert(gunner.velocity.dot(toward_player) > 0.0, "Gunners should advance instead of retreating at close range")
+	gunner.queue_free()
+	await process_frame
 	game.pause_game()
 	assert(game.state == 2, "Pause should enter paused state")
 	assert(spawned_enemy.process_mode == Node.PROCESS_MODE_DISABLED, "Pause should freeze all run entities")

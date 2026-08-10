@@ -1,17 +1,22 @@
 class_name SpawnDirector
 extends Node
 
+const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
+
 signal spawn_requested(kind: String, elite: bool)
-signal boss_arrival_requested
+signal swarm_evacuation_requested
+signal stage_completed
 signal banner_requested(text: String, color: Color)
 signal shake_requested(amount: float)
 
-enum EncounterState { COMBAT, BOSS_INTRO, BOSS_ACTIVE }
+enum EncounterState { COMBAT, STAGE_OUTRO, BOSS_INTRO, BOSS_ACTIVE, COMPLETE }
 
 var session: RunSession
+var stage_id := "stage_1"
+var stage_spec: Dictionary = StageCatalog.definition("stage_1")
 var rng := RandomNumberGenerator.new()
 var spawn_timer := 0.0
-var next_elite := GameBalance.ELITE_INTERVAL
+var next_elite := INF
 var encounter_state := EncounterState.COMBAT
 var intro_timer := 0.0
 
@@ -20,10 +25,13 @@ func _ready() -> void:
 	rng.randomize()
 
 
-func configure(run_session: RunSession) -> void:
+func configure(run_session: RunSession, selected_stage: String) -> void:
 	session = run_session
+	stage_id = selected_stage if StageCatalog.ORDER.has(selected_stage) else "stage_1"
+	stage_spec = StageCatalog.definition(stage_id)
 	spawn_timer = 0.5
-	next_elite = GameBalance.ELITE_INTERVAL
+	var elite_interval := float(stage_spec["elite_interval"])
+	next_elite = elite_interval if elite_interval > 0.0 else INF
 	encounter_state = EncounterState.COMBAT
 	intro_timer = 0.0
 
@@ -31,28 +39,32 @@ func configure(run_session: RunSession) -> void:
 func tick(delta: float) -> void:
 	if session == null:
 		return
-	if encounter_state == EncounterState.BOSS_INTRO:
+	if encounter_state in [EncounterState.STAGE_OUTRO, EncounterState.BOSS_INTRO]:
 		intro_timer -= delta
 		if intro_timer <= 0.0:
-			encounter_state = EncounterState.BOSS_ACTIVE
-			spawn_requested.emit("boss", false)
-			banner_requested.emit("OVERSEER ARRAY // ENGAGED", GamePalette.MAGENTA)
+			if encounter_state == EncounterState.BOSS_INTRO:
+				encounter_state = EncounterState.BOSS_ACTIVE
+				spawn_requested.emit("boss", false)
+				banner_requested.emit("OVERSEER ARRAY // ENGAGED", GamePalette.MAGENTA)
+			else:
+				encounter_state = EncounterState.COMPLETE
+				stage_completed.emit()
 		return
-	if encounter_state == EncounterState.BOSS_ACTIVE:
+	if encounter_state in [EncounterState.BOSS_ACTIVE, EncounterState.COMPLETE]:
 		return
-	if session.elapsed >= GameBalance.STAGE_1_DURATION:
-		encounter_state = EncounterState.BOSS_INTRO
+	if session.elapsed >= float(stage_spec["duration"]):
+		encounter_state = EncounterState.BOSS_INTRO if bool(stage_spec["boss"]) else EncounterState.STAGE_OUTRO
 		intro_timer = GameBalance.BOSS_INTRO_DURATION
-		boss_arrival_requested.emit()
-		banner_requested.emit("WARNING // SIGNAL EVACUATION", GamePalette.MAGENTA)
+		swarm_evacuation_requested.emit()
+		banner_requested.emit("WARNING // OVERSEER ASSEMBLY" if bool(stage_spec["boss"]) else "SECTOR STABLE // HOSTILES EVACUATING", GamePalette.MAGENTA if bool(stage_spec["boss"]) else GamePalette.GREEN)
 		shake_requested.emit(8.0)
 		return
 	spawn_timer -= delta
 	if spawn_timer <= 0.0:
-		spawn_timer += GameBalance.spawn_interval(session.elapsed)
-		for i in GameBalance.spawn_count(session.elapsed):
-			spawn_requested.emit(EnemyCatalog.choose_standard(session.elapsed, rng.randf()), false)
+		spawn_timer += GameBalance.spawn_interval(stage_id, session.elapsed)
+		for i in GameBalance.spawn_count(stage_id, session.elapsed):
+			spawn_requested.emit(StageCatalog.choose_standard(stage_id, session.elapsed, rng.randf()), false)
 	if session.elapsed >= next_elite:
-		next_elite += GameBalance.ELITE_INTERVAL
-		spawn_requested.emit("tank" if session.elapsed > 100.0 else "gunner", true)
+		next_elite += float(stage_spec["elite_interval"])
+		spawn_requested.emit(StageCatalog.choose_elite(stage_id, session.elapsed), true)
 		banner_requested.emit("ELITE SIGNATURE", GamePalette.ORANGE)

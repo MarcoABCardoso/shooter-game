@@ -9,11 +9,20 @@ const NODE_SIGILS := {
 	"core_damage": "DMG",
 	"distant_power": "RNG",
 	"anchored_power": "STL",
-	"arc_overload": "ARC",
+	"pulse_acceleration": "VEL",
+	"salvage_protocol": "FLX",
 	"impact_vector": "KNO",
-	"orbit_overdrive": "ORB",
+	"surrounded_power": "CQC",
+	"projectile_matrix": "SIZ",
 	"reinforced_core": "HUL",
-	"nova_reactor": "NOV",
+	"arc_overload": "KN2",
+	"orbit_overdrive": "ORB",
+	"splash_payload": "SPL",
+	"reactive_shield": "SHD",
+	"nova_reactor": "DM2",
+	"siege_posture_2": "ST2",
+	"volatile_radius": "RAD",
+	"emergency_cycle": "CDR",
 }
 
 var profile: SaveProfile
@@ -32,9 +41,12 @@ func rebuild(save_profile: SaveProfile) -> void:
 	node_buttons.clear()
 	detail_layer = null
 	for id: String in SkillTreeCatalog.ORDER:
-		_build_node(id)
-	if not selected_id.is_empty() and SkillTreeCatalog.DEFINITIONS.has(selected_id):
+		if _node_visible(id):
+			_build_node(id)
+	if not selected_id.is_empty() and SkillTreeCatalog.DEFINITIONS.has(selected_id) and _node_visible(selected_id):
 		_build_detail_popup(selected_id)
+	else:
+		selected_id = ""
 	queue_redraw()
 
 
@@ -227,6 +239,19 @@ func _node_status(id: String) -> String:
 	return "LOCKED"
 
 
+func _node_visible(id: String) -> bool:
+	var definition := SkillTreeCatalog.definition(id)
+	var requirements: Dictionary = definition.get("requires", {})
+	for parent_id: String in requirements:
+		var parent := SkillTreeCatalog.definition(parent_id)
+		var parent_stage := String(parent.get("stage", ""))
+		if not parent_stage.is_empty() and not profile.stage_cleared(parent_stage):
+			return false
+		if not _node_visible(parent_id):
+			return false
+	return true
+
+
 func _node_color(id: String) -> Color:
 	var status := _node_status(id)
 	if status == "MAXED":
@@ -317,6 +342,7 @@ func _total_effect_text(id: String, rank: int) -> String:
 	var definition := SkillTreeCatalog.definition(id)
 	var value := float(definition.get("value", 0.0)) * rank
 	var effect := String(definition.get("effect", ""))
-	if effect == "knockback" or effect == "hull":
-		return "+%d %s" % [int(value), "KNOCKBACK" if effect == "knockback" else "MAXIMUM HULL"]
+	if effect in ["knockback", "hull", "shield"]:
+		var labels := {"knockback": "KNOCKBACK", "hull": "MAXIMUM HULL", "shield": "SHIELD CHARGES"}
+		return "+%d %s" % [int(value), String(labels[effect])]
 	return "+%d%% %s" % [int(roundf(value * 100.0)), effect.replace("_", " ").to_upper()]

@@ -20,6 +20,7 @@ const CONTACT_CHECK_INTERVAL := 1.0 / 30.0
 var player: NeonPlayer
 var profile: SaveProfile
 var session: RunSession
+var current_stage_id := "stage_1"
 var arena := GameBalance.ARENA
 var rng := RandomNumberGenerator.new()
 var enemies: Array[NeonEnemy] = []
@@ -30,10 +31,11 @@ func _ready() -> void:
 	rng.randomize()
 
 
-func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession) -> void:
+func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession, stage_id: String = "stage_1") -> void:
 	player = run_player
 	profile = save_profile
 	session = run_session
+	current_stage_id = stage_id
 	enemies.clear()
 	contact_check_timer = 0.0
 
@@ -60,7 +62,7 @@ func spawn_enemy(kind: String, elite: bool) -> void:
 	if enemies.size() >= GameBalance.MAX_ENEMIES or not is_instance_valid(player):
 		return
 	var enemy: NeonEnemy = EnemyScene.new()
-	enemy.configure(kind, GameBalance.enemy_difficulty(session.elapsed), elite)
+	enemy.configure(kind, GameBalance.enemy_difficulty(current_stage_id, session.elapsed), elite)
 	enemy.target = player
 	enemy.global_position = Vector2(arena.get_center().x, arena.position.y + 112.0) if kind == "boss" else _random_edge_position()
 	enemy.add_to_group("enemies")
@@ -74,7 +76,7 @@ func spawn_enemy(kind: String, elite: bool) -> void:
 	get_parent().add_child(enemy)
 
 
-func begin_boss_arrival() -> void:
+func begin_swarm_evacuation() -> void:
 	for enemy: NeonEnemy in enemies:
 		if is_instance_valid(enemy):
 			enemy.begin_disperse()
@@ -84,16 +86,16 @@ func begin_boss_arrival() -> void:
 	spawn_burst(arena.get_center(), GamePalette.MAGENTA, 150.0, 24)
 
 
-func parry_projectiles(origin: Vector2, facing: Vector2) -> void:
+func parry_projectiles(origin: Vector2) -> void:
 	var reflected := 0
 	for node: Node in get_tree().get_nodes_in_group("enemy_projectiles"):
 		if not (node is NeonProjectile) or not is_instance_valid(node):
 			continue
 		var offset: Vector2 = node.global_position - origin
-		if offset.length() > 105.0 or offset.normalized().dot(facing) < 0.18:
+		if offset.length() > 105.0:
 			continue
 		var target_enemy := _nearest_enemy_to(node.global_position)
-		var return_direction := facing
+		var return_direction := offset.normalized()
 		if target_enemy != null:
 			return_direction = (target_enemy.global_position - node.global_position).normalized()
 		node.reflect(return_direction)
@@ -106,7 +108,7 @@ func parry_projectiles(origin: Vector2, facing: Vector2) -> void:
 		tone_requested.emit(240.0, 0.05, 0.08, -120.0)
 
 
-func spawn_projectile(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int = 0, radius: float = 4.0, distant_bonus: float = 0.0, knockback: float = 0.0) -> void:
+func spawn_projectile(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int = 0, radius: float = 4.0, distant_bonus: float = 0.0, knockback: float = 0.0, max_range: float = INF, splash_damage: float = 0.0, splash_radius: float = 72.0) -> void:
 	var projectile: NeonProjectile = ProjectileScene.new()
 	projectile.friendly = friendly
 	projectile.weapon = weapon
@@ -116,6 +118,9 @@ func spawn_projectile(origin: Vector2, direction: Vector2, damage: float, speed:
 	projectile.radius = radius
 	projectile.distant_damage_bonus = distant_bonus
 	projectile.knockback = knockback
+	projectile.max_range = max_range
+	projectile.splash_damage_ratio = splash_damage
+	projectile.splash_radius = splash_radius
 	projectile.color = GamePalette.CYAN if friendly else GamePalette.MAGENTA
 	projectile.global_position = origin
 	projectile.arena = arena.grow(100.0)
@@ -172,7 +177,7 @@ func _on_boss_module_broken(world_position: Vector2, remaining: int) -> void:
 func _on_enemy_destroyed(_enemy: NeonEnemy, kind: String, flux: int, resonance: int, world_position: Vector2) -> void:
 	enemy_defeated.emit(kind)
 	resonance_gained.emit(resonance)
-	var fortune_bonus := profile.bonus("fortune")
+	var fortune_bonus := profile.skill_effect("fortune")
 	var awarded_flux := maxi(1, int(round(flux * session.combo * (1.0 + fortune_bonus))))
 	flux_gained.emit(awarded_flux)
 	if rng.randf() < 0.018 * (1.0 + fortune_bonus):

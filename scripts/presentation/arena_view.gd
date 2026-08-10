@@ -19,12 +19,8 @@ class ArenaBackground:
 		draw_rect(GameBalance.ARENA, Color(GamePalette.CYAN, 0.38), false, 2.0)
 		draw_rect(GameBalance.ARENA.grow(6.0), Color(GamePalette.CYAN, 0.06), false, 5.0)
 
-var player: NeonPlayer
-var combat_visible := false
 var shake_strength := 0.0
-var pointer_aim_visible := true
 var background: ArenaBackground
-var crosshair_was_visible := false
 
 
 func _ready() -> void:
@@ -39,21 +35,7 @@ func _process(delta: float) -> void:
 		background.position = Vector2(randf_range(-shake_strength, shake_strength), randf_range(-shake_strength, shake_strength))
 	else:
 		background.position = Vector2.ZERO
-	var crosshair_visible := combat_visible and pointer_aim_visible and is_instance_valid(player)
-	if crosshair_visible or crosshair_was_visible:
-		queue_redraw()
-	crosshair_was_visible = crosshair_visible
 
 
 func shake(amount: float) -> void:
 	shake_strength = maxf(shake_strength, amount)
-
-
-func _draw() -> void:
-	if combat_visible and pointer_aim_visible and is_instance_valid(player):
-		var mouse := get_global_mouse_position()
-		draw_arc(mouse, 10.0, 0.0, TAU, 16, Color(GamePalette.CYAN, 0.65), 1.5)
-		draw_line(mouse - Vector2(15, 0), mouse - Vector2(6, 0), GamePalette.CYAN, 1.0)
-		draw_line(mouse + Vector2(6, 0), mouse + Vector2(15, 0), GamePalette.CYAN, 1.0)
-		draw_line(mouse - Vector2(0, 15), mouse - Vector2(0, 6), GamePalette.CYAN, 1.0)
-		draw_line(mouse + Vector2(0, 6), mouse + Vector2(0, 15), GamePalette.CYAN, 1.0)

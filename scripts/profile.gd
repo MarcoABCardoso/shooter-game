@@ -5,11 +5,10 @@ const LEGACY_SAVE_PATH := "user://neon_requiem_save.json"
 const SAVE_PATH := LEGACY_SAVE_PATH
 const SAVE_SLOT_PATH := "user://neon_requiem_save_%d.json"
 const SLOT_COUNT := 3
-const SAVE_VERSION := 6
-const UPGRADE_MAX := 10
+const SAVE_VERSION := 9
 const MASTERY_MAX := 20
 const MASTERY_BONUS_PER_POINT := 0.025
-const MetaUpgradeData := preload("res://scripts/content/meta_upgrade_catalog.gd")
+const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
 const DEFAULT_DATA := {
 	"version": SAVE_VERSION,
 	"flux": 0,
@@ -17,25 +16,33 @@ const DEFAULT_DATA := {
 	"best_level": 1,
 	"total_kills": 0,
 	"runs": 0,
-	"stages_cleared": {"stage_1": false, "stage_2": false},
+	"stages_cleared": {
+		"stage_1": false,
+		"stage_2": false,
+		"stage_3": false,
+		"stage_4": false,
+		"stage_5": false,
+	},
 	"equipped_weapons": ["pulse"],
 	"equipped_ability": "dash",
-	"upgrades": {
-		"damage": 0,
-		"hull": 0,
-		"thrusters": 0,
-		"magnet": 0,
-		"fortune": 0,
-	},
 	"skill_ranks": {
 		"core_damage": 0,
 		"distant_power": 0,
 		"anchored_power": 0,
-		"arc_overload": 0,
+		"pulse_acceleration": 0,
+		"salvage_protocol": 0,
 		"impact_vector": 0,
-		"orbit_overdrive": 0,
+		"surrounded_power": 0,
+		"projectile_matrix": 0,
 		"reinforced_core": 0,
+		"arc_overload": 0,
+		"orbit_overdrive": 0,
+		"splash_payload": 0,
+		"reactive_shield": 0,
 		"nova_reactor": 0,
+		"siege_posture_2": 0,
+		"volatile_radius": 0,
+		"emergency_cycle": 0,
 	},
 	"mastery_xp": {
 		"pulse": 0.0,
@@ -47,8 +54,8 @@ const DEFAULT_DATA := {
 	},
 	"discovered": {
 		"pulse": true,
-		"orbit": true,
-		"arc": true,
+		"orbit": false,
+		"arc": false,
 		"nova": false,
 		"dash": true,
 		"vector_parry": false,
@@ -83,7 +90,10 @@ func load_slot(slot: int) -> bool:
 	if not parsed is Dictionary:
 		return false
 	var previous_version := int(parsed.get("version", 0))
+	var legacy_upgrades: Dictionary = parsed.get("upgrades", {}) if parsed.get("upgrades", {}) is Dictionary else {}
 	_merge_known(data, parsed)
+	if previous_version < 9:
+		data["flux"] = int(data["flux"]) + _legacy_augment_refund(legacy_upgrades)
 	data["version"] = SAVE_VERSION
 	_repair_profile(previous_version)
 	if previous_version < SAVE_VERSION or path == LEGACY_SAVE_PATH:
@@ -142,31 +152,6 @@ func reset() -> void:
 	save_profile()
 
 
-func upgrade_level(id: String) -> int:
-	return int(data["upgrades"].get(id, 0))
-
-
-func upgrade_cost(id: String) -> int:
-	return MetaUpgradeData.cost_for_rank(upgrade_level(id))
-
-
-func buy_upgrade(id: String) -> bool:
-	var level := upgrade_level(id)
-	if level >= UPGRADE_MAX:
-		return false
-	var cost := upgrade_cost(id)
-	if int(data["flux"]) < cost:
-		return false
-	data["flux"] = int(data["flux"]) - cost
-	data["upgrades"][id] = level + 1
-	save_profile()
-	return true
-
-
-func bonus(id: String) -> float:
-	return MetaUpgradeData.bonus(id, upgrade_level(id))
-
-
 func is_discovered(id: String) -> bool:
 	return bool(data["discovered"].get(id, false))
 
@@ -186,19 +171,30 @@ func stage_cleared(id: String) -> bool:
 	return bool(data["stages_cleared"].get(id, false))
 
 
-func clear_stage_one() -> bool:
-	var first_clear := not stage_cleared("stage_1")
-	data["stages_cleared"]["stage_1"] = true
-	data["discovered"]["vector_parry"] = true
-	data["discovered"]["nova"] = true
+func stage_unlocked(id: String) -> bool:
+	var index := StageCatalog.ORDER.find(id)
+	return index == 0 or (index > 0 and stage_cleared(StageCatalog.ORDER[index - 1]))
+
+
+func clear_stage(id: String) -> bool:
+	if not StageCatalog.ORDER.has(id):
+		return false
+	var first_clear := not stage_cleared(id)
+	data["stages_cleared"][id] = true
+	if id == "stage_1":
+		data["discovered"]["orbit"] = true
+	elif id == "stage_5":
+		data["discovered"]["vector_parry"] = true
 	save_profile()
 	return first_clear
 
 
+func clear_stage_one() -> bool:
+	return clear_stage("stage_1")
+
+
 func unlocked_weapon_slots() -> int:
-	if stage_cleared("stage_2"):
-		return 3
-	return 2 if stage_cleared("stage_1") else 1
+	return 2 if stage_cleared("stage_5") else 1
 
 
 func equipped_weapons() -> Array[String]:
@@ -349,14 +345,24 @@ func _merge_known(target: Dictionary, source: Dictionary) -> void:
 			target[key] = source[key]
 
 
+static func _legacy_augment_refund(upgrades: Dictionary) -> int:
+	var refund := 0
+	for id: String in ["damage", "hull", "thrusters", "magnet", "fortune"]:
+		var rank := clampi(int(upgrades.get(id, 0)), 0, 10)
+		for purchased_rank in rank:
+			refund += int(round(18.0 * pow(1.7, purchased_rank)))
+	return refund
+
+
 func _repair_profile(previous_version: int) -> void:
 	data["discovered"]["pulse"] = true
-	data["discovered"]["orbit"] = true
-	data["discovered"]["arc"] = true
 	data["discovered"]["dash"] = true
-	if stage_cleared("stage_1"):
-		data["discovered"]["nova"] = true
-		data["discovered"]["vector_parry"] = true
+	data["discovered"]["orbit"] = stage_cleared("stage_1")
+	data["discovered"]["arc"] = false
+	data["discovered"]["nova"] = false
+	data["discovered"]["vector_parry"] = stage_cleared("stage_5")
+	if not bool(data["discovered"]["vector_parry"]):
+		data["equipped_ability"] = "dash"
 	if previous_version < 6:
 		data["equipped_weapons"] = ["pulse"]
 	var repaired := equipped_weapons()

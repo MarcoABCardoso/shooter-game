@@ -22,13 +22,14 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 |---|---|---|
 | `scripts/game.gd` | Lifecycle, state transitions, dependency wiring | Balance data, drawing, widgets, combat algorithms |
 | `core/run_session.gd` | Time, signal level, Flux, kills, combo, and mastery earned during a run | Nodes or presentation |
-| `content/*.gd` | Enemy, weapon, deterministic run-upgrade, skill-tree, library, and permanent-augment definitions | Runtime state |
+| `content/*.gd` | Stage, enemy, weapon, deterministic run-upgrade, skill-tree, and library definitions | Runtime state |
 | `systems/spawn_director.gd` | Difficulty cadence and stage encounter states | Enemy construction |
 | `systems/combat_director.gd` | Entity construction, collisions, drops, combat outcomes | Weapon cadence or UI |
 | `systems/weapon_system.gd` | Equipped weapon timers, targeting, damage, skill effects, and selected run mutations | Drops or choice presentation |
 | `ui/game_ui.gd` | Screens, HUD, loadout editor, skill graph, and Arsenal Library | Gameplay mutation; it emits intent signals |
-| `ui/mobile_controls.gd` | Mobile detection, multi-touch sticks, and touch action intent | Player or game-state mutation |
-| `presentation/arena_view.gd` | Arena, grid, crosshair, screen shake | Rules and entity lifecycle |
+| `ui/stage_graph_view.gd` | Progressive vector-route rendering and unlocked stage nodes | Unlock policy or run lifecycle |
+| `ui/mobile_controls.gd` | Mobile detection, movement stick, and touch action intent | Player or game-state mutation |
+| `presentation/arena_view.gd` | Arena, grid, and screen shake | Rules and entity lifecycle |
 | `profile.gd` | Versioned slots, migration, unlocks, loadouts, native mastery, and Flux transactions | Balance definitions |
 
 ## Extension recipes
@@ -37,7 +38,13 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 
 1. Add its values to `content/enemy_catalog.gd`.
 2. Add isolated behavior to `entities/enemy.gd` only when it needs a new movement or attack family.
-3. Add its availability rule to `EnemyCatalog.choose_standard()` or request it from `SpawnDirector`.
+3. Add its stage availability rule to `StageCatalog.choose_standard()` or request it from `SpawnDirector`.
+
+### Add or tune a stage
+
+1. Add or edit its definition in `content/stage_catalog.gd`.
+2. Keep sequential unlock keys in `SaveProfile.DEFAULT_DATA.stages_cleared`.
+3. Extend catalog and encounter validation when adding a new lifecycle type.
 
 ### Add a skill-tree node
 
@@ -53,30 +60,25 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 3. Add mastery keys to `SaveProfile.DEFAULT_DATA` and `RunSession.mastery`, plus an unlock rule in the profile.
 4. Add its hangar and Library presentation.
 
-### Add a permanent augment
-
-1. Add a definition to `content/meta_upgrade_catalog.gd`.
-2. Add its rank key to `SaveProfile.DEFAULT_DATA.upgrades`.
-3. Consume its named bonus when configuring the relevant runtime system.
-
 ## Communication contracts
 
 - Directors request visual/audio feedback with signals.
 - `CombatDirector` reports kills, Flux, resonance score, repairs, and weapon damage; `game.gd` commits them to `RunSession`.
-- `SpawnDirector` emits the Stage 1 boss transition; `game.gd` owns stage completion and reward persistence.
+- `SpawnDirector` emits swarm evacuation, boss arrival, or non-boss completion from the selected stage definition; `game.gd` owns stage completion and reward persistence.
 - `GameUI` reports menu intent; `game.gd` validates state transitions and asks `SaveProfile` to transact.
 - Equipped weapons and the active skill are snapshotted when a run starts. Each resonance level pauses simulation and presents every uncapped dimension for every equipped weapon.
 - `RunUpgradeCatalog` owns deterministic per-weapon choices; `RunSession` owns their five-rank-per-dimension run state.
 - Damage and active-skill use accumulate native mastery, which is banked with the run.
-- Skill purchases and full refunds are profile transactions; combat only consumes named bonuses.
+- The skill tree is the sole permanent stat-growth system. Purchases and full refunds are profile transactions; combat only consumes named effects.
 - Manual pausing freezes the `run_entities` group while UI remains active.
 
 ## Tests
 
 - `tests/smoke.gd` validates title → hangar → loadout/skill tree → deterministic resonance choice → combat flow.
 - `tests/run_upgrade_progression.gd` validates per-weapon ownership, stacking, caps, and run reset.
-- `tests/catalog_validation.gd` validates enemies, loadouts, skill nodes, mastery keys, and save/catalog consistency.
+- `tests/catalog_validation.gd` validates the five-stage ladder, enemies, loadouts, skill nodes, mastery keys, and save/catalog consistency.
 - `tests/skill_tree_progression.gd` validates ranks, prerequisites, Flux costs, effects, and lossless respec.
+- `tests/skill_effect_runtime.gd` validates shield recharge and projectile skill-effect wiring.
 - `tests/mastery_progression.gd` validates native weapon and active-skill mastery.
-- `tests/stage_one_encounter.gd` validates the boss, stage completion, weapon/slot unlocks, and Vector Parry.
-- `tests/mobile_controls.gd` validates simultaneous touch-stick input, the ability button, and safe input release.
+- `tests/stage_one_encounter.gd` validates sequential stage unlocks, first-clear Flux, the Stage 1 Orbit reward, and the Stage 5 boss/slot/Vector Parry rewards.
+- `tests/mobile_controls.gd` validates movement-stick input, the ability button, and safe input release.

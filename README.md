@@ -17,28 +17,29 @@ godot --path .
 ## Controls
 
 - **WASD / arrow keys:** move
-- **Mouse:** aim directional weapons
 - **Space:** equipped active skill
 - **Esc / P:** pause
 
-On phones and tablets, the run HUD adds two touch sticks for movement and aim,
-plus dedicated ability and pause buttons. Touch controls stay hidden on desktop.
+Weapons automatically target enemies. On phones and tablets, the run HUD adds
+a movement stick plus dedicated ability and pause buttons. Touch controls stay
+hidden on desktop.
 
 Weapons fire automatically. Each resonance level pauses combat for a deterministic weapon-evolution choice.
 
 ## Progression
 
-- A new profile can choose Pulse Cannon, Orbit Blades, or Arc Lash, with one weapon slot available.
-- Clearing Stage 1 unlocks Nova Burst, a second weapon slot, and Vector Parry.
+- A new profile starts with Pulse Cannon and one weapon slot.
+- Clearing Stage 1 unlocks Orbit Blades. Defeating the Stage 5 Overseer unlocks Vector Parry and a second weapon slot.
+- Deploying opens a five-stage selection route. Each cleared stage unlocks the next.
+- Every stage awards a first-clear Flux bonus equal to the enemy Flux earned during that successful deployment.
 - Weapons and active skills earn their own permanent mastery. Mastery is intrinsic and cannot be reallocated.
 - Every resonance level shows all three upgrade dimensions for every equipped weapon. Choose the weapon and dimension; there are no random rolls.
 - Each weapon dimension can gain at most five ranks per run. Pulse improves damage, fire rate, or projectile speed; the other weapons expose similarly identity-specific paths.
-- The skill tree begins at Amplified Core and branches into distant, stationary, knockback, weapon-specific, and defensive bonuses.
-- Skill nodes use Flux, support multiple ranks, and may require parent ranks, stage clears, or item mastery.
+- The expanded skill tree begins at Amplified Core and branches into positional damage, projectile speed/size/splash, salvage, weapon-specific damage, shields, and active-skill recharge.
+- Skill nodes use Flux, support multiple ranks, and may require parent ranks, stage clears, or item mastery. A stage milestone remains visible while everything beyond it stays hidden until that stage is cleared.
 - **Respec All** refunds every Flux point spent on the tree.
-- Permanent Augments remain a separate, non-refundable progression track.
 
-Stage 1 culminates at 02:00. The swarm evacuates, the Overseer assembles from three connected attack modules, and regular spawning stops for a telegraph-driven duel.
+Stage 1 is a short, intentionally forgiving drone-only deployment designed to be cleared without permanent upgrades. Stage 2 introduces Strikers, Stage 3 introduces elites, Stage 4 adds Gunners, and Stage 5 adds Tanks before the Overseer assembles for a telegraph-driven duel.
 
 ## Design notes
 
@@ -54,6 +55,7 @@ godot --headless --path . --script res://tests/catalog_validation.gd
 godot --headless --path . --script res://tests/run_upgrade_progression.gd
 godot --headless --path . --script res://tests/skill_tree_progression.gd
 godot --headless --path . --script res://tests/skill_tree_ui.gd
+godot --headless --path . --script res://tests/skill_effect_runtime.gd
 godot --headless --path . --script res://tests/mastery_progression.gd
 godot --headless --path . --script res://tests/stage_one_encounter.gd
 godot --headless --path . --script res://tests/mobile_controls.gd

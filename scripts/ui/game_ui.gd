@@ -1,10 +1,12 @@
 class_name GameUI
 extends CanvasLayer
 
-const MetaUpgradeData := preload("res://scripts/content/meta_upgrade_catalog.gd")
 const MobileControlsScript := preload("res://scripts/ui/mobile_controls.gd")
+const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
+const StageGraphViewScript := preload("res://scripts/ui/stage_graph_view.gd")
 
 signal deploy_requested
+signal stage_selected(id: String)
 signal new_game_requested
 signal load_game_requested
 signal options_requested
@@ -15,9 +17,7 @@ signal abandon_requested
 signal retry_requested
 signal menu_requested
 signal reset_requested
-signal meta_upgrade_requested(id: String)
 signal library_requested
-signal upgrades_requested
 signal loadout_requested
 signal skills_requested
 signal weapon_selected(id: String)
@@ -26,7 +26,7 @@ signal skill_purchase_requested(id: String)
 signal skills_respec_requested
 signal run_upgrade_requested(weapon: String, dimension: String)
 signal master_volume_changed(value: float)
-signal mobile_input_changed(movement: Vector2, aim: Vector2)
+signal mobile_input_changed(movement: Vector2)
 signal mobile_ability_requested
 signal mobile_pause_requested
 
@@ -36,7 +36,7 @@ var save_slot_screen: Control
 var options_screen: Control
 var hangar_screen: Control
 var start_screen: Control
-var upgrade_screen: Control
+var stage_select_screen: Control
 var loadout_screen: Control
 var skill_tree_screen: Control
 var overlay: Control
@@ -54,8 +54,7 @@ var start_flux_label: Label
 var start_stats_label: Label
 var start_mastery_label: Label
 var hangar_slot_label: Label
-var upgrade_flux_label: Label
-var hangar_box: VBoxContainer
+var stage_graph_view
 var loadout_box: VBoxContainer
 var loadout_slots_label: Label
 var skill_flux_label: Label
@@ -79,7 +78,7 @@ func _ready() -> void:
 	_build_save_slot_screen()
 	_build_options_screen()
 	_build_hangar_screen()
-	_build_upgrade_screen()
+	_build_stage_select_screen()
 	_build_loadout_screen()
 	_build_skill_tree_screen()
 	overlay = Control.new()
@@ -142,11 +141,10 @@ func show_menu(profile: SaveProfile) -> void:
 	start_mastery_label.text = "%s\nACTIVE  %s  //  M%02d" % [" + ".join(equipped).to_upper(), profile.equipped_ability().replace("_", " ").to_upper(), profile.mastery_level(profile.equipped_ability())]
 
 
-func show_upgrades(profile: SaveProfile) -> void:
+func show_stage_select(profile: SaveProfile) -> void:
 	_hide_all_screens()
-	upgrade_screen.visible = true
-	upgrade_flux_label.text = "◆  %d FLUX" % int(profile.data["flux"])
-	_rebuild_hangar(profile)
+	stage_select_screen.visible = true
+	_rebuild_stage_select(profile)
 
 
 func show_loadout(profile: SaveProfile) -> void:
@@ -306,7 +304,7 @@ func _build_library_entry(parent: Control, id: String, profile: SaveProfile) -> 
 	card.add_child(body)
 
 
-func update_hud(session: RunSession, weapons: Dictionary) -> void:
+func update_hud(session: RunSession, weapons: Dictionary, stage_id: String = "stage_1") -> void:
 	time_label.text = _format_time(session.elapsed)
 	stats_label.text = "LEVEL %02d    ◆ %d    KILLS %d" % [session.level, session.flux, session.kills]
 	combo_label.text = "CHAIN x%.1f" % session.combo
@@ -318,7 +316,7 @@ func update_hud(session: RunSession, weapons: Dictionary) -> void:
 		if int(weapons[id]["level"]) > 0:
 			names.append(String(id).to_upper())
 	weapon_label.text = "  //  ".join(names)
-	evolution_label.text = "HANGAR BUILD ACTIVE  //  FLUX BANKS AT RUN END"
+	evolution_label.text = "%s  //  FLUX BANKS AT RUN END" % StageCatalog.display_name(stage_id)
 
 
 func set_health(current: float, maximum: float) -> void:
@@ -334,10 +332,17 @@ func set_ability(id: String) -> void:
 	ability_caption.text = "VECTOR PARRY" if id == "vector_parry" else "PHASE DASH"
 
 
-func show_stage_clear(session: RunSession, first_clear: bool) -> void:
-	var reward_line := "UNLOCKED // NOVA BURST + WEAPON SLOT + VECTOR PARRY" if first_clear else "STAGE REWARDS ALREADY SECURED"
-	var body := "Overseer Array erased  •  Level %d\n%d hostiles erased  •  %d Flux banked\n\n%s" % [session.level, session.kills, session.flux, reward_line]
-	_show_message("STAGE 1 CLEARED", body, "RETURN TO HANGAR", menu_requested.emit, "RUN AGAIN", retry_requested.emit)
+func show_stage_clear(stage_id: String, session: RunSession, first_clear: bool, first_clear_bonus: int) -> void:
+	var reward_line := "STAGE REWARDS ALREADY SECURED"
+	if first_clear:
+		reward_line = "FIRST CLEAR // +%d BONUS FLUX" % first_clear_bonus
+		if stage_id == "stage_1":
+			reward_line += "\nUNLOCKED // ORBIT BLADES"
+		elif stage_id == "stage_5":
+			reward_line += "\nUNLOCKED // SECOND WEAPON SLOT + VECTOR PARRY"
+	var total_banked := session.flux + first_clear_bonus
+	var body := "Deployment complete  •  Level %d\n%d hostiles erased  •  %d Flux banked\n\n%s" % [session.level, session.kills, total_banked, reward_line]
+	_show_message("%s CLEARED" % StageCatalog.display_name(stage_id), body, "RETURN TO HANGAR", menu_requested.emit, "RUN AGAIN", retry_requested.emit)
 
 
 func show_pause() -> void:
@@ -353,7 +358,7 @@ func show_run_end(defeated: bool, session: RunSession) -> void:
 
 
 func show_reset_confirmation() -> void:
-	_show_message("RESET PROFILE?", "This erases all Flux, mastery, records, and upgrades.\nThis action cannot be undone.", "CANCEL", upgrades_requested.emit, "ERASE EVERYTHING", reset_requested.emit)
+	_show_message("RESET PROFILE?", "This erases all Flux, mastery, records, and skill-tree progress.\nThis action cannot be undone.", "CANCEL", menu_requested.emit, "ERASE EVERYTHING", reset_requested.emit)
 
 
 func show_banner(text: String, color: Color) -> void:
@@ -494,7 +499,7 @@ func _build_options_screen() -> void:
 	var controls := UIFactory.panel(Vector2(40, 282), Vector2(700, 248), Color(GamePalette.GREEN, 0.2))
 	panel.add_child(controls)
 	_add_control_row(controls, "MOVE", "WASD / ARROW KEYS", 27)
-	_add_control_row(controls, "AIM", "MOUSE", 82)
+	_add_control_row(controls, "TARGET", "AUTOMATIC", 82)
 	_add_control_row(controls, "ABILITY", "SPACE", 137)
 	_add_control_row(controls, "PAUSE", "ESC / P", 192)
 
@@ -539,10 +544,10 @@ func _build_hangar_screen() -> void:
 	skills.name = "SkillTreeButton"
 	skills.pressed.connect(skills_requested.emit)
 	panel.add_child(skills)
-	var upgrades := UIFactory.button("AUGMENTS", Vector2(58, 366), Vector2(150, 54))
-	upgrades.name = "UpgradesButton"
-	upgrades.pressed.connect(upgrades_requested.emit)
-	panel.add_child(upgrades)
+	var reset := UIFactory.button("RESET PROFILE", Vector2(58, 366), Vector2(150, 54))
+	reset.name = "ResetProfileButton"
+	reset.pressed.connect(show_reset_confirmation)
+	panel.add_child(reset)
 	var library := UIFactory.button("LIBRARY", Vector2(218, 366), Vector2(150, 54))
 	library.name = "LibraryButton"
 	library.pressed.connect(library_requested.emit)
@@ -564,30 +569,28 @@ func _build_hangar_screen() -> void:
 	start_mastery_label.add_theme_constant_override("line_spacing", 10)
 
 
-func _build_upgrade_screen() -> void:
-	upgrade_screen = Control.new()
-	upgrade_screen.name = "UpgradeScreen"
-	upgrade_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(upgrade_screen)
-	var panel := UIFactory.panel(Vector2(160, 55), Vector2(960, 610), Color(GamePalette.GREEN, 0.3))
-	upgrade_screen.add_child(panel)
-	_add_menu_label(panel, "PERMANENT AUGMENTS", 30, GamePalette.CYAN, Vector2(44, 30))
-	_add_menu_label(panel, "HANGAR", 11, Color(GamePalette.CYAN, 0.55), Vector2(47, 72))
-	upgrade_flux_label = _add_menu_label(panel, "◆  0 FLUX", 20, GamePalette.YELLOW, Vector2(432, 39))
-	var back := UIFactory.button("RETURN", Vector2(756, 26), Vector2(160, 50))
-	back.name = "UpgradeReturnButton"
+func _build_stage_select_screen() -> void:
+	stage_select_screen = Control.new()
+	stage_select_screen.name = "StageSelectScreen"
+	stage_select_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(stage_select_screen)
+	var panel := UIFactory.panel(Vector2(120, 42), Vector2(1040, 636), Color(GamePalette.GREEN, 0.30))
+	stage_select_screen.add_child(panel)
+	_add_menu_label(panel, "VECTOR ROUTE", 32, GamePalette.CYAN, Vector2(38, 25))
+	var back := UIFactory.button("BACK", Vector2(850, 22), Vector2(150, 48))
+	back.name = "StageSelectBackButton"
 	back.pressed.connect(menu_requested.emit)
 	panel.add_child(back)
-	var divider := ColorRect.new()
-	divider.position = Vector2(44, 94)
-	divider.size = Vector2(872, 2)
-	divider.color = Color(GamePalette.GREEN, 0.16)
-	panel.add_child(divider)
-	hangar_box = VBoxContainer.new()
-	hangar_box.position = Vector2(44, 116)
-	hangar_box.size = Vector2(872, 455)
-	hangar_box.add_theme_constant_override("separation", 8)
-	panel.add_child(hangar_box)
+	stage_graph_view = StageGraphViewScript.new()
+	stage_graph_view.name = "StageGraph"
+	stage_graph_view.position = Vector2(55, 90)
+	stage_graph_view.size = Vector2(930, 510)
+	stage_graph_view.stage_selected.connect(stage_selected.emit)
+	panel.add_child(stage_graph_view)
+
+
+func _rebuild_stage_select(profile: SaveProfile) -> void:
+	stage_graph_view.rebuild(profile)
 
 
 func _build_loadout_screen() -> void:
@@ -645,7 +648,7 @@ func _hide_all_screens() -> void:
 	save_slot_screen.visible = false
 	options_screen.visible = false
 	hangar_screen.visible = false
-	upgrade_screen.visible = false
+	stage_select_screen.visible = false
 	loadout_screen.visible = false
 	skill_tree_screen.visible = false
 	overlay.visible = false
@@ -701,31 +704,6 @@ func _add_menu_label(parent: Control, text: String, size: int, color: Color, pos
 	return node
 
 
-func _rebuild_hangar(profile: SaveProfile) -> void:
-	for child: Node in hangar_box.get_children():
-		child.queue_free()
-	for definition: Dictionary in MetaUpgradeData.DEFINITIONS:
-		var id := String(definition["id"])
-		var level := profile.upgrade_level(id)
-		var row := HBoxContainer.new()
-		row.custom_minimum_size = Vector2(872, 62)
-		var description := UIFactory.label("%s  %02d/%02d\n%s" % [definition["name"], level, SaveProfile.UPGRADE_MAX, definition["description"]], 14, Color.WHITE)
-		description.custom_minimum_size = Vector2(680, 58)
-		row.add_child(description)
-		var buy := UIFactory.button("MAX" if level >= SaveProfile.UPGRADE_MAX else "◆ %d" % profile.upgrade_cost(id), Vector2.ZERO, Vector2(176, 48))
-		buy.custom_minimum_size = Vector2(176, 48)
-		buy.disabled = level >= SaveProfile.UPGRADE_MAX or int(profile.data["flux"]) < profile.upgrade_cost(id)
-		buy.pressed.connect(meta_upgrade_requested.emit.bind(id))
-		row.add_child(buy)
-		hangar_box.add_child(row)
-	var reset_button := Button.new()
-	reset_button.text = "RESET SAVE DATA"
-	reset_button.flat = true
-	reset_button.add_theme_color_override("font_color", Color(GamePalette.MAGENTA, 0.65))
-	reset_button.pressed.connect(show_reset_confirmation)
-	hangar_box.add_child(reset_button)
-
-
 func _rebuild_loadout(profile: SaveProfile) -> void:
 	for child: Node in loadout_box.get_children():
 		child.queue_free()
@@ -759,7 +737,7 @@ func _rebuild_loadout(profile: SaveProfile) -> void:
 		button.name = "AbilitySelect_" + ability
 		button.custom_minimum_size = Vector2(215, 50)
 		button.disabled = not unlocked or selected
-		button.text = "LOCKED // STAGE 1" if not unlocked else button.text + (" ✓" if selected else "")
+		button.text = "LOCKED // STAGE 5" if not unlocked else button.text + (" ✓" if selected else "")
 		button.pressed.connect(ability_selected.emit.bind(ability))
 		ability_row.add_child(button)
 	loadout_box.add_child(ability_row)

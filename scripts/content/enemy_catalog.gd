@@ -30,13 +30,3 @@ const DEFINITIONS := {
 static func stats(id: String) -> Dictionary:
 	assert(DEFINITIONS.has(id), "Unknown enemy id: %s" % id)
 	return DEFINITIONS[id].duplicate(true)
-
-
-static func choose_standard(elapsed: float, roll: float) -> String:
-	if elapsed > 80.0 and roll < 0.14:
-		return "tank"
-	if elapsed > 38.0 and roll < 0.36:
-		return "gunner"
-	if elapsed > 16.0 and roll < 0.58:
-		return "striker"
-	return "drone"

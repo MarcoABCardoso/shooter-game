@@ -16,6 +16,8 @@ func _validate_skill_tree_ui() -> void:
 
 	var graph: SkillTreeView = game.ui.skill_tree_view
 	assert(graph.get_node_or_null("SkillNode_core_damage") != null, "The root module should render")
+	assert(graph.get_node_or_null("SkillNode_impact_vector") != null, "A stage gate should remain visible as a progression milestone")
+	assert(graph.get_node_or_null("SkillNode_arc_overload") == null, "Nodes beyond an uncleared stage gate should stay hidden")
 	assert(graph.get_node_or_null("SkillDetailLayer") == null, "Details should stay hidden until a module is selected")
 	var root_module := graph.get_node("SkillNode_core_damage") as Button
 	assert(root_module.size.x <= 80.0 and root_module.size.y <= 80.0, "Graph modules should remain compact")
@@ -38,7 +40,7 @@ func _validate_skill_tree_ui() -> void:
 	assert(upgrade.text.contains("RANK 02"), "The open popup should refresh after a purchase")
 
 	graph._close_detail()
-	var locked_module := graph.get_node("SkillNode_arc_overload") as Button
+	var locked_module := graph.get_node("SkillNode_impact_vector") as Button
 	locked_module.pressed.emit()
 	await process_frame
 	popup = graph.get_node("SkillDetailLayer/SkillDetailPopup")

@@ -7,12 +7,14 @@ enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, STAGE_CLEAR, LEVEL_UP }
 
 const PlayerScene := preload("res://scripts/entities/player.gd")
 const AudioScene := preload("res://scripts/audio.gd")
+const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
 const HUD_UPDATE_INTERVAL := 0.1
 
 var state := GameState.MENU
 var profile := SaveProfile.new()
 var session := RunSession.new()
 var player: NeonPlayer
+var selected_stage := "stage_1"
 
 var audio: NeonAudio
 var arena_view: ArenaView
@@ -56,7 +58,7 @@ func _physics_process(delta: float) -> void:
 		hud_update_timer -= delta
 		if hud_update_timer <= 0.0:
 			hud_update_timer += HUD_UPDATE_INTERVAL
-			ui.update_hud(session, weapon_system.weapons)
+			ui.update_hud(session, weapon_system.weapons, selected_stage)
 
 
 func _build_modules() -> void:
@@ -77,7 +79,8 @@ func _build_modules() -> void:
 func _connect_modules() -> void:
 	session.level_gained.connect(_on_level_gained)
 	spawn_director.spawn_requested.connect(combat_director.spawn_enemy)
-	spawn_director.boss_arrival_requested.connect(combat_director.begin_boss_arrival)
+	spawn_director.swarm_evacuation_requested.connect(combat_director.begin_swarm_evacuation)
+	spawn_director.stage_completed.connect(_complete_stage)
 	spawn_director.banner_requested.connect(ui.show_banner)
 	spawn_director.shake_requested.connect(arena_view.shake)
 	weapon_system.projectile_requested.connect(combat_director.spawn_projectile)
@@ -101,15 +104,14 @@ func _connect_modules() -> void:
 	ui.set_master_volume(audio.master_volume)
 	ui.title_requested.connect(show_title)
 	ui.slot_selected.connect(_select_save_slot)
-	ui.deploy_requested.connect(start_run)
+	ui.deploy_requested.connect(show_stage_select)
+	ui.stage_selected.connect(_on_stage_selected)
 	ui.resume_requested.connect(resume_game)
 	ui.abandon_requested.connect(_abandon_run)
 	ui.retry_requested.connect(start_run)
 	ui.menu_requested.connect(show_menu)
 	ui.reset_requested.connect(_reset_profile)
-	ui.meta_upgrade_requested.connect(_buy_meta_upgrade)
 	ui.library_requested.connect(_show_library)
-	ui.upgrades_requested.connect(show_upgrades)
 	ui.loadout_requested.connect(show_loadout)
 	ui.skills_requested.connect(show_skill_tree)
 	ui.weapon_selected.connect(_on_weapon_selected)
@@ -123,6 +125,8 @@ func _connect_modules() -> void:
 
 
 func start_run() -> void:
+	if not profile.stage_unlocked(selected_stage):
+		selected_stage = "stage_1"
 	_set_run_entities_paused(false)
 	_clear_run()
 	session.reset()
@@ -136,28 +140,25 @@ func start_run() -> void:
 	player.parry_requested.connect(combat_director.parry_projectiles)
 	player.active_skill_used.connect(session.record_mastery)
 	player.configure({
-		"damage": profile.bonus("damage") + profile.skill_effect("general_damage"),
-		"hull": profile.bonus("hull") + profile.skill_effect("hull"),
-		"thrusters": profile.bonus("thrusters"),
-		"magnet": profile.bonus("magnet"),
+		"damage": profile.skill_effect("general_damage"),
+		"hull": profile.skill_effect("hull"),
+		"shield": profile.skill_effect("shield"),
+		"ability_cooldown": profile.skill_effect("ability_cooldown"),
 		"ability": profile.equipped_ability(),
 		"ability_mastery": profile.mastery_level(profile.equipped_ability()),
 	})
 	player.set_mobile_controls_enabled(ui.mobile_controls_available)
 	add_child(player)
-	combat_director.configure(player, profile, session)
+	combat_director.configure(player, profile, session, selected_stage)
 	weapon_system.configure(player, profile, session, combat_director.enemies)
-	spawn_director.configure(session)
-	arena_view.player = player
-	arena_view.combat_visible = true
-	arena_view.pointer_aim_visible = not ui.mobile_controls_available
+	spawn_director.configure(session, selected_stage)
 	player.active = true
 	state = GameState.RUNNING
 	ui.show_run()
 	ui.set_ability(profile.equipped_ability())
-	ui.show_banner("SECTOR 01 // SIGNAL ACQUIRED", GamePalette.CYAN)
+	ui.show_banner("%s // SIGNAL ACQUIRED" % StageCatalog.display_name(selected_stage), GamePalette.CYAN)
 	hud_update_timer = HUD_UPDATE_INTERVAL
-	ui.update_hud(session, weapon_system.weapons)
+	ui.update_hud(session, weapon_system.weapons, selected_stage)
 	audio.play_music(&"combat")
 	audio.tone(220.0, 0.18, 0.2, 600.0)
 
@@ -166,7 +167,6 @@ func show_menu() -> void:
 	_set_run_entities_paused(false)
 	state = GameState.MENU
 	_clear_run()
-	arena_view.combat_visible = false
 	ui.show_menu(profile)
 	audio.play_music(&"hangar")
 
@@ -175,7 +175,6 @@ func show_title() -> void:
 	_set_run_entities_paused(false)
 	state = GameState.MENU
 	_clear_run()
-	arena_view.combat_visible = false
 	profile = SaveProfile.new()
 	ui.show_title()
 	audio.play_music(&"title")
@@ -203,11 +202,6 @@ func _select_save_slot(slot: int, create_new: bool) -> void:
 	show_menu()
 
 
-func show_upgrades() -> void:
-	if state == GameState.MENU:
-		ui.show_upgrades(profile)
-
-
 func show_loadout() -> void:
 	if state == GameState.MENU:
 		ui.show_loadout(profile)
@@ -216,6 +210,18 @@ func show_loadout() -> void:
 func show_skill_tree() -> void:
 	if state == GameState.MENU:
 		ui.show_skill_tree(profile)
+
+
+func show_stage_select() -> void:
+	if state == GameState.MENU:
+		ui.show_stage_select(profile)
+
+
+func _on_stage_selected(id: String) -> void:
+	if state != GameState.MENU or not profile.stage_unlocked(id):
+		return
+	selected_stage = id
+	start_run()
 
 
 func pause_game() -> void:
@@ -272,18 +278,19 @@ func _on_enemy_defeated(_kind: String) -> void:
 
 
 func _on_boss_defeated() -> void:
-	call_deferred("_complete_stage_one")
+	call_deferred("_complete_stage")
 
 
-func _complete_stage_one() -> void:
+func _complete_stage() -> void:
 	if state not in [GameState.RUNNING, GameState.LEVEL_UP]:
 		return
 	session.pending_levels = 0
 	state = GameState.STAGE_CLEAR
 	_set_combat_active(false)
-	profile.bank_run(session.flux, session.elapsed, session.level, session.kills, session.mastery)
-	var first_clear := profile.clear_stage_one()
-	ui.show_stage_clear(session, first_clear)
+	var first_clear := profile.clear_stage(selected_stage)
+	var first_clear_bonus := session.flux if first_clear else 0
+	profile.bank_run(session.flux + first_clear_bonus, session.elapsed, session.level, session.kills, session.mastery)
+	ui.show_stage_clear(selected_stage, session, first_clear, first_clear_bonus)
 	audio.stop_music()
 	audio.play_stinger(&"clear")
 
@@ -345,9 +352,9 @@ func _on_run_upgrade_selected(weapon: String, dimension: String) -> void:
 		_resume_after_run_upgrade()
 
 
-func _on_mobile_input_changed(movement: Vector2, aim: Vector2) -> void:
+func _on_mobile_input_changed(movement: Vector2) -> void:
 	if is_instance_valid(player):
-		player.set_mobile_input(movement, aim)
+		player.set_mobile_input(movement)
 
 
 func _on_mobile_ability_requested() -> void:
@@ -365,12 +372,6 @@ func _resume_after_run_upgrade() -> void:
 	_set_combat_active(true)
 	ui.show_run()
 	ui.show_banner("SIGNAL LEVEL %02d // BUILD UPDATED" % session.level, GamePalette.GREEN)
-
-
-func _buy_meta_upgrade(id: String) -> void:
-	if profile.buy_upgrade(id):
-		audio.tone(420.0, 0.1, 0.15, 500.0)
-		ui.show_upgrades(profile)
 
 
 func _on_weapon_selected(id: String) -> void:
@@ -418,4 +419,3 @@ func _clear_run() -> void:
 		if is_instance_valid(node):
 			node.queue_free()
 	player = null
-	arena_view.player = null

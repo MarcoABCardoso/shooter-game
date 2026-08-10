@@ -1,7 +1,7 @@
 class_name WeaponSystem
 extends Node2D
 
-signal projectile_requested(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int, radius: float, distant_bonus: float, knockback: float)
+signal projectile_requested(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int, radius: float, distant_bonus: float, knockback: float, max_range: float, splash_damage: float, splash_radius: float)
 signal damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int)
 signal burst_requested(world_position: Vector2, color: Color, size: float, spokes: int)
 signal shake_requested(amount: float)
@@ -68,8 +68,10 @@ func tick(delta: float) -> void:
 	if int(weapons["pulse"]["level"]) > 0:
 		timers["pulse"] -= delta
 		if timers["pulse"] <= 0.0:
-			timers["pulse"] += float(weapons["pulse"]["interval"])
-			fire_pulse()
+			if fire_pulse():
+				timers["pulse"] += float(weapons["pulse"]["interval"])
+			else:
+				timers["pulse"] = 0.0
 	if int(weapons["orbit"]["level"]) > 0:
 		orbit_check_timer -= delta
 		if orbit_check_timer <= 0.0:
@@ -91,13 +93,22 @@ func tick(delta: float) -> void:
 		queue_redraw()
 
 
-func fire_pulse() -> void:
+func fire_pulse() -> bool:
 	var spec: Dictionary = weapons["pulse"]
+	var target := _nearest_enemy(player.global_position, float(spec["range"]), [])
+	if target == null:
+		return false
+	var fire_direction := _direction_to(target)
 	var count := int(spec["count"])
+	var projectile_speed := float(spec["projectile_speed"]) * (1.0 + profile.skill_effect("projectile_speed"))
+	var projectile_radius := 4.0 * (1.0 + profile.skill_effect("projectile_size"))
+	var splash_damage := profile.skill_effect("splash_damage")
+	var splash_radius := 72.0 * (1.0 + profile.skill_effect("splash_radius"))
 	for i in count:
 		var offset := (float(i) - float(count - 1) * 0.5) * 0.13
-		projectile_requested.emit(player.global_position + player.aim_direction * 24.0, player.aim_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), float(spec["projectile_speed"]), true, "pulse", int(spec["pierce"]), 4.0, profile.skill_effect("distant_damage"), profile.skill_effect("knockback"))
+		projectile_requested.emit(player.global_position + fire_direction * 24.0, fire_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), projectile_speed, true, "pulse", int(spec["pierce"]), projectile_radius, profile.skill_effect("distant_damage"), profile.skill_effect("knockback"), float(spec["range"]), splash_damage, splash_radius)
 	tone_requested.emit(520.0, 0.025, 0.06, 900.0)
+	return true
 
 
 func fire_arc() -> void:
@@ -167,6 +178,8 @@ func _scaled_damage(weapon: String, base: float, target_position := Vector2.INF)
 	multiplier *= 1.0 + profile.skill_effect(weapon + "_damage")
 	if player.stationary_time >= 2.0:
 		multiplier *= 1.0 + profile.skill_effect("stationary_damage")
+	if _nearby_enemy_count(player.global_position, 220.0) >= 3:
+		multiplier *= 1.0 + profile.skill_effect("surrounded_damage")
 	if target_position != Vector2.INF and player.global_position.distance_squared_to(target_position) >= 280.0 * 280.0:
 		multiplier *= 1.0 + profile.skill_effect("distant_damage")
 	return base * multiplier
@@ -182,6 +195,20 @@ func _nearest_enemy(from: Vector2, max_distance: float, excluded: Array[int]) ->
 				best_distance_squared = distance_squared
 				best = enemy
 	return best
+
+
+func _nearby_enemy_count(from: Vector2, radius: float) -> int:
+	var count := 0
+	var radius_squared := radius * radius
+	for enemy: NeonEnemy in enemies:
+		if is_instance_valid(enemy) and enemy.active and from.distance_squared_to(enemy.global_position) <= radius_squared:
+			count += 1
+	return count
+
+
+func _direction_to(target: NeonEnemy) -> Vector2:
+	var offset := target.global_position - player.global_position
+	return player.facing_direction if offset.length_squared() <= 0.001 else offset.normalized()
 
 
 func _update_visuals(delta: float) -> void:

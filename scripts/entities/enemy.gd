@@ -105,8 +105,7 @@ func _physics_process(delta: float) -> void:
 		facing_angle = direction.angle()
 	match kind:
 		"gunner":
-			var desired := direction if offset.length_squared() > 270.0 * 270.0 else -direction
-			velocity = (desired + direction.rotated(PI * 0.5) * sin(phase * 1.7) * 0.45).normalized() * speed
+			velocity = (direction + direction.rotated(PI * 0.5) * sin(phase * 1.7) * 0.45).normalized() * speed
 		"boss":
 			_update_boss(delta, direction)
 		_:
@@ -251,7 +250,6 @@ func _draw() -> void:
 			draw_rect(Rect2(-radius * 0.42, -radius * 0.42, radius * 0.84, radius * 0.84), Color(c, 0.22), true)
 		"boss":
 			_draw_boss(c)
-	draw_circle(Vector2(radius * 0.72, 0.0), maxf(2.0, radius * 0.16), Color.WHITE)
 	if elite:
 		draw_arc(Vector2.ZERO, radius + 5.0, phase, phase + PI * 1.5, 20, Color(ORANGE, 0.8), 2.0)
 	draw_set_transform(Vector2.ZERO, 0.0)
