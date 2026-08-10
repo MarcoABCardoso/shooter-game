@@ -6,6 +6,7 @@ const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
 signal spawn_requested(kind: String, elite: bool)
 signal swarm_evacuation_requested
 signal stage_completed
+signal boss_started
 signal banner_requested(text: String, color: Color)
 signal shake_requested(amount: float)
 
@@ -44,6 +45,7 @@ func tick(delta: float) -> void:
 		if intro_timer <= 0.0:
 			if encounter_state == EncounterState.BOSS_INTRO:
 				encounter_state = EncounterState.BOSS_ACTIVE
+				boss_started.emit()
 				spawn_requested.emit("boss", false)
 				banner_requested.emit("OVERSEER ARRAY // ENGAGED", GamePalette.MAGENTA)
 			else:

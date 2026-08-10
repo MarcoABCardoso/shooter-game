@@ -3,7 +3,7 @@ extends Node2D
 # Composition root: owns lifecycle and wires independent systems together.
 # Gameplay rules, content, rendering, and widgets live in their own modules.
 
-enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, STAGE_CLEAR, LEVEL_UP }
+enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, STAGE_CLEAR, LEVEL_UP, CREDITS }
 
 const PlayerScene := preload("res://scripts/entities/player.gd")
 const AudioScene := preload("res://scripts/audio.gd")
@@ -81,6 +81,7 @@ func _connect_modules() -> void:
 	spawn_director.spawn_requested.connect(combat_director.spawn_enemy)
 	spawn_director.swarm_evacuation_requested.connect(combat_director.begin_swarm_evacuation)
 	spawn_director.stage_completed.connect(_complete_stage)
+	spawn_director.boss_started.connect(_on_boss_started)
 	spawn_director.banner_requested.connect(ui.show_banner)
 	spawn_director.shake_requested.connect(arena_view.shake)
 	weapon_system.projectile_requested.connect(combat_director.spawn_projectile)
@@ -114,6 +115,8 @@ func _connect_modules() -> void:
 	ui.library_requested.connect(_show_library)
 	ui.loadout_requested.connect(show_loadout)
 	ui.skills_requested.connect(show_skill_tree)
+	ui.credits_requested.connect(show_credits)
+	ui.credits_finished.connect(_on_credits_finished)
 	ui.weapon_selected.connect(_on_weapon_selected)
 	ui.ability_selected.connect(_on_ability_selected)
 	ui.skill_purchase_requested.connect(_buy_skill)
@@ -159,7 +162,7 @@ func start_run() -> void:
 	ui.show_banner("%s // SIGNAL ACQUIRED" % StageCatalog.display_name(selected_stage), GamePalette.CYAN)
 	hud_update_timer = HUD_UPDATE_INTERVAL
 	ui.update_hud(session, weapon_system.weapons, selected_stage)
-	audio.play_music(&"combat")
+	audio.play_music(&"stage_5" if selected_stage == "stage_5" else &"combat")
 	audio.tone(220.0, 0.18, 0.2, 600.0)
 
 
@@ -178,6 +181,21 @@ func show_title() -> void:
 	profile = SaveProfile.new()
 	ui.show_title()
 	audio.play_music(&"title")
+
+
+func show_credits() -> void:
+	if state != GameState.MENU and state != GameState.STAGE_CLEAR:
+		return
+	_set_run_entities_paused(false)
+	state = GameState.CREDITS
+	_clear_run()
+	ui.show_credits()
+	audio.play_music(&"credits")
+
+
+func _on_credits_finished() -> void:
+	if state == GameState.CREDITS:
+		show_menu()
 
 
 func _show_new_game_slots() -> void:
@@ -281,6 +299,11 @@ func _on_boss_defeated() -> void:
 	call_deferred("_complete_stage")
 
 
+func _on_boss_started() -> void:
+	if state == GameState.RUNNING and selected_stage == "stage_5":
+		audio.play_music(&"boss")
+
+
 func _complete_stage() -> void:
 	if state not in [GameState.RUNNING, GameState.LEVEL_UP]:
 		return
@@ -290,6 +313,9 @@ func _complete_stage() -> void:
 	var first_clear := profile.clear_stage(selected_stage)
 	var first_clear_bonus := session.flux if first_clear else 0
 	profile.bank_run(session.flux + first_clear_bonus, session.elapsed, session.level, session.kills, session.mastery)
+	if selected_stage == "stage_5":
+		show_credits()
+		return
 	ui.show_stage_clear(selected_stage, session, first_clear, first_clear_bonus)
 	audio.stop_music()
 	audio.play_stinger(&"clear")

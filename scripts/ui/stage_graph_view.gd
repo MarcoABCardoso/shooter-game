@@ -98,6 +98,10 @@ func _draw() -> void:
 		var to_id := String(edge[1])
 		if not unlocked.has(from_id) or not unlocked.has(to_id):
 			continue
+		# Once the final signal is available, its icon-shaped triangle becomes
+		# the route marker instead of a cable passing through the node.
+		if unlocked.has("stage_5") and (from_id == "stage_5" or to_id == "stage_5"):
+			continue
 		var from := _node_center(from_id)
 		var to := _node_center(to_id)
 		var complete := cleared.has(from_id) and cleared.has(to_id)
@@ -105,6 +109,8 @@ func _draw() -> void:
 		draw_line(from, to, Color(color, 0.08), 13.0, true)
 		draw_line(from, to, Color(color, 0.62), 2.5, true)
 		_draw_edge_ticks(from, to, color)
+	if unlocked.has("stage_5"):
+		_draw_stage_five_marker()
 	for id: String in unlocked:
 		_draw_stage_node(id)
 
@@ -124,6 +130,20 @@ func _draw_edge_ticks(from: Vector2, to: Vector2, color: Color) -> void:
 	for ratio in [0.25, 0.5, 0.75]:
 		var point: Vector2 = from.lerp(to, ratio)
 		draw_line(point - normal * 5.0, point + normal * 5.0, Color(color, 0.46), 1.5, true)
+
+
+func _draw_stage_five_marker() -> void:
+	var center := _node_center("stage_5")
+	var triangle := PackedVector2Array([
+		center + Vector2(-106.0, -68.0),
+		center + Vector2(112.0, 0.0),
+		center + Vector2(-106.0, 68.0),
+	])
+	var outline := triangle.duplicate()
+	outline.append(triangle[0])
+	var marker_alpha := 0.78 + sin(pulse * 2.0) * 0.12
+	draw_colored_polygon(triangle, Color(GamePalette.GREEN, 0.035))
+	draw_polyline(outline, Color(GamePalette.GREEN, marker_alpha), 3.0, true)
 
 
 func _draw_stage_node(id: String) -> void:

@@ -4,6 +4,7 @@ extends CanvasLayer
 const MobileControlsScript := preload("res://scripts/ui/mobile_controls.gd")
 const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
 const StageGraphViewScript := preload("res://scripts/ui/stage_graph_view.gd")
+const CreditsViewScript := preload("res://scripts/ui/credits_view.gd")
 
 signal deploy_requested
 signal stage_selected(id: String)
@@ -20,6 +21,8 @@ signal reset_requested
 signal library_requested
 signal loadout_requested
 signal skills_requested
+signal credits_requested
+signal credits_finished
 signal weapon_selected(id: String)
 signal ability_selected(id: String)
 signal skill_purchase_requested(id: String)
@@ -39,6 +42,7 @@ var start_screen: Control
 var stage_select_screen: Control
 var loadout_screen: Control
 var skill_tree_screen: Control
+var credits_screen
 var overlay: Control
 var hp_bar: ProgressBar
 var resonance_bar: ProgressBar
@@ -54,6 +58,7 @@ var start_flux_label: Label
 var start_stats_label: Label
 var start_mastery_label: Label
 var hangar_slot_label: Label
+var hangar_credits_button: Button
 var stage_graph_view
 var loadout_box: VBoxContainer
 var loadout_slots_label: Label
@@ -78,6 +83,7 @@ func _ready() -> void:
 	_build_save_slot_screen()
 	_build_options_screen()
 	_build_hangar_screen()
+	_build_credits_screen()
 	_build_stage_select_screen()
 	_build_loadout_screen()
 	_build_skill_tree_screen()
@@ -139,6 +145,13 @@ func show_menu(profile: SaveProfile) -> void:
 	start_stats_label.text = "BEST  %s\nLEVEL  %02d\nRUNS  %02d" % [_format_time(float(profile.data["best_time"])), int(profile.data["best_level"]), int(profile.data["runs"])]
 	var equipped := profile.equipped_weapons()
 	start_mastery_label.text = "%s\nACTIVE  %s  //  M%02d" % [" + ".join(equipped).to_upper(), profile.equipped_ability().replace("_", " ").to_upper(), profile.mastery_level(profile.equipped_ability())]
+	hangar_credits_button.visible = profile.stage_cleared("stage_5")
+
+
+func show_credits() -> void:
+	_hide_all_screens()
+	credits_screen.visible = true
+	credits_screen.start()
 
 
 func show_stage_select(profile: SaveProfile) -> void:
@@ -567,6 +580,20 @@ func _build_hangar_screen() -> void:
 	_add_menu_label(status_panel, "LOADOUT", 11, Color(GamePalette.GREEN, 0.58), Vector2(224, 112))
 	start_mastery_label = _add_menu_label(status_panel, "PULSE\nACTIVE  DASH  //  M00", 13, Color(GamePalette.GREEN, 0.86), Vector2(223, 136))
 	start_mastery_label.add_theme_constant_override("line_spacing", 10)
+	hangar_credits_button = UIFactory.button("CREDITS", Vector2(470, 420), Vector2(430, 58))
+	hangar_credits_button.name = "CreditsButton"
+	hangar_credits_button.visible = false
+	hangar_credits_button.pressed.connect(credits_requested.emit)
+	panel.add_child(hangar_credits_button)
+
+
+func _build_credits_screen() -> void:
+	credits_screen = CreditsViewScript.new()
+	credits_screen.name = "CreditsScreen"
+	credits_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	credits_screen.finished.connect(credits_finished.emit)
+	credits_screen.exit_requested.connect(credits_finished.emit)
+	add_child(credits_screen)
 
 
 func _build_stage_select_screen() -> void:
@@ -651,6 +678,8 @@ func _hide_all_screens() -> void:
 	stage_select_screen.visible = false
 	loadout_screen.visible = false
 	skill_tree_screen.visible = false
+	credits_screen.stop()
+	credits_screen.visible = false
 	overlay.visible = false
 
 

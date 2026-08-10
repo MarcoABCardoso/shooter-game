@@ -46,6 +46,7 @@ func _run() -> void:
 	game.selected_stage = "stage_5"
 	game.start_run()
 	await process_frame
+	assert(game.audio.current_music == &"stage_5", "Stage 5 should use Event Horizon")
 	game.spawn_enemy("drone")
 	await process_frame
 	var stage_five_crowd: NeonEnemy = get_nodes_in_group("enemies")[0]
@@ -60,6 +61,7 @@ func _run() -> void:
 		if node is NeonEnemy and node.kind == "boss":
 			boss = node
 	assert(boss != null, "The Overseer Array should enter after the evacuation")
+	assert(game.audio.current_music == &"boss", "The Overseer fight should switch to Midboss Alert")
 	assert(boss.boss_modules == 3, "The Overseer should begin with three connected modules")
 	game.combat_director.spawn_projectile(game.player.global_position + Vector2(40.0, 0.0), Vector2.LEFT, 10.0, 180.0, false, "enemy")
 	await process_frame
@@ -71,12 +73,16 @@ func _run() -> void:
 	boss.take_damage(boss.health, "pulse")
 	await process_frame
 	await process_frame
-	assert(game.state == game.GameState.STAGE_CLEAR, "Defeating the Overseer should complete Stage 5")
+	assert(game.state == game.GameState.CREDITS, "Defeating the Overseer should roll the credits")
+	assert(game.ui.credits_screen.visible, "The Stage 5 clear should show the credits chase")
+	assert(game.audio.current_music == &"credits", "The credits should use Zero Hour")
 	assert(game.profile.stage_cleared("stage_5"), "The final stage should be recorded as cleared")
 	assert(game.profile.is_discovered("vector_parry"), "Stage 5 should unlock Vector Parry")
 	assert(game.profile.unlocked_weapon_slots() == 2, "Stage 5 should unlock the second weapon slot")
 	assert(not game.profile.is_discovered("arc") and not game.profile.is_discovered("nova"), "The campaign should grant no additional weapons")
 	game.show_menu()
+	var credits_button: Button = game.ui.hangar_screen.find_child("CreditsButton", true, false)
+	assert(credits_button != null and credits_button.visible and credits_button.text == "CREDITS", "Completing Stage 5 should unlock the Hangar credits button")
 	game._on_ability_selected("vector_parry")
 	assert(game.profile.equipped_ability() == "vector_parry", "The reward should equip into the Space ability slot")
 	assert(game.profile.equip_weapon("pulse"), "The Stage 5 slot should accept a second unlocked weapon")

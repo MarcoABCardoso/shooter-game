@@ -9,6 +9,9 @@ const MUSIC_TRACKS := {
 	&"title": preload("res://assets/audio/music/vector-eclipse/title-screen.ogg"),
 	&"hangar": preload("res://assets/audio/music/vector-eclipse/hangar-drift.ogg"),
 	&"combat": preload("res://assets/audio/music/vector-eclipse/prism-rain.ogg"),
+	&"stage_5": preload("res://assets/audio/music/vector-eclipse/event-horizon.ogg"),
+	&"boss": preload("res://assets/audio/music/vector-eclipse/midboss-alert.ogg"),
+	&"credits": preload("res://assets/audio/music/vector-eclipse/zero-hour.ogg"),
 }
 const STINGER_TRACKS := {
 	&"clear": preload("res://assets/audio/music/vector-eclipse/clear-signal.ogg"),
@@ -89,7 +92,7 @@ func play_music(track: StringName, fade_seconds: float = MUSIC_FADE_SECONDS) -> 
 	if stream == null:
 		push_warning("Unknown music track: %s" % track)
 		return
-	stream.loop = true
+	stream.loop = track != &"credits"
 	if music_tween != null and music_tween.is_valid():
 		music_tween.kill()
 	_stop_inactive_music_players()

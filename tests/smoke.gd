@@ -18,6 +18,7 @@ func _run() -> void:
 	assert(game.ui.title_screen.find_child("NewGameButton", true, false) != null, "Title screen should offer New Game")
 	assert(game.ui.title_screen.find_child("LoadGameButton", true, false) != null, "Title screen should offer Load Game")
 	assert(game.ui.title_screen.find_child("OptionsButton", true, false) != null, "Title screen should offer Options")
+	assert(game.ui.title_screen.find_child("TitleCreditsPreviewButton", true, false) == null, "The main menu should not expose credits")
 	game.ui.show_options()
 	assert(game.ui.options_screen.visible, "Options should open independently")
 	assert(game.ui.options_screen.find_child("MasterVolumeSlider", true, false) != null, "Options should expose master volume")
@@ -35,6 +36,43 @@ func _run() -> void:
 	assert(not _contains_label(game.ui.hangar_screen, "WASD / ARROWS"), "Hangar should not display controls")
 	assert(game.ui.hangar_screen.find_child("UpgradesButton", true, false) == null, "The removed Augments feature must not remain in the hangar")
 	assert(game.ui.hangar_screen.find_child("ResetProfileButton", true, false) != null, "Profile reset should remain available after Augments removal")
+	var credits_button: Button = game.ui.hangar_screen.find_child("CreditsButton", true, false)
+	assert(credits_button != null and not credits_button.visible, "Credits should stay hidden in the hangar until Stage 5 is cleared")
+	assert(credits_button.text == "CREDITS", "The unlocked button should not be labeled as a preview")
+	game.show_credits()
+	await process_frame
+	assert(game.state == game.GameState.CREDITS and game.ui.credits_screen.visible, "The credits sequence should open for validation")
+	assert(game.audio.current_music == &"credits", "The credits should play Zero Hour")
+	var credits_view = game.ui.credits_screen
+	assert(credits_view.ROLES == ["A GAME BY", "GAME DESIGN", "PROGRAMMING", "ART DIRECTION", "MUSIC DIRECTION", "QUALITY ASSURANCE"], "Credits should contain only the six requested roles")
+	assert(is_equal_approx(credits_view.CYCLE_DURATION * credits_view.ROLES.size() + credits_view.FINALE_DURATION, credits_view.CREDITS_TRACK_DURATION), "Cards and finale should exactly span Zero Hour")
+	var credits_stream: AudioStreamOggVorbis = game.audio.MUSIC_TRACKS[&"credits"]
+	assert(absf(credits_stream.get_length() - credits_view.CREDITS_TRACK_DURATION) < 0.01, "The credits timeline should match the actual Zero Hour asset")
+	assert(not credits_stream.loop, "Zero Hour should finish instead of looping under the final card")
+	assert(credits_view.ENEMY_SEQUENCE.size() == credits_view.ROLES.size(), "Every role should select its own pursuer variant")
+	for enemy_index in credits_view.ENEMY_SEQUENCE.size() - 1:
+		assert(credits_view.ENEMY_SEQUENCE[enemy_index] != credits_view.ENEMY_SEQUENCE[enemy_index + 1], "Consecutive cards should never repeat a pursuer")
+	assert(credits_view._enemy_x_for_cycle(0.0) < 0.0, "Each pursuer should begin outside the left edge")
+	credits_view.role_index = 0
+	var boost_endpoint: float = credits_view._player_x_for_cycle(1.0)
+	credits_view.role_index = 1
+	assert(is_equal_approx(boost_endpoint, credits_view._player_x_for_cycle(0.0)), "The player should return from a boost without snapping between cards")
+	credits_view.role_index = 2
+	credits_view._update_role_text()
+	assert(credits_view.names_label.text == "Honestly? Mostly vibecoded", "Programming should use its candid attribution")
+	credits_view.role_index = 1
+	credits_view._update_role_text()
+	assert(credits_view.names_label.text == "MarcoABCardoso", "Every non-programming role should credit MarcoABCardoso")
+	assert(not _contains_label(credits_view, "YES, STILL BOTH OF THEM"), "The bottom credits label should be removed")
+	credits_view.role_index = credits_view.ROLES.size() - 1
+	credits_view.cycle_elapsed = credits_view.CYCLE_DURATION - 0.01
+	credits_view._process(0.02)
+	assert(credits_view.finale_active and credits_view.role_label.text == "THANK YOU FOR PLAYING", "The final role should lead into the thank-you card")
+	assert(not credits_view.names_label.visible, "The thank-you finale should have no pursuer credit block")
+	assert(credits_view.FINALE_EXIT_X - 165.0 * 1.1 > 1280.0, "The finale should carry even the longest dash trail beyond the viewport")
+	game.ui.credits_screen.exit_requested.emit()
+	await process_frame
+	assert(game.ui.hangar_screen.visible, "Leaving the credits should return to the hangar")
 	game.ui.hangar_screen.find_child("DeployButton", true, false).emit_signal("pressed")
 	await process_frame
 	assert(game.ui.stage_select_screen.visible, "Deploy should lead through a dedicated stage-select screen")
