@@ -96,7 +96,7 @@ This file is the adjustable design contract for the game. Change a value in the 
 |---|---:|---:|
 | Player hull | 100 | Behavioral mutations; +12 permanent rank |
 | Player speed | 300 px/s | Fixed; movement physics are unaffected by facing and targeting |
-| Pulse cannon | 4.5 damage / 0.34 s / 190 px range | Skill tree + 2.5% per native mastery rank |
+| Pulse cannon | 5 damage / 0.34 s / 190 px range | Skill tree + 2.5% per native mastery rank |
 | Stage 1 | 55 s, Drones only | 0.68× health base; faster pressure; no elites or boss |
 | Stage 2 | 75 s, adds Strikers | 0.90× health base; no elites |
 | Stage 3 | 90 s, adds elites | Elite every 42 s |

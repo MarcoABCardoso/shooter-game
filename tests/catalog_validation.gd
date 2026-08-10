@@ -48,12 +48,13 @@ func _validate_weapons() -> void:
 		assert(loadout[id].has("level"), "Weapon %s needs a level" % id)
 		assert(loadout[id].has("damage"), "Weapon %s needs damage" % id)
 	assert(loadout["pulse"].has("projectile_speed"), "Pulse needs a tunable projectile speed")
+	assert(float(loadout["pulse"]["damage"]) == 5.0, "Pulse should deal 5 base damage")
 	assert(float(loadout["pulse"]["range"]) == 190.0, "Pulse should use its intentionally short auto-aim range")
 	var drone_health := float(EnemyCatalog.DEFINITIONS["drone"]["health"])
 	var stage_one_end_health := drone_health * GameBalance.enemy_difficulty("stage_1", float(StageCatalog.definition("stage_1")["duration"]))
 	var stage_two_start_health := drone_health * GameBalance.enemy_difficulty("stage_2", 0.0)
-	assert(float(loadout["pulse"]["damage"]) * 3.0 < stage_one_end_health, "Stage 1 Drones should survive three base Pulse hits after the weapon nerf")
-	assert(float(loadout["pulse"]["damage"]) * 4.0 >= stage_one_end_health, "Stage 1 Drones should fall to four base Pulse hits")
+	assert(float(loadout["pulse"]["damage"]) * 2.0 < stage_one_end_health, "Stage 1 Drones should survive two base Pulse hits")
+	assert(float(loadout["pulse"]["damage"]) * 3.0 >= stage_one_end_health, "Stage 1 Drones should fall to three base Pulse hits")
 	assert(float(loadout["pulse"]["damage"]) < stage_two_start_health, "Stage 2 Drones should require multiple base Pulse hits")
 
 

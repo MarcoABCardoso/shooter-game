@@ -437,9 +437,6 @@ func _build_title_screen() -> void:
 	var title := _add_menu_label(panel, "NEON REQUIEM", 52, GamePalette.CYAN, Vector2(0, 65))
 	title.size = Vector2(600, 70)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var tagline := _add_menu_label(panel, "HOW YOU FIGHT BECOMES WHAT YOU ARE.", 14, Color.WHITE, Vector2(0, 132))
-	tagline.size = Vector2(600, 28)
-	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var new_game := UIFactory.button("NEW GAME", Vector2(145, 220), Vector2(310, 58))
 	new_game.name = "NewGameButton"
 	new_game.pressed.connect(new_game_requested.emit)
