@@ -101,7 +101,7 @@ func parry_projectiles(origin: Vector2) -> void:
 		node.reflect(return_direction)
 		reflected += 1
 	if reflected > 0:
-		banner_requested.emit("VECTOR PARRY // %d RETURNED" % reflected, GamePalette.CYAN)
+		banner_requested.emit("VECTOR PARRY — %d SHOT%s RETURNED" % [reflected, "" if reflected == 1 else "S"], GamePalette.CYAN)
 		shake_requested.emit(4.0)
 		tone_requested.emit(760.0, 0.1, 0.18, 900.0)
 	else:
@@ -170,7 +170,7 @@ func _on_enemy_attack_requested(pattern: String, origin: Vector2, direction: Vec
 
 func _on_boss_module_broken(world_position: Vector2, remaining: int) -> void:
 	spawn_burst(world_position, GamePalette.ORANGE, 105.0, 18)
-	banner_requested.emit("ARRAY MODULE SEVERED // %d REMAIN" % remaining, GamePalette.ORANGE)
+	banner_requested.emit("ARRAY MODULE DESTROYED — %d REMAINING" % remaining, GamePalette.ORANGE)
 	shake_requested.emit(9.0)
 
 
@@ -185,7 +185,7 @@ func _on_enemy_destroyed(_enemy: NeonEnemy, kind: String, flux: int, resonance: 
 	spawn_burst(world_position, GamePalette.MAGENTA if kind != "boss" else GamePalette.ORANGE, 70.0 if kind == "boss" else 26.0, 14 if kind == "boss" else 7)
 	if kind == "boss":
 		boss_defeated.emit()
-		banner_requested.emit("OVERSEER ERASED // +%d FLUX" % awarded_flux, GamePalette.YELLOW)
+		banner_requested.emit("OVERSEER DESTROYED — +%d FLUX" % awarded_flux, GamePalette.YELLOW)
 		shake_requested.emit(11.0)
 
 

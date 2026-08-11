@@ -6,21 +6,21 @@ const ORDER: Array[String] = ["stage_1", "stage_2", "stage_3", "stage_4", "stage
 const DEFINITIONS := {
 	"stage_1": {
 		"number": 1, "name": "FIRST CONTACT", "duration": 55.0,
-		"description": "Drone formation only. A short deployment built to be cleared without permanent upgrades.",
+		"description": "A light drone formation guards the first signal.",
 		"health_base": 0.68, "health_growth": 500.0,
 		"spawn_base": 0.90, "spawn_min": 0.58, "spawn_pressure": 180.0,
 		"double_spawn_at": INF, "elite_interval": 0.0, "boss": false,
 	},
 	"stage_2": {
 		"number": 2, "name": "INTERCEPT", "duration": 75.0,
-		"description": "Strikers join the drone wave. Early hangar investment starts to matter.",
+		"description": "Fast Strikers join the drone formation.",
 		"health_base": 0.90, "health_growth": 500.0,
 		"spawn_base": 0.90, "spawn_min": 0.58, "spawn_pressure": 220.0,
 		"double_spawn_at": INF, "elite_interval": 0.0, "boss": false,
 	},
 	"stage_3": {
 		"number": 3, "name": "ASCENDANCY", "duration": 90.0,
-		"description": "Elite signatures enter the drone and striker formation.",
+		"description": "Elite signatures reinforce the advancing formation.",
 		"health_base": 1.00, "health_growth": 260.0,
 		"spawn_base": 0.82, "spawn_min": 0.46, "spawn_pressure": 180.0,
 		"double_spawn_at": INF, "elite_interval": 42.0, "boss": false,
@@ -52,7 +52,7 @@ static func number(id: String) -> int:
 
 static func display_name(id: String) -> String:
 	var spec := definition(id)
-	return "STAGE %d // %s" % [int(spec["number"]), String(spec["name"])]
+	return "STAGE %d — %s" % [int(spec["number"]), String(spec["name"])]
 
 
 static func choose_standard(id: String, elapsed: float, roll: float) -> String:

@@ -33,8 +33,8 @@ func set_controls_active(value: bool) -> void:
 
 func update(session: RunSession, weapons: Dictionary, stage_id: String) -> void:
 	time_label.text = _format_time(session.elapsed)
-	stats_label.text = "LEVEL %02d    ◆ %d    KILLS %d" % [session.level, session.flux, session.kills]
-	combo_label.text = "CHAIN x%.1f" % session.combo
+	stats_label.text = "LEVEL %02d     FLUX ◆ %d     KILLS %d" % [session.level, session.flux, session.kills]
+	combo_label.text = "COMBO ×%.1f" % session.combo
 	combo_label.modulate = GamePalette.YELLOW if session.combo > 1.5 else Color(GamePalette.YELLOW, 0.55)
 	resonance_bar.max_value = session.resonance_needed
 	resonance_bar.value = session.resonance
@@ -42,8 +42,8 @@ func update(session: RunSession, weapons: Dictionary, stage_id: String) -> void:
 	for id: String in WeaponCatalog.ORDER:
 		if int(weapons[id]["level"]) > 0:
 			names.append(id.to_upper())
-	weapon_label.text = "  //  ".join(names)
-	evolution_label.text = "%s  //  FLUX BANKS AT RUN END" % StageCatalog.display_name(stage_id)
+	weapon_label.text = "  •  ".join(names)
+	evolution_label.text = StageCatalog.display_name(stage_id)
 
 
 func set_health(current: float, maximum: float) -> void:
@@ -84,10 +84,10 @@ func _build() -> void:
 	time_label = UIFactory.label("00:00", 22, GamePalette.CYAN)
 	time_label.position = Vector2(18, 9)
 	top.add_child(time_label)
-	stats_label = UIFactory.label("LEVEL 01    ◆ 0", 16, Color.WHITE)
+	stats_label = UIFactory.label("LEVEL 01     FLUX ◆ 0     KILLS 0", 16, Color.WHITE)
 	stats_label.position = Vector2(145, 13)
 	top.add_child(stats_label)
-	combo_label = UIFactory.label("CHAIN x1.0", 16, GamePalette.YELLOW)
+	combo_label = UIFactory.label("COMBO ×1.0", 16, GamePalette.YELLOW)
 	combo_label.position = Vector2(945, 13)
 	top.add_child(combo_label)
 
@@ -100,10 +100,10 @@ func _build() -> void:
 	_add_caption("HULL", Vector2(55, 658), GamePalette.MAGENTA)
 	_add_caption("RESONANCE", Vector2(430, 658), GamePalette.GREEN)
 	ability_caption = _add_caption("PHASE DASH", Vector2(895, 658), GamePalette.CYAN)
-	weapon_label = UIFactory.label("PULSE I", 12, Color(GamePalette.CYAN, 0.8))
+	weapon_label = UIFactory.label("PULSE CANNON", 12, Color(GamePalette.CYAN, 0.8))
 	weapon_label.position = Vector2(55, 82)
 	add_child(weapon_label)
-	evolution_label = UIFactory.label("HANGAR BUILD ACTIVE", 12, Color(GamePalette.GREEN, 0.78))
+	evolution_label = UIFactory.label("READY FOR DEPLOYMENT", 12, Color(GamePalette.GREEN, 0.78))
 	evolution_label.position = Vector2(55, 104)
 	add_child(evolution_label)
 	banner_label = UIFactory.label("", 21, GamePalette.CYAN)

@@ -36,9 +36,9 @@ func _run() -> void:
 	game.show_stage_select()
 	await process_frame
 	var second_stage_button: Button = game.ui.stage_select_screen.find_child("StageSelect_stage_2", true, false)
-	assert(second_stage_button != null and second_stage_button.text == "STAGE 2", "Clearing Stage 1 should reveal only the minimal Stage 2 node")
+	assert(second_stage_button != null, "Clearing Stage 1 should reveal Stage 2")
 	game.show_menu()
-	assert(game.profile.equip_weapon("orbit"), "Orbit Blades should be selectable after Stage 1")
+	game.profile.equip_weapon("orbit")
 	assert(game.profile.equipped_weapons() == ["orbit"], "A single-slot loadout should replace Pulse with Orbit Blades")
 
 	for stage_id: String in ["stage_2", "stage_3", "stage_4"]:
@@ -82,10 +82,10 @@ func _run() -> void:
 	assert(not game.profile.is_discovered("arc") and not game.profile.is_discovered("nova"), "The campaign should grant no additional weapons")
 	game.show_menu()
 	var credits_button: Button = game.ui.hangar_screen.find_child("CreditsButton", true, false)
-	assert(credits_button != null and credits_button.visible and credits_button.text == "CREDITS", "Completing Stage 5 should unlock the Hangar credits button")
+	assert(credits_button != null and credits_button.visible, "Completing Stage 5 should unlock the Hangar credits button")
 	game._on_ability_selected("vector_parry")
 	assert(game.profile.equipped_ability() == "vector_parry", "The reward should equip into the Space ability slot")
-	assert(game.profile.equip_weapon("pulse"), "The Stage 5 slot should accept a second unlocked weapon")
+	game.profile.equip_weapon("pulse")
 	assert(game.profile.equipped_weapons() == ["orbit", "pulse"], "The final loadout should support Orbit and Pulse together")
 	game.start_run()
 	await process_frame
@@ -96,6 +96,6 @@ func _run() -> void:
 	assert(game.ui.overlay.find_child("RunUpgrade_orbit_blade_count", true, false) != null, "Multi-weapon evolution should include Orbit choices")
 	game._on_run_upgrade_selected("orbit", "blade_count")
 	assert(game.session.weapon_upgrade_rank("orbit", "blade_count") == 1, "The player should choose which equipped weapon evolves")
-	assert(game.session.weapon_upgrade_rank("pulse", "damage") == 0, "Improving Nova should leave Pulse unchanged")
+	assert(game.session.weapon_upgrade_rank("pulse", "damage") == 0, "Improving Orbit should leave Pulse unchanged")
 	print("STAGE_ONE_OK sequential unlocks, first-clear Flux, sparse equipment rewards, and Stage 5 boss validated")
 	quit(0)

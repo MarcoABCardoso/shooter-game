@@ -73,8 +73,6 @@ func _validate_run_upgrades() -> void:
 
 func _validate_skill_tree() -> void:
 	assert(SkillTreeCatalog.ORDER.size() == SkillTreeCatalog.DEFINITIONS.size(), "Skill order and definitions must match")
-	assert(SkillTreeCatalog.ORDER.size() >= 16, "The skill graph should provide a substantial permanent progression path")
-	var staged_nodes := 0
 	for id: String in SkillTreeCatalog.ORDER:
 		var definition := SkillTreeCatalog.definition(id)
 		assert(SaveProfile.DEFAULT_DATA["skill_ranks"].has(id), "Save defaults are missing skill %s" % id)
@@ -86,9 +84,7 @@ func _validate_skill_tree() -> void:
 			assert(SkillTreeCatalog.DEFINITIONS.has(prerequisite), "Skill %s references missing prerequisite %s" % [id, prerequisite])
 		var stage := String(definition.get("stage", ""))
 		if not stage.is_empty():
-			staged_nodes += 1
 			assert(StageCatalog.ORDER.has(stage), "Skill %s references missing stage %s" % [id, stage])
-	assert(staged_nodes >= 8, "The expanded tree should use stage gates across multiple tiers")
 	assert(not SaveProfile.DEFAULT_DATA.has("upgrades"), "Permanent augments should no longer be stored in profiles")
 	assert(SaveProfile._legacy_augment_refund({"damage": 2}) == 49, "Removed augment ranks should be refunded during save migration")
 

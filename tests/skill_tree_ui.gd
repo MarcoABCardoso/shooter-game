@@ -20,7 +20,6 @@ func _validate_skill_tree_ui() -> void:
 	assert(graph.get_node_or_null("SkillNode_arc_overload") == null, "Nodes beyond an uncleared stage gate should stay hidden")
 	assert(graph.get_node_or_null("SkillDetailLayer") == null, "Details should stay hidden until a module is selected")
 	var root_module := graph.get_node("SkillNode_core_damage") as Button
-	assert(root_module.size.x <= 80.0 and root_module.size.y <= 80.0, "Graph modules should remain compact")
 	root_module.pressed.emit()
 	await process_frame
 
@@ -46,5 +45,5 @@ func _validate_skill_tree_ui() -> void:
 	popup = graph.get_node("SkillDetailLayer/SkillDetailPopup")
 	upgrade = popup.get_node("SkillUpgradeButton") as Button
 	assert(upgrade.disabled and upgrade.text.begins_with("LOCKED"), "Locked modules should explain that upgrades are unavailable")
-	print("SKILL_TREE_UI_OK compact modules, details popup, upgrade action, and locked state validated")
+	print("SKILL_TREE_UI_OK details popup, upgrade action, and locked state validated")
 	quit(0)

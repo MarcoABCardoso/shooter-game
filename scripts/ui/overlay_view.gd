@@ -17,11 +17,13 @@ func show_run_upgrade(session: RunSession, weapons: Dictionary) -> void:
 	_add_shade(0.88)
 	var panel := UIFactory.panel(Vector2(90, 48), Vector2(1100, 624), Color(GamePalette.GREEN, 0.46))
 	add_child(panel)
-	var title := UIFactory.label("RESONANCE LEVEL %02d // CHOOSE EVOLUTION" % session.level, 28, GamePalette.CYAN)
+	var title := UIFactory.label("RESONANCE LEVEL %02d" % session.level, 28, GamePalette.CYAN)
 	title.position = Vector2(30, 20)
 	panel.add_child(title)
-	var plural := "S" if session.pending_levels != 1 else ""
-	var pending := UIFactory.label("%d CHOICE%s PENDING  //  EVERY AVAILABLE PATH IS SHOWN" % [session.pending_levels, plural], 11, Color(GamePalette.GREEN, 0.72))
+	var prompt := "CHOOSE AN EVOLUTION"
+	if session.pending_levels > 1:
+		prompt += "  •  %d CHOICES REMAINING" % session.pending_levels
+	var pending := UIFactory.label(prompt, 11, Color(GamePalette.GREEN, 0.72))
 	pending.position = Vector2(33, 57)
 	panel.add_child(pending)
 	var equipped: Array[String] = []
@@ -49,10 +51,10 @@ func show_library(profile: SaveProfile) -> void:
 	for id: String in LibraryCatalog.ORDER:
 		if profile.is_discovered(id):
 			discovered_count += 1
-	var subtitle := UIFactory.label("%d / %d SIGNALS DECODED" % [discovered_count, LibraryCatalog.ORDER.size()], 12, Color(GamePalette.CYAN, 0.62))
+	var subtitle := UIFactory.label("%d OF %d ENTRIES DISCOVERED" % [discovered_count, LibraryCatalog.ORDER.size()], 12, Color(GamePalette.CYAN, 0.62))
 	subtitle.position = Vector2(30, 58)
 	panel.add_child(subtitle)
-	var back := UIFactory.button("RETURN", Vector2(870, 20), Vector2(160, 48))
+	var back := UIFactory.button("BACK TO HANGAR", Vector2(850, 20), Vector2(180, 48))
 	back.pressed.connect(menu_requested.emit)
 	panel.add_child(back)
 	var scroll := ScrollContainer.new()
@@ -119,20 +121,15 @@ func _build_run_upgrade_column(parent: Control, weapon: String, session: RunSess
 	heading.size = Vector2(size.x - 36, 28)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	card.add_child(heading)
-	var mastery := UIFactory.label("RUN LEVELS SHAPE THIS WEAPON ONLY", 9, Color(GamePalette.GREEN, 0.62))
-	mastery.position = Vector2(12, 48)
-	mastery.size = Vector2(size.x - 24, 20)
-	mastery.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	card.add_child(mastery)
 	var dimensions: Array = RunUpgradeCatalog.choices_for(weapon)
 	for choice_index: int in dimensions.size():
 		var dimension := String(dimensions[choice_index])
 		var definition := RunUpgradeCatalog.definition(weapon, dimension)
 		var rank := session.weapon_upgrade_rank(weapon, dimension)
 		var capped := rank >= RunUpgradeCatalog.MAX_RANK
-		var suffix := "  //  MAX" if capped else ""
-		var text := "%s\n%s\nRANK %d/%d%s" % [definition["name"], definition["description"], rank, RunUpgradeCatalog.MAX_RANK, suffix]
-		var button := UIFactory.button(text, Vector2(15, 82 + choice_index * 128), Vector2(size.x - 30, 106))
+		var rank_text := "MAXIMUM RANK" if capped else "RANK %d OF %d" % [rank, RunUpgradeCatalog.MAX_RANK]
+		var text := "%s\n%s\n%s" % [definition["name"], definition["description"], rank_text]
+		var button := UIFactory.button(text, Vector2(15, 64 + choice_index * 138), Vector2(size.x - 30, 118))
 		button.name = "RunUpgrade_%s_%s" % [weapon, dimension]
 		button.add_theme_font_size_override("font_size", 13)
 		button.disabled = capped
@@ -155,7 +152,7 @@ func _build_library_entry(parent: Control, id: String, profile: SaveProfile) -> 
 	card.add_child(title)
 	var status := "DISCOVERED" if discovered else "LOCKED"
 	if discovered and profile.data["mastery_xp"].has(id):
-		status += "  //  MASTERY %02d" % profile.mastery_level(id)
+		status = "MASTERY %02d" % profile.mastery_level(id)
 	var badge := UIFactory.label(status, 10, Color(title_color, 0.72))
 	badge.position = Vector2(292, 15)
 	badge.size = Vector2(178, 18)
@@ -163,9 +160,9 @@ func _build_library_entry(parent: Control, id: String, profile: SaveProfile) -> 
 	card.add_child(badge)
 	var body_text: String
 	if discovered:
-		body_text = "%s\n%s\nACQUIRE  //  %s" % [definition["role"], definition["mechanics"], definition["acquisition"]]
+		body_text = "%s\n%s\nSource: %s" % [definition["role"], definition["mechanics"], definition["acquisition"]]
 	else:
-		body_text = "ACQUISITION CLUE  //  %s" % definition["clue"]
+		body_text = "Hint: %s" % definition["clue"]
 	var body := RichTextLabel.new()
 	body.text = body_text
 	body.position = Vector2(18, 42)

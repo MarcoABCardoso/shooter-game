@@ -47,7 +47,7 @@ func tick(delta: float) -> void:
 				encounter_state = EncounterState.BOSS_ACTIVE
 				boss_started.emit()
 				spawn_requested.emit("boss", false)
-				banner_requested.emit("OVERSEER ARRAY // ENGAGED", GamePalette.MAGENTA)
+				banner_requested.emit("OVERSEER ENGAGED", GamePalette.MAGENTA)
 			else:
 				encounter_state = EncounterState.COMPLETE
 				stage_completed.emit()
@@ -58,7 +58,7 @@ func tick(delta: float) -> void:
 		encounter_state = EncounterState.BOSS_INTRO if bool(stage_spec["boss"]) else EncounterState.STAGE_OUTRO
 		intro_timer = GameBalance.BOSS_INTRO_DURATION
 		swarm_evacuation_requested.emit()
-		banner_requested.emit("WARNING // OVERSEER ASSEMBLY" if bool(stage_spec["boss"]) else "SECTOR STABLE // HOSTILES EVACUATING", GamePalette.MAGENTA if bool(stage_spec["boss"]) else GamePalette.GREEN)
+		banner_requested.emit("OVERSEER APPROACHING" if bool(stage_spec["boss"]) else "HOSTILES RETREATING", GamePalette.MAGENTA if bool(stage_spec["boss"]) else GamePalette.GREEN)
 		shake_requested.emit(8.0)
 		return
 	spawn_timer -= delta

@@ -159,7 +159,7 @@ func start_run() -> void:
 	state = GameState.RUNNING
 	ui.show_run()
 	ui.set_ability(profile.equipped_ability())
-	ui.show_banner("%s // SIGNAL ACQUIRED" % StageCatalog.display_name(selected_stage), GamePalette.CYAN)
+	ui.show_banner(StageCatalog.display_name(selected_stage), GamePalette.CYAN)
 	hud_update_timer = HUD_UPDATE_INTERVAL
 	ui.update_hud(session, weapon_system.weapons, selected_stage)
 	audio.play_music(&"stage_5" if selected_stage == "stage_5" else &"combat")
@@ -360,7 +360,7 @@ func _open_next_run_upgrade() -> void:
 	if not weapon_system.has_available_run_upgrade():
 		session.pending_levels = 0
 		_resume_after_run_upgrade()
-		ui.show_banner("ALL WEAPON DIMENSIONS CAPPED", GamePalette.YELLOW)
+		ui.show_banner("ALL EVOLUTIONS MASTERED", GamePalette.YELLOW)
 		return
 	state = GameState.LEVEL_UP
 	_set_combat_active(false)
@@ -397,7 +397,7 @@ func _resume_after_run_upgrade() -> void:
 	state = GameState.RUNNING
 	_set_combat_active(true)
 	ui.show_run()
-	ui.show_banner("SIGNAL LEVEL %02d // BUILD UPDATED" % session.level, GamePalette.GREEN)
+	ui.show_banner("RESONANCE LEVEL %02d — EVOLUTION APPLIED" % session.level, GamePalette.GREEN)
 
 
 func _on_weapon_selected(id: String) -> void:

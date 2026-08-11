@@ -55,12 +55,12 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	clip_contents = true
 
-	var transmission := UIFactory.label("FINAL TRANSMISSION // KEEP MOVING RIGHT", 11, Color(GamePalette.CYAN, 0.58))
+	var transmission := UIFactory.label("FINAL TRANSMISSION", 11, Color(GamePalette.CYAN, 0.58))
 	transmission.position = Vector2(42, 30)
 	transmission.size = Vector2(620, 24)
 	add_child(transmission)
 
-	var return_button := UIFactory.button("EXIT CREDITS", Vector2(1050, 24), Vector2(190, 42))
+	var return_button := UIFactory.button("BACK TO HANGAR", Vector2(1050, 24), Vector2(190, 42))
 	return_button.name = "CreditsReturnButton"
 	return_button.pressed.connect(exit_requested.emit)
 	add_child(return_button)

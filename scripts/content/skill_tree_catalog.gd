@@ -27,7 +27,7 @@ const ORDER: Array[String] = [
 const DEFINITIONS := {
 	"core_damage": {
 		"name": "AMPLIFIED CORE",
-		"description": "+4% all weapon damage per rank.",
+		"description": "+4% all weapon damage.",
 		"max_rank": 5,
 		"costs": [40, 70, 110, 160, 220],
 		"effect": "general_damage",
@@ -36,7 +36,7 @@ const DEFINITIONS := {
 	},
 	"distant_power": {
 		"name": "LONGSHOT ARRAY",
-		"description": "+8% damage beyond 280 px per rank.",
+		"description": "+8% damage against distant enemies.",
 		"max_rank": 3,
 		"costs": [90, 140, 210],
 		"effect": "distant_damage",
@@ -46,7 +46,7 @@ const DEFINITIONS := {
 	},
 	"anchored_power": {
 		"name": "SIEGE POSTURE",
-		"description": "+7% damage after holding still for 2 seconds per rank.",
+		"description": "+7% damage after holding still for 2 seconds.",
 		"max_rank": 3,
 		"costs": [90, 140, 210],
 		"effect": "stationary_damage",
@@ -56,7 +56,7 @@ const DEFINITIONS := {
 	},
 	"pulse_acceleration": {
 		"name": "PULSE ACCELERATOR",
-		"description": "+10% Pulse Cannon projectile speed per rank.",
+		"description": "+10% Pulse Cannon projectile speed.",
 		"max_rank": 3,
 		"costs": [100, 155, 230],
 		"effect": "projectile_speed",
@@ -66,7 +66,7 @@ const DEFINITIONS := {
 	},
 	"salvage_protocol": {
 		"name": "SALVAGE PROTOCOL",
-		"description": "+6% enemy Flux and repair chance per rank.",
+		"description": "+6% enemy Flux and repair chance.",
 		"max_rank": 3,
 		"costs": [100, 160, 240],
 		"effect": "fortune",
@@ -76,7 +76,7 @@ const DEFINITIONS := {
 	},
 	"impact_vector": {
 		"name": "IMPACT VECTOR",
-		"description": "Weapon hits add 32 knockback per rank.",
+		"description": "+32 weapon knockback.",
 		"max_rank": 2,
 		"costs": [180, 280],
 		"effect": "knockback",
@@ -88,7 +88,7 @@ const DEFINITIONS := {
 	},
 	"surrounded_power": {
 		"name": "CLOSE QUARTERS",
-		"description": "+9% damage per rank while at least 3 enemies are within 220 px.",
+		"description": "+9% damage while surrounded by at least 3 enemies.",
 		"max_rank": 3,
 		"costs": [180, 280, 410],
 		"effect": "surrounded_damage",
@@ -99,7 +99,7 @@ const DEFINITIONS := {
 	},
 	"projectile_matrix": {
 		"name": "PROJECTILE MATRIX",
-		"description": "+18% Pulse Cannon projectile size per rank.",
+		"description": "+18% Pulse Cannon projectile size.",
 		"max_rank": 3,
 		"costs": [190, 295, 430],
 		"effect": "projectile_size",
@@ -110,7 +110,7 @@ const DEFINITIONS := {
 	},
 	"reinforced_core": {
 		"name": "REINFORCED CORE",
-		"description": "+12 maximum hull per rank.",
+		"description": "+12 maximum hull.",
 		"max_rank": 3,
 		"costs": [190, 300, 440],
 		"effect": "hull",
@@ -121,7 +121,7 @@ const DEFINITIONS := {
 	},
 	"arc_overload": {
 		"name": "IMPACT VECTOR II",
-		"description": "Weapon hits add another 44 knockback per rank.",
+		"description": "+44 weapon knockback.",
 		"max_rank": 3,
 		"costs": [300, 440, 610],
 		"effect": "knockback",
@@ -132,7 +132,7 @@ const DEFINITIONS := {
 	},
 	"orbit_overdrive": {
 		"name": "ORBIT OVERDRIVE",
-		"description": "+12% Orbit Blade damage per rank.",
+		"description": "+12% Orbit Blade damage.",
 		"max_rank": 3,
 		"costs": [300, 440, 610],
 		"effect": "orbit_damage",
@@ -144,7 +144,7 @@ const DEFINITIONS := {
 	},
 	"splash_payload": {
 		"name": "SPLASH PAYLOAD",
-		"description": "Pulse hits deal 16% damage per rank to nearby enemies.",
+		"description": "Pulse hits splash 16% damage to nearby enemies.",
 		"max_rank": 3,
 		"costs": [320, 470, 650],
 		"effect": "splash_damage",
@@ -155,7 +155,7 @@ const DEFINITIONS := {
 	},
 	"reactive_shield": {
 		"name": "REACTIVE SHIELD",
-		"description": "Adds one shield charge per rank; charges recover after avoiding damage.",
+		"description": "Gain one shield charge. Charges recover after avoiding damage.",
 		"max_rank": 2,
 		"costs": [340, 540],
 		"effect": "shield",
@@ -166,7 +166,7 @@ const DEFINITIONS := {
 	},
 	"nova_reactor": {
 		"name": "AMPLIFIED CORE II",
-		"description": "+6% all weapon damage per rank.",
+		"description": "+6% all weapon damage.",
 		"max_rank": 3,
 		"costs": [480, 680, 920],
 		"effect": "general_damage",
@@ -177,7 +177,7 @@ const DEFINITIONS := {
 	},
 	"siege_posture_2": {
 		"name": "SIEGE POSTURE II",
-		"description": "+10% damage after holding still for 2 seconds per rank.",
+		"description": "+10% damage after holding still for 2 seconds.",
 		"max_rank": 3,
 		"costs": [470, 670, 900],
 		"effect": "stationary_damage",
@@ -188,7 +188,7 @@ const DEFINITIONS := {
 	},
 	"volatile_radius": {
 		"name": "VOLATILE RADIUS",
-		"description": "+22% Pulse splash radius per rank.",
+		"description": "+22% Pulse splash radius.",
 		"max_rank": 3,
 		"costs": [500, 710, 960],
 		"effect": "splash_radius",
@@ -199,7 +199,7 @@ const DEFINITIONS := {
 	},
 	"emergency_cycle": {
 		"name": "EMERGENCY CYCLE",
-		"description": "+8% active-skill recharge speed per rank.",
+		"description": "+8% active-skill recharge speed.",
 		"max_rank": 3,
 		"costs": [500, 720, 980],
 		"effect": "ability_cooldown",
