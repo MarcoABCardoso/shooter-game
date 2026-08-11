@@ -26,7 +26,9 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 | `systems/spawn_director.gd` | Difficulty cadence and stage encounter states | Enemy construction |
 | `systems/combat_director.gd` | Entity construction, collisions, drops, combat outcomes | Weapon cadence or UI |
 | `systems/weapon_system.gd` | Equipped weapon timers, targeting, damage, skill effects, and selected run mutations | Drops or choice presentation |
-| `ui/game_ui.gd` | Screens, HUD, loadout editor, skill graph, and Arsenal Library | Gameplay mutation; it emits intent signals |
+| `ui/game_ui.gd` | Screen coordination and the stable UI façade used by `game.gd` | HUD rendering, overlay composition, or gameplay mutation |
+| `ui/run_hud.gd` | Combat status, feedback banners, and mobile-control presentation | Run-state mutation or screen navigation |
+| `ui/overlay_view.gd` | Reusable messages, resonance choices, and the Arsenal Library | Lifecycle decisions or profile transactions |
 | `ui/stage_graph_view.gd` | Progressive vector-route rendering and unlocked stage nodes | Unlock policy or run lifecycle |
 | `ui/mobile_controls.gd` | Mobile detection, movement stick, and touch action intent | Player or game-state mutation |
 | `presentation/arena_view.gd` | Arena, grid, and screen shake | Rules and entity lifecycle |
@@ -66,6 +68,7 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 - `CombatDirector` reports kills, Flux, resonance score, repairs, and weapon damage; `game.gd` commits them to `RunSession`.
 - `SpawnDirector` emits swarm evacuation, boss arrival, or non-boss completion from the selected stage definition; `game.gd` owns stage completion and reward persistence.
 - `GameUI` reports menu intent; `game.gd` validates state transitions and asks `SaveProfile` to transact.
+- `GameUI` keeps controller-facing methods stable while delegating combat presentation to `RunHud` and modal content to `OverlayView`; both child views return intent through signals or callables.
 - Equipped weapons and the active skill are snapshotted when a run starts. Each resonance level pauses simulation and presents every uncapped dimension for every equipped weapon.
 - `RunUpgradeCatalog` owns deterministic per-weapon choices; `RunSession` owns their five-rank-per-dimension run state.
 - Damage and active-skill use accumulate native mastery, which is banked with the run.

@@ -13,6 +13,8 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	assert(game.state == 0, "Game should boot to menu")
+	assert(game.ui.hud.name == "RunHud", "Combat presentation should be owned by the dedicated run HUD")
+	assert(game.ui.overlay.name == "OverlayView", "Modal presentation should be owned by the dedicated overlay view")
 	assert(game.ui.title_screen.visible, "Game should boot to the title screen")
 	assert(not game.ui.hangar_screen.visible, "Hangar should remain hidden until a save is selected")
 	assert(game.ui.title_screen.find_child("NewGameButton", true, false) != null, "Title screen should offer New Game")
