@@ -32,7 +32,7 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 | `ui/stage_graph_view.gd` | Progressive vector-route rendering and unlocked stage nodes | Unlock policy or run lifecycle |
 | `ui/mobile_controls.gd` | Mobile detection, movement stick, and touch action intent | Player or game-state mutation |
 | `presentation/arena_view.gd` | Arena, grid, and screen shake | Rules and entity lifecycle |
-| `profile.gd` | Versioned slots, migration, unlocks, loadouts, native mastery, and Flux transactions | Balance definitions |
+| `profile.gd` | Local profile defaults, reset, unlocks, loadouts, native mastery, and Flux transactions | Balance definitions or backward compatibility for disposable prototype saves |
 
 ## Extension recipes
 

@@ -4,7 +4,7 @@ This file applies to the entire repository. It describes how automated coding ag
 
 ## Project overview
 
-Neon Requiem is a Godot 4.3+ top-down bullet hell written in typed GDScript. The project intentionally uses procedural vector drawing for visuals, signal-connected modules, plain dictionary catalogs for content, and versioned JSON save data.
+Neon Requiem is a Godot 4.3+ top-down bullet hell written in typed GDScript. The project intentionally uses procedural vector drawing for visuals, signal-connected modules, plain dictionary catalogs for content, and disposable local JSON save data during pre-release development.
 
 Before making a non-trivial change, read:
 
@@ -53,10 +53,11 @@ game.gd
 
 ## Persistence and progression
 
-- Save data is versioned in `scripts/profile.gd`. Any schema change must include defensive defaults and migration/repair behavior for older saves.
+- Pre-release saves are disposable. Schema changes may replace defaults and reset all existing progress without backward-compatible migration or repair logic for older formats.
+- Continue handling a missing or corrupt current-format save safely and preserve explicit reset support.
 - Keep permanent profile state separate from `RunSession` state.
 - Flux transactions, unlocks, loadout changes, skill purchases, and mastery banking belong to `SaveProfile`.
-- When adding content with persistent state, update the relevant catalog, profile defaults, migration logic, and catalog-validation tests together.
+- When adding content with persistent state, update the relevant catalog, profile defaults, and catalog-validation tests together.
 - Preserve lossless skill respec and intrinsic, non-transferable item mastery unless the requested design explicitly changes them.
 
 ## Testing

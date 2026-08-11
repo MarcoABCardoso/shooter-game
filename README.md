@@ -43,6 +43,9 @@ Stage 1 is a short, intentionally forgiving drone-only deployment designed to be
 
 ## Design notes
 
+See [MASTER_PLAN.md](MASTER_PLAN.md) for the intended full-game direction,
+creator-led development chapters, scope boundaries, and playable milestones.
+
 See [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) for the living design record and tuning locations.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for module responsibilities, dependency rules, and extension recipes.
