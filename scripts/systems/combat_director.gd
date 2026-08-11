@@ -15,12 +15,13 @@ const EnemyScene := preload("res://scripts/entities/enemy.gd")
 const ProjectileScene := preload("res://scripts/entities/projectile.gd")
 const PickupScene := preload("res://scripts/entities/pickup.gd")
 const BurstScene := preload("res://scripts/entities/burst.gd")
+const EncounterCatalog := preload("res://scripts/content/encounter_catalog.gd")
 const CONTACT_CHECK_INTERVAL := 1.0 / 30.0
 
 var player: NeonPlayer
 var profile: SaveProfile
 var session: RunSession
-var current_stage_id := "stage_1"
+var current_encounter_id := EncounterCatalog.ORDER[0]
 var arena := GameBalance.ARENA
 var rng := RandomNumberGenerator.new()
 var enemies: Array[NeonEnemy] = []
@@ -31,11 +32,11 @@ func _ready() -> void:
 	rng.randomize()
 
 
-func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession, stage_id: String = "stage_1") -> void:
+func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession, encounter_id: String = EncounterCatalog.ORDER[0]) -> void:
 	player = run_player
 	profile = save_profile
 	session = run_session
-	current_stage_id = stage_id
+	current_encounter_id = encounter_id
 	enemies.clear()
 	contact_check_timer = 0.0
 
@@ -62,7 +63,7 @@ func spawn_enemy(kind: String, elite: bool) -> void:
 	if enemies.size() >= GameBalance.MAX_ENEMIES or not is_instance_valid(player):
 		return
 	var enemy: NeonEnemy = EnemyScene.new()
-	enemy.configure(kind, GameBalance.enemy_difficulty(current_stage_id, session.elapsed), elite)
+	enemy.configure(kind, GameBalance.enemy_difficulty(current_encounter_id, session.encounter_elapsed()), elite)
 	enemy.target = player
 	enemy.global_position = Vector2(arena.get_center().x, arena.position.y + 112.0) if kind == "boss" else _random_edge_position()
 	enemy.add_to_group("enemies")

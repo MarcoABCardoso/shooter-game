@@ -22,7 +22,7 @@ Treat those documents as active design constraints. Update them when a change in
 - Put spawning, combat orchestration, and weapon behavior in `scripts/systems/` according to the ownership table in `ARCHITECTURE.md`.
 - Keep entity-local movement, collision, drawing, and attack behavior in `scripts/entities/`.
 - Keep world rendering in `scripts/presentation/` and interface rendering in `scripts/ui/`.
-- Keep `scripts/ui/game_ui.gd` as the controller-facing UI facade. Delegate focused presentation to child views such as `RunHud`, `OverlayView`, `StageGraphView`, and `SkillTreeView`.
+- Keep `scripts/ui/game_ui.gd` as the controller-facing UI facade. Delegate focused presentation to child views such as `RunHud`, `OverlayView`, and `SkillTreeView`.
 - Communicate across systems with signals wired at the composition root. Do not give modules a reference to `game.gd` or make them reach into unrelated modules.
 - Avoid duplicating catalog data, unlock policy, balance values, or save defaults in presentation code.
 
@@ -47,7 +47,7 @@ game.gd
 - Use `UIFactory` for interface controls that should match the established visual language.
 - Keep gameplay visuals asset-free and built from Godot primitives unless a design decision explicitly changes that constraint.
 - Put tunable values in the owning catalog or balance module rather than scattering literals through runtime code.
-- Keep deterministic run-upgrade behavior deterministic; do not introduce random offerings without changing the design contract.
+- Keep operation evolution behavior deterministic; do not introduce random offerings without changing the design contract.
 - Preserve simulation-level pausing through the `run_entities` group. UI needed during pause must remain responsive.
 - Do not hand-edit generated `.uid`, `.import`, or `.godot/` cache contents. If Godot generates a required `.uid` for a new tracked script, include it without modifying its value.
 
@@ -67,13 +67,13 @@ Run the narrowest relevant test while iterating, then run the full suite for cha
 ```powershell
 godot --headless --path . --script res://tests/smoke.gd
 godot --headless --path . --script res://tests/catalog_validation.gd
-godot --headless --path . --script res://tests/run_upgrade_progression.gd
 godot --headless --path . --script res://tests/skill_tree_progression.gd
 godot --headless --path . --script res://tests/skill_tree_ui.gd
 godot --headless --path . --script res://tests/skill_effect_runtime.gd
 godot --headless --path . --script res://tests/mastery_progression.gd
-godot --headless --path . --script res://tests/stage_one_encounter.gd
 godot --headless --path . --script res://tests/mobile_controls.gd
+godot --headless --path . --script res://tests/operation_spine.gd
+godot --headless --path . --script res://tests/evolution_control.gd
 ```
 
 If the executable is named `godot4`, substitute that command name. Do not encode a local executable path in repository files.
@@ -91,7 +91,7 @@ If a restricted execution environment reports that Godot failed to open `user://
 Testing expectations:
 
 - Add or update regression coverage for behavior changes.
-- Extend `catalog_validation.gd` when adding catalog entries, effect families, stages, mastery keys, or persistent identifiers.
+- Extend `catalog_validation.gd` when adding catalog entries, effect families, encounters, mastery keys, or persistent identifiers.
 - Use `smoke.gd` for end-to-end lifecycle and integration contracts, not exhaustive per-module cases.
 - Keep tests deterministic and independent of a pre-existing local save.
 - Treat capture scripts under `tests/capture_*.gd` as visual-review helpers, not substitutes for assertions.

@@ -25,6 +25,7 @@ move_up={"deadzone":0.25,"events":[Object(InputEventKey,"physical_keycode":87),O
 move_down={"deadzone":0.25,"events":[Object(InputEventKey,"physical_keycode":83),Object(InputEventKey,"physical_keycode":4194322)]}
 dash={"deadzone":0.25,"events":[Object(InputEventKey,"physical_keycode":32)]}
 pause={"deadzone":0.25,"events":[Object(InputEventKey,"physical_keycode":4194305),Object(InputEventKey,"physical_keycode":80)]}
+cycle_target={"deadzone":0.25,"events":[Object(InputEventKey,"physical_keycode":81)]}
 
 [layer_names]
 2d_physics/layer_1="Player"

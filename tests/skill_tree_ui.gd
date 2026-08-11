@@ -16,8 +16,8 @@ func _validate_skill_tree_ui() -> void:
 
 	var graph: SkillTreeView = game.ui.skill_tree_view
 	assert(graph.get_node_or_null("SkillNode_core_damage") != null, "The root module should render")
-	assert(graph.get_node_or_null("SkillNode_impact_vector") != null, "A stage gate should remain visible as a progression milestone")
-	assert(graph.get_node_or_null("SkillNode_arc_overload") == null, "Nodes beyond an uncleared stage gate should stay hidden")
+	assert(graph.get_node_or_null("SkillNode_impact_vector") != null, "Mastery-gated modules should remain visible as progression milestones")
+	assert(graph.get_node_or_null("SkillNode_arc_overload") != null, "The full prerequisite graph should remain visible")
 	assert(graph.get_node_or_null("SkillDetailLayer") == null, "Details should stay hidden until a module is selected")
 	var root_module := graph.get_node("SkillNode_core_damage") as Button
 	root_module.pressed.emit()

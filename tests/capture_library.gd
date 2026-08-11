@@ -2,10 +2,10 @@ extends SceneTree
 
 
 func _initialize() -> void:
-	call_deferred("_stage_capture")
+	call_deferred("_capture")
 
 
-func _stage_capture() -> void:
+func _capture() -> void:
 	var game := (load("res://main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
 	await process_frame

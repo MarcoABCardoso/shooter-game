@@ -1,6 +1,8 @@
 class_name WeaponSystem
 extends Node2D
 
+const OperationEvolutionCatalog := preload("res://scripts/content/operation_evolution_catalog.gd")
+
 signal projectile_requested(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int, radius: float, distant_bonus: float, knockback: float, max_range: float, splash_damage: float, splash_radius: float)
 signal damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int)
 signal burst_requested(world_position: Vector2, color: Color, size: float, spokes: int)
@@ -9,6 +11,12 @@ signal tone_requested(frequency: float, duration: float, volume: float, slide: f
 
 const ORBIT_CHECK_INTERVAL := 1.0 / 30.0
 const VISUAL_UPDATE_INTERVAL := 1.0 / 30.0
+const TARGET_MODES: Array[String] = ["nearest", "ranged", "high_health"]
+const TARGET_MODE_NAMES := {
+	"nearest": "NEAREST",
+	"ranged": "RANGED THREATS",
+	"high_health": "HIGHEST HEALTH",
+}
 
 var player: NeonPlayer
 var profile: SaveProfile
@@ -22,6 +30,7 @@ var nova_visual := 0.0
 var active := false
 var orbit_check_timer := 0.0
 var visual_update_timer := 0.0
+var target_mode_index := 0
 
 
 func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession, tracked_enemies: Array[NeonEnemy]) -> void:
@@ -36,28 +45,43 @@ func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: R
 	nova_visual = 0.0
 	orbit_check_timer = 0.0
 	visual_update_timer = 0.0
+	target_mode_index = 0
 	active = true
 
 
-func apply_run_upgrade(weapon: String, dimension: String) -> bool:
-	if not weapons.has(weapon) or int(weapons[weapon]["level"]) <= 0:
+func apply_operation_growth(levels: int) -> void:
+	OperationEvolutionCatalog.apply_automatic_growth(weapons, levels)
+	session.automatic_growth_levels += levels
+
+
+func apply_operation_evolution(id: String) -> bool:
+	var definition := OperationEvolutionCatalog.definition(id)
+	if definition.is_empty():
 		return false
-	if not session.can_upgrade_weapon(weapon, dimension):
+	var tier := int(definition["tier"])
+	if not OperationEvolutionCatalog.choices_for(tier, session.operation_evolutions).has(id):
 		return false
-	if not RunUpgradeCatalog.apply(weapon, dimension, weapons):
+	if not OperationEvolutionCatalog.apply(id, weapons):
 		return false
-	session.register_weapon_upgrade(weapon, dimension)
+	if not session.register_operation_evolution(id):
+		return false
+	if bool(weapons["pulse"].get("preserve_anchor_on_dash", false)):
+		player.set_preserve_stationary_on_dash(true)
+	queue_redraw()
 	return true
 
 
-func has_available_run_upgrade() -> bool:
-	for weapon: String in WeaponCatalog.ORDER:
-		if int(weapons[weapon]["level"]) <= 0:
-			continue
-		for dimension: String in RunUpgradeCatalog.choices_for(weapon):
-			if session.can_upgrade_weapon(weapon, dimension):
-				return true
-	return false
+func cycle_target_mode() -> String:
+	target_mode_index = (target_mode_index + 1) % TARGET_MODES.size()
+	return target_mode_name()
+
+
+func target_mode() -> String:
+	return TARGET_MODES[target_mode_index]
+
+
+func target_mode_name() -> String:
+	return String(TARGET_MODE_NAMES[target_mode()])
 
 
 func tick(delta: float) -> void:
@@ -69,7 +93,7 @@ func tick(delta: float) -> void:
 		timers["pulse"] -= delta
 		if timers["pulse"] <= 0.0:
 			if fire_pulse():
-				timers["pulse"] += float(weapons["pulse"]["interval"])
+				timers["pulse"] += pulse_interval()
 			else:
 				timers["pulse"] = 0.0
 	if int(weapons["orbit"]["level"]) > 0:
@@ -95,7 +119,7 @@ func tick(delta: float) -> void:
 
 func fire_pulse() -> bool:
 	var spec: Dictionary = weapons["pulse"]
-	var target := _nearest_enemy(player.global_position, float(spec["range"]), [])
+	var target := select_target(player.global_position, pulse_range(), [])
 	if target == null:
 		return false
 	var fire_direction := _direction_to(target)
@@ -105,8 +129,8 @@ func fire_pulse() -> bool:
 	var splash_damage := profile.skill_effect("splash_damage")
 	var splash_radius := 72.0 * (1.0 + profile.skill_effect("splash_radius"))
 	for i in count:
-		var offset := (float(i) - float(count - 1) * 0.5) * 0.13
-		projectile_requested.emit(player.global_position + fire_direction * 24.0, fire_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), projectile_speed, true, "pulse", int(spec["pierce"]), projectile_radius, profile.skill_effect("distant_damage"), profile.skill_effect("knockback"), float(spec["range"]), splash_damage, splash_radius)
+		var offset := (float(i) - float(count - 1) * 0.5) * float(spec.get("spread", 0.13))
+		projectile_requested.emit(player.global_position + fire_direction * 24.0, fire_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), projectile_speed, true, "pulse", int(spec["pierce"]), projectile_radius, profile.skill_effect("distant_damage"), pulse_knockback(), pulse_range(), splash_damage, splash_radius)
 	tone_requested.emit(520.0, 0.025, 0.06, 900.0)
 	return true
 
@@ -117,7 +141,7 @@ func fire_arc() -> void:
 	var hit: Array[int] = []
 	var points: Array[Vector2] = [current]
 	for chain in int(spec["chains"]):
-		var target := _nearest_enemy(current, float(spec["range"]), hit)
+		var target := select_target(current, float(spec["range"]), hit)
 		if target == null:
 			break
 		hit.append(target.get_instance_id())
@@ -182,18 +206,70 @@ func _scaled_damage(weapon: String, base: float, target_position := Vector2.INF)
 		multiplier *= 1.0 + profile.skill_effect("surrounded_damage")
 	if target_position != Vector2.INF and player.global_position.distance_squared_to(target_position) >= 280.0 * 280.0:
 		multiplier *= 1.0 + profile.skill_effect("distant_damage")
+	if weapon == "pulse":
+		var evolution := String(weapons["pulse"].get("evolution", ""))
+		if evolution == "bastion":
+			multiplier *= 1.0 + anchor_charge_ratio() * float(weapons["pulse"].get("anchor_damage", 0.0))
+		elif evolution == "scatter":
+			multiplier *= 1.15 if player.velocity.length() >= 40.0 else 0.72
 	return base * multiplier
 
 
-func _nearest_enemy(from: Vector2, max_distance: float, excluded: Array[int]) -> NeonEnemy:
+func pulse_interval() -> float:
+	var interval := float(weapons["pulse"]["interval"])
+	if String(weapons["pulse"].get("evolution", "")) == "scatter":
+		var moving_multiplier := float(weapons["pulse"].get("moving_interval_multiplier", 0.72))
+		interval *= moving_multiplier if player.velocity.length() >= 40.0 else 1.28
+	return interval
+
+
+func pulse_range() -> float:
+	var result := float(weapons["pulse"]["range"])
+	if String(weapons["pulse"].get("evolution", "")) == "bastion":
+		result += anchor_charge_ratio() * float(weapons["pulse"].get("anchor_range", 0.0))
+	return result
+
+
+func pulse_knockback() -> float:
+	var result := profile.skill_effect("knockback")
+	if String(weapons["pulse"].get("evolution", "")) == "bastion":
+		result += anchor_charge_ratio() * float(weapons["pulse"].get("anchor_knockback", 0.0))
+	return result
+
+
+func anchor_charge_ratio() -> float:
+	if String(weapons["pulse"].get("evolution", "")) != "bastion":
+		return 0.0
+	return clampf(player.stationary_time / float(weapons["pulse"].get("anchor_charge_time", 2.6)), 0.0, 1.0)
+
+
+func select_target(from: Vector2, max_distance: float, excluded: Array[int]) -> NeonEnemy:
 	var best: NeonEnemy = null
 	var best_distance_squared := max_distance * max_distance
+	var best_priority := 2
+	var best_health := -INF
 	for enemy: NeonEnemy in enemies:
-		if is_instance_valid(enemy) and enemy.active and not excluded.has(enemy.get_instance_id()):
-			var distance_squared := from.distance_squared_to(enemy.global_position)
-			if distance_squared < best_distance_squared:
-				best_distance_squared = distance_squared
-				best = enemy
+		if not is_instance_valid(enemy) or not enemy.active or excluded.has(enemy.get_instance_id()):
+			continue
+		var distance_squared := from.distance_squared_to(enemy.global_position)
+		if distance_squared > max_distance * max_distance:
+			continue
+		match target_mode():
+			"ranged":
+				var priority := 0 if enemy.kind in ["gunner", "tank", "boss"] else 1
+				if priority < best_priority or (priority == best_priority and distance_squared < best_distance_squared):
+					best_priority = priority
+					best_distance_squared = distance_squared
+					best = enemy
+			"high_health":
+				if enemy.health > best_health or (is_equal_approx(enemy.health, best_health) and distance_squared < best_distance_squared):
+					best_health = enemy.health
+					best_distance_squared = distance_squared
+					best = enemy
+			_:
+				if distance_squared < best_distance_squared:
+					best_distance_squared = distance_squared
+					best = enemy
 	return best
 
 
@@ -221,7 +297,7 @@ func _update_visuals(delta: float) -> void:
 
 
 func _has_dynamic_visuals() -> bool:
-	return int(weapons["orbit"]["level"]) > 0 or not arc_visuals.is_empty() or nova_visual > 0.0
+	return int(weapons["orbit"]["level"]) > 0 or not arc_visuals.is_empty() or nova_visual > 0.0 or not String(weapons["pulse"].get("evolution", "")).is_empty()
 
 
 func _draw() -> void:
@@ -245,3 +321,13 @@ func _draw() -> void:
 	if nova_visual > 0.0:
 		var progress := 1.0 - nova_visual / 0.42
 		draw_arc(player.global_position, float(weapons["nova"]["radius"]) * progress, 0, TAU, 64, Color(GamePalette.GREEN, nova_visual / 0.42), 5.0)
+	var pulse_evolution := String(weapons["pulse"].get("evolution", ""))
+	if pulse_evolution == "bastion":
+		var charge := anchor_charge_ratio()
+		draw_arc(player.global_position, 34.0, -PI * 0.5, -PI * 0.5 + TAU * charge, 36, Color(GamePalette.CYAN, 0.45 + charge * 0.5), 3.0, true)
+		if charge >= 1.0:
+			draw_arc(player.global_position, pulse_range(), 0.0, TAU, 64, Color(GamePalette.CYAN, 0.07), 2.0, true)
+	elif pulse_evolution == "scatter":
+		var motion_color := GamePalette.GREEN if player.velocity.length() >= 40.0 else Color(GamePalette.YELLOW, 0.55)
+		for offset in [-0.30, 0.0, 0.30]:
+			draw_line(player.global_position + Vector2.from_angle(player.facing_direction.angle() + offset) * 28.0, player.global_position + Vector2.from_angle(player.facing_direction.angle() + offset) * 48.0, motion_color, 2.0, true)

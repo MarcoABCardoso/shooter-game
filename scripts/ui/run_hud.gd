@@ -2,7 +2,6 @@ class_name RunHud
 extends Control
 
 const MobileControlsScript := preload("res://scripts/ui/mobile_controls.gd")
-const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
 
 signal mobile_input_changed(movement: Vector2)
 signal mobile_ability_requested
@@ -31,7 +30,7 @@ func set_controls_active(value: bool) -> void:
 	mobile_controls.set_controls_active(value)
 
 
-func update(session: RunSession, weapons: Dictionary, stage_id: String) -> void:
+func update(session: RunSession, weapons: Dictionary, context_label: String, target_mode: String = "NEAREST") -> void:
 	time_label.text = _format_time(session.elapsed)
 	stats_label.text = "LEVEL %02d     FLUX ◆ %d     KILLS %d" % [session.level, session.flux, session.kills]
 	combo_label.text = "COMBO ×%.1f" % session.combo
@@ -42,8 +41,13 @@ func update(session: RunSession, weapons: Dictionary, stage_id: String) -> void:
 	for id: String in WeaponCatalog.ORDER:
 		if int(weapons[id]["level"]) > 0:
 			names.append(id.to_upper())
-	weapon_label.text = "  •  ".join(names)
-	evolution_label.text = StageCatalog.display_name(stage_id)
+	weapon_label.text = "%s     TARGET: %s  [Q]" % ["  •  ".join(names), target_mode]
+	var build_name := ""
+	if session.has_operation_evolution("bastion_array"):
+		build_name = "  •  BASTION"
+	elif session.has_operation_evolution("scatter_array"):
+		build_name = "  •  SCATTER"
+	evolution_label.text = context_label + build_name
 
 
 func set_health(current: float, maximum: float) -> void:

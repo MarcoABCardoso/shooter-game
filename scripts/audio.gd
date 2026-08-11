@@ -9,7 +9,6 @@ const MUSIC_TRACKS := {
 	&"title": preload("res://assets/audio/music/vector-eclipse/title-screen.ogg"),
 	&"hangar": preload("res://assets/audio/music/vector-eclipse/hangar-drift.ogg"),
 	&"combat": preload("res://assets/audio/music/vector-eclipse/prism-rain.ogg"),
-	&"stage_5": preload("res://assets/audio/music/vector-eclipse/event-horizon.ogg"),
 	&"boss": preload("res://assets/audio/music/vector-eclipse/midboss-alert.ogg"),
 	&"credits": preload("res://assets/audio/music/vector-eclipse/zero-hour.ogg"),
 }

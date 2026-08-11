@@ -12,7 +12,7 @@ const DEFINITIONS := {
 	"orbit": {
 		"kind": "WEAPON", "name": "ORBIT BLADES", "role": "Close-range contact defense",
 		"mechanics": "Two blades circle the ship and repeatedly damage enemies they touch.",
-		"acquisition": "Stage 1 clear", "clue": "Stabilize the Stage 1 signal.",
+		"acquisition": "Future operation reward", "clue": "Decode a future weapon signal.",
 	},
 	"arc": {
 		"kind": "WEAPON", "name": "ARC LASH", "role": "Automatic chain lightning",
@@ -32,7 +32,7 @@ const DEFINITIONS := {
 	"vector_parry": {
 		"kind": "ACTIVE SKILL", "name": "VECTOR PARRY", "role": "Radial defense and counterfire",
 		"mechanics": "Return nearby hostile projectiles as counterfire. Mastery shortens recharge.",
-		"acquisition": "Defeat the Overseer in Stage 5", "clue": "Erase the Stage 5 Overseer.",
+		"acquisition": "Future operation reward", "clue": "Decode a future ability signal.",
 	},
 }
 

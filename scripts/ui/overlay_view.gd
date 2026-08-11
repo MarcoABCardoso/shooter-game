@@ -1,7 +1,9 @@
 class_name OverlayView
 extends Control
 
-signal run_upgrade_requested(weapon: String, dimension: String)
+const OperationEvolutionCatalog := preload("res://scripts/content/operation_evolution_catalog.gd")
+
+signal operation_evolution_requested(id: String)
 signal menu_requested
 
 
@@ -11,31 +13,54 @@ func _ready() -> void:
 	visible = false
 
 
-func show_run_upgrade(session: RunSession, weapons: Dictionary) -> void:
+func show_operation_evolution(session: RunSession, choices: Array[String]) -> void:
 	clear()
 	visible = true
-	_add_shade(0.88)
-	var panel := UIFactory.panel(Vector2(90, 48), Vector2(1100, 624), Color(GamePalette.GREEN, 0.46))
+	_add_shade(0.9)
+	var panel := UIFactory.panel(Vector2(90, 55), Vector2(1100, 610), Color(GamePalette.GREEN, 0.48))
 	add_child(panel)
-	var title := UIFactory.label("RESONANCE LEVEL %02d" % session.level, 28, GamePalette.CYAN)
+	var title := UIFactory.label("RESONANCE TRANSFORMATION", 28, GamePalette.CYAN)
 	title.position = Vector2(30, 20)
 	panel.add_child(title)
-	var prompt := "CHOOSE AN EVOLUTION"
-	if session.pending_levels > 1:
-		prompt += "  •  %d CHOICES REMAINING" % session.pending_levels
-	var pending := UIFactory.label(prompt, 11, Color(GamePalette.GREEN, 0.72))
-	pending.position = Vector2(33, 57)
-	panel.add_child(pending)
-	var equipped: Array[String] = []
-	for weapon: String in WeaponCatalog.ORDER:
-		if int(weapons[weapon]["level"]) > 0:
-			equipped.append(weapon)
-	var gap := 14.0
-	var card_width := minf(330.0, (1040.0 - gap * maxi(0, equipped.size() - 1)) / maxf(1.0, equipped.size()))
-	var total_width := card_width * equipped.size() + gap * maxi(0, equipped.size() - 1)
+	var subtitle := UIFactory.label("LEVEL %02d  •  BASELINE POWER INCREASED AUTOMATICALLY\nChoose a behavior. The commitment lasts for this operation." % session.level, 12, Color(GamePalette.GREEN, 0.78))
+	subtitle.position = Vector2(32, 58)
+	subtitle.size = Vector2(1035, 48)
+	panel.add_child(subtitle)
+	var card_width := 490.0
+	var gap := 28.0
+	var total_width := card_width * choices.size() + gap * maxi(0, choices.size() - 1)
 	var start_x := (1100.0 - total_width) * 0.5
-	for index: int in equipped.size():
-		_build_run_upgrade_column(panel, equipped[index], session, Vector2(start_x + index * (card_width + gap), 92), Vector2(card_width, 495))
+	for index: int in choices.size():
+		var id := choices[index]
+		var definition := OperationEvolutionCatalog.definition(id)
+		var card := UIFactory.panel(Vector2(start_x + index * (card_width + gap), 125), Vector2(card_width, 300), Color(GamePalette.CYAN, 0.3))
+		card.name = "EvolutionCard_" + id
+		panel.add_child(card)
+		var branch := UIFactory.label(String(definition["branch"]).to_upper() + " PATH", 11, Color(GamePalette.YELLOW, 0.75))
+		branch.position = Vector2(20, 18)
+		card.add_child(branch)
+		var heading := UIFactory.label(String(definition["name"]), 22, GamePalette.CYAN)
+		heading.position = Vector2(20, 48)
+		heading.size = Vector2(card_width - 40, 34)
+		card.add_child(heading)
+		var description := UIFactory.label(String(definition["description"]), 15, Color.WHITE)
+		description.position = Vector2(20, 94)
+		description.size = Vector2(card_width - 40, 82)
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		card.add_child(description)
+		var future := UIFactory.label("VISIBLE NEXT STEP\n" + String(definition["future"]), 11, Color(GamePalette.GREEN, 0.68))
+		future.position = Vector2(20, 184)
+		future.size = Vector2(card_width - 40, 48)
+		card.add_child(future)
+		var choose := UIFactory.button("COMMIT", Vector2(20, 242), Vector2(card_width - 40, 44))
+		choose.name = "EvolutionChoice_" + id
+		choose.pressed.connect(operation_evolution_requested.emit.bind(id))
+		card.add_child(choose)
+	var tree_note := UIFactory.label("BASTION ARRAY → GRAVITY WELL / PHASE MOORING     •     SCATTER ARRAY → OVERRUN CHOKE / ESCAPE VELOCITY", 12, Color(GamePalette.CYAN, 0.65))
+	tree_note.position = Vector2(28, 520)
+	tree_note.size = Vector2(1044, 30)
+	tree_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(tree_note)
 
 
 func show_library(profile: SaveProfile) -> void:
@@ -110,31 +135,6 @@ func _add_shade(alpha: float) -> void:
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.color = Color(0.0, 0.01, 0.04, alpha)
 	add_child(shade)
-
-
-func _build_run_upgrade_column(parent: Control, weapon: String, session: RunSession, position: Vector2, size: Vector2) -> void:
-	var card := UIFactory.panel(position, size, Color(GamePalette.CYAN, 0.30))
-	card.name = "RunUpgradeColumn_" + weapon
-	parent.add_child(card)
-	var heading := UIFactory.label(WeaponCatalog.display_name(weapon), 18, GamePalette.CYAN)
-	heading.position = Vector2(18, 16)
-	heading.size = Vector2(size.x - 36, 28)
-	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	card.add_child(heading)
-	var dimensions: Array = RunUpgradeCatalog.choices_for(weapon)
-	for choice_index: int in dimensions.size():
-		var dimension := String(dimensions[choice_index])
-		var definition := RunUpgradeCatalog.definition(weapon, dimension)
-		var rank := session.weapon_upgrade_rank(weapon, dimension)
-		var capped := rank >= RunUpgradeCatalog.MAX_RANK
-		var rank_text := "MAXIMUM RANK" if capped else "RANK %d OF %d" % [rank, RunUpgradeCatalog.MAX_RANK]
-		var text := "%s\n%s\n%s" % [definition["name"], definition["description"], rank_text]
-		var button := UIFactory.button(text, Vector2(15, 64 + choice_index * 138), Vector2(size.x - 30, 118))
-		button.name = "RunUpgrade_%s_%s" % [weapon, dimension]
-		button.add_theme_font_size_override("font_size", 13)
-		button.disabled = capped
-		button.pressed.connect(run_upgrade_requested.emit.bind(weapon, dimension))
-		card.add_child(button)
 
 
 func _build_library_entry(parent: Control, id: String, profile: SaveProfile) -> void:

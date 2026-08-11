@@ -34,6 +34,8 @@ var ability_mode := "dash"
 var parry_flash := 0.0
 var ability_cooldown := 1.25
 var stationary_time := 0.0
+var preserve_stationary_on_dash := false
+var stationary_grace := 0.0
 var mobile_controls_enabled := false
 var mobile_movement := Vector2.ZERO
 var mobile_ability_queued := false
@@ -76,6 +78,7 @@ func _physics_process(delta: float) -> void:
 	dash_duration = maxf(0.0, dash_duration - delta)
 	hit_flash = maxf(0.0, hit_flash - delta)
 	parry_flash = maxf(0.0, parry_flash - delta)
+	stationary_grace = maxf(0.0, stationary_grace - delta)
 	if shield_charges < shield_capacity:
 		shield_recharge_timer = maxf(0.0, shield_recharge_timer - delta)
 		if shield_recharge_timer <= 0.0:
@@ -89,7 +92,12 @@ func _physics_process(delta: float) -> void:
 		_update_visual_if_due()
 		return
 	var input_vector := mobile_movement if mobile_controls_enabled else Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	stationary_time = stationary_time + delta if input_vector.length() <= 0.1 and dash_duration <= 0.0 else 0.0
+	if input_vector.length() <= 0.1 and dash_duration <= 0.0:
+		stationary_time += delta
+	elif preserve_stationary_on_dash and (dash_duration > 0.0 or stationary_grace > 0.0):
+		pass
+	else:
+		stationary_time = 0.0
 	if input_vector.length() > 0.1:
 		desired_facing_direction = input_vector.normalized()
 	var turn_weight := 1.0 - exp(-FACING_TURN_SPEED * delta)
@@ -106,6 +114,8 @@ func _physics_process(delta: float) -> void:
 		elif input_vector != Vector2.ZERO:
 			dash_direction = input_vector.normalized()
 			dash_duration = 0.18
+			if preserve_stationary_on_dash:
+				stationary_grace = 0.32
 			dash_cooldown = ability_cooldown
 			invulnerable = 0.30
 			active_skill_used.emit("dash", 18.0)
@@ -145,6 +155,10 @@ func clear_mobile_input() -> void:
 func request_mobile_ability() -> void:
 	if mobile_controls_enabled:
 		mobile_ability_queued = true
+
+
+func set_preserve_stationary_on_dash(value: bool) -> void:
+	preserve_stationary_on_dash = value
 
 
 func take_damage(amount: float) -> bool:

@@ -240,16 +240,7 @@ func _node_status(id: String) -> String:
 
 
 func _node_visible(id: String) -> bool:
-	var definition := SkillTreeCatalog.definition(id)
-	var requirements: Dictionary = definition.get("requires", {})
-	for parent_id: String in requirements:
-		var parent := SkillTreeCatalog.definition(parent_id)
-		var parent_stage := String(parent.get("stage", ""))
-		if not parent_stage.is_empty() and not profile.stage_cleared(parent_stage):
-			return false
-		if not _node_visible(parent_id):
-			return false
-	return true
+	return SkillTreeCatalog.DEFINITIONS.has(id)
 
 
 func _node_color(id: String) -> Color:
@@ -317,9 +308,6 @@ func _upgrade_button_text(id: String, rank: int, max_rank: int) -> String:
 func _requirement_text(id: String) -> String:
 	var definition := SkillTreeCatalog.definition(id)
 	var requirements: Array[String] = []
-	var stage := String(definition.get("stage", ""))
-	if not stage.is_empty() and not profile.stage_cleared(stage):
-		requirements.append("CLEAR " + stage.replace("_", " ").to_upper())
 	var nodes: Dictionary = definition.get("requires", {})
 	for node_id: String in nodes:
 		if profile.skill_rank(node_id) < int(nodes[node_id]):

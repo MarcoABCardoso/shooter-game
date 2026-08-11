@@ -1,39 +1,37 @@
 class_name GameUI
 extends CanvasLayer
 
-const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
-const StageGraphViewScript := preload("res://scripts/ui/stage_graph_view.gd")
+const OperationCatalog := preload("res://scripts/content/operation_catalog.gd")
 const CreditsViewScript := preload("res://scripts/ui/credits_view.gd")
 const MobileControlsScript := preload("res://scripts/ui/mobile_controls.gd")
 const RunHudScript := preload("res://scripts/ui/run_hud.gd")
 const OverlayViewScript := preload("res://scripts/ui/overlay_view.gd")
 
 signal deploy_requested
-signal stage_selected(id: String)
 signal new_game_requested
 signal load_game_requested
 signal options_requested
 signal title_requested
 signal slot_selected(slot: int, create_new: bool)
 signal resume_requested
-signal abandon_requested
 signal retry_requested
 signal menu_requested
 signal reset_requested
 signal library_requested
 signal loadout_requested
 signal skills_requested
-signal credits_requested
 signal credits_finished
 signal weapon_selected(id: String)
 signal ability_selected(id: String)
 signal skill_purchase_requested(id: String)
 signal skills_respec_requested
-signal run_upgrade_requested(weapon: String, dimension: String)
+signal operation_evolution_requested(id: String)
 signal master_volume_changed(value: float)
 signal mobile_input_changed(movement: Vector2)
 signal mobile_ability_requested
 signal mobile_pause_requested
+signal continue_operation_requested
+signal retreat_operation_requested
 
 var hud
 var title_screen: Control
@@ -41,7 +39,6 @@ var save_slot_screen: Control
 var options_screen: Control
 var hangar_screen: Control
 var start_screen: Control
-var stage_select_screen: Control
 var loadout_screen: Control
 var skill_tree_screen: Control
 var credits_screen
@@ -50,8 +47,6 @@ var start_flux_label: Label
 var start_stats_label: Label
 var start_mastery_label: Label
 var hangar_slot_label: Label
-var hangar_credits_button: Button
-var stage_graph_view
 var loadout_box: VBoxContainer
 var loadout_slots_label: Label
 var skill_flux_label: Label
@@ -74,12 +69,11 @@ func _ready() -> void:
 	_build_options_screen()
 	_build_hangar_screen()
 	_build_credits_screen()
-	_build_stage_select_screen()
 	_build_loadout_screen()
 	_build_skill_tree_screen()
 	overlay = OverlayViewScript.new()
 	overlay.name = "OverlayView"
-	overlay.run_upgrade_requested.connect(run_upgrade_requested.emit)
+	overlay.operation_evolution_requested.connect(operation_evolution_requested.emit)
 	overlay.menu_requested.connect(menu_requested.emit)
 	add_child(overlay)
 
@@ -140,19 +134,12 @@ func show_menu(profile: SaveProfile) -> void:
 		weapon_names.append(WeaponCatalog.display_name(weapon))
 	var ability_name := "VECTOR PARRY" if profile.equipped_ability() == "vector_parry" else "PHASE DASH"
 	start_mastery_label.text = "%s\n\n%s\nMASTERY %02d" % ["\n".join(weapon_names), ability_name, profile.mastery_level(profile.equipped_ability())]
-	hangar_credits_button.visible = profile.stage_cleared("stage_5")
 
 
 func show_credits() -> void:
 	_hide_all_screens()
 	credits_screen.visible = true
 	credits_screen.start()
-
-
-func show_stage_select(profile: SaveProfile) -> void:
-	_hide_all_screens()
-	stage_select_screen.visible = true
-	_rebuild_stage_select(profile)
 
 
 func show_loadout(profile: SaveProfile) -> void:
@@ -175,10 +162,10 @@ func show_run() -> void:
 	hud.set_controls_active(mobile_controls_available)
 
 
-func show_run_upgrade(session: RunSession, weapons: Dictionary) -> void:
+func show_operation_evolution(session: RunSession, choices: Array[String]) -> void:
 	hud.visible = true
 	hud.set_controls_active(false)
-	overlay.show_run_upgrade(session, weapons)
+	overlay.show_operation_evolution(session, choices)
 
 
 func show_library(profile: SaveProfile) -> void:
@@ -186,8 +173,8 @@ func show_library(profile: SaveProfile) -> void:
 	overlay.show_library(profile)
 
 
-func update_hud(session: RunSession, weapons: Dictionary, stage_id: String = "stage_1") -> void:
-	hud.update(session, weapons, stage_id)
+func update_hud(session: RunSession, weapons: Dictionary, context_label: String = "", target_mode: String = "NEAREST") -> void:
+	hud.update(session, weapons, context_label, target_mode)
 
 
 func set_health(current: float, maximum: float) -> void:
@@ -202,29 +189,38 @@ func set_ability(id: String) -> void:
 	hud.set_ability(id)
 
 
-func show_stage_clear(stage_id: String, session: RunSession, first_clear: bool, first_clear_bonus: int) -> void:
-	var reward_line := "Stage rewards already claimed."
-	if first_clear:
-		reward_line = "First-clear bonus: +%d Flux" % first_clear_bonus
-		if stage_id == "stage_1":
-			reward_line += "\nUnlocked: Orbit Blades"
-		elif stage_id == "stage_5":
-			reward_line += "\nUnlocked: second weapon slot and Vector Parry"
-	var total_banked := session.flux + first_clear_bonus
-	var body := "Level %d  •  %d hostiles destroyed\n%d Flux banked\n\n%s" % [session.level, session.kills, total_banked, reward_line]
-	_show_message("%s CLEARED" % StageCatalog.display_name(stage_id), body, "BACK TO HANGAR", menu_requested.emit, "PLAY AGAIN", retry_requested.emit)
+func show_operation_intermission(operation_id: String, session: RunSession, mission: Dictionary, mission_count: int) -> void:
+	var body := "%s complete  •  Mission %d of %d\n%d hostiles destroyed  •  %d Flux at risk\n\nHull fully repaired. Upgrades preserved.\nContinue or retreat with %d%% of earned Flux." % [
+		String(mission["name"]),
+		session.completed_missions,
+		mission_count,
+		session.kills,
+		session.flux,
+		OperationCatalog.retreat_flux_percent(operation_id),
+	]
+	_show_message("%s — INTERMISSION" % OperationCatalog.display_name(operation_id), body, "CONTINUE", continue_operation_requested.emit, "RETREAT", retreat_operation_requested.emit)
 
 
-func show_pause() -> void:
-	hud.set_controls_active(false)
-	_show_message("PAUSED", "The signal holds. Take a moment.", "RESUME", resume_requested.emit, "END RUN", abandon_requested.emit)
-
-
-func show_run_end(defeated: bool, session: RunSession) -> void:
-	hud.set_controls_active(false)
-	var title := "SIGNAL LOST" if defeated else "RUN ABANDONED"
-	var body := "Survived %s  •  Reached level %d\n%d hostiles destroyed  •  %d Flux banked\n\nMastery progress saved." % [_format_time(session.elapsed), session.level, session.kills, session.flux]
+func show_operation_end(operation_id: String, session: RunSession, banked_flux: int, completed: bool, defeated: bool) -> void:
+	var title := "%s COMPLETE" % OperationCatalog.display_name(operation_id)
+	if not completed:
+		title = "SIGNAL LOST" if defeated else "OPERATION RETREATED"
+	var recovery_percent := OperationCatalog.defeat_flux_percent(operation_id) if defeated else OperationCatalog.retreat_flux_percent(operation_id)
+	var reward_note := "Full operation rewards secured." if completed else "Partial recovery secured  •  %d%% of earned Flux." % recovery_percent
+	var body := "Completed %d of %d missions in %s\n%d hostiles destroyed  •  %d Flux banked\n\n%s\nMastery progress saved." % [
+		session.completed_missions,
+		OperationCatalog.missions(operation_id).size(),
+		_format_time(session.elapsed),
+		session.kills,
+		banked_flux,
+		reward_note,
+	]
 	_show_message(title, body, "PLAY AGAIN", retry_requested.emit, "BACK TO HANGAR", menu_requested.emit)
+
+
+func show_operation_pause() -> void:
+	hud.set_controls_active(false)
+	_show_message("PAUSED", "Operation state is holding.", "RESUME", resume_requested.emit, "RETREAT", retreat_operation_requested.emit)
 
 
 func show_reset_confirmation() -> void:
@@ -394,13 +390,6 @@ func _build_hangar_screen() -> void:
 	_add_menu_label(status_panel, "LOADOUT", 11, Color(GamePalette.GREEN, 0.58), Vector2(224, 112))
 	start_mastery_label = _add_menu_label(status_panel, "PULSE CANNON\nPHASE DASH\nMASTERY 00", 13, Color(GamePalette.GREEN, 0.86), Vector2(223, 136))
 	start_mastery_label.add_theme_constant_override("line_spacing", 10)
-	hangar_credits_button = UIFactory.button("CREDITS", Vector2(470, 420), Vector2(430, 58))
-	hangar_credits_button.name = "CreditsButton"
-	hangar_credits_button.visible = false
-	hangar_credits_button.pressed.connect(credits_requested.emit)
-	panel.add_child(hangar_credits_button)
-
-
 func _build_credits_screen() -> void:
 	credits_screen = CreditsViewScript.new()
 	credits_screen.name = "CreditsScreen"
@@ -408,30 +397,6 @@ func _build_credits_screen() -> void:
 	credits_screen.finished.connect(credits_finished.emit)
 	credits_screen.exit_requested.connect(credits_finished.emit)
 	add_child(credits_screen)
-
-
-func _build_stage_select_screen() -> void:
-	stage_select_screen = Control.new()
-	stage_select_screen.name = "StageSelectScreen"
-	stage_select_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(stage_select_screen)
-	var panel := UIFactory.panel(Vector2(120, 42), Vector2(1040, 636), Color(GamePalette.GREEN, 0.30))
-	stage_select_screen.add_child(panel)
-	_add_menu_label(panel, "SELECT STAGE", 32, GamePalette.CYAN, Vector2(38, 25))
-	var back := UIFactory.button("BACK", Vector2(850, 22), Vector2(150, 48))
-	back.name = "StageSelectBackButton"
-	back.pressed.connect(menu_requested.emit)
-	panel.add_child(back)
-	stage_graph_view = StageGraphViewScript.new()
-	stage_graph_view.name = "StageGraph"
-	stage_graph_view.position = Vector2(55, 90)
-	stage_graph_view.size = Vector2(930, 510)
-	stage_graph_view.stage_selected.connect(stage_selected.emit)
-	panel.add_child(stage_graph_view)
-
-
-func _rebuild_stage_select(profile: SaveProfile) -> void:
-	stage_graph_view.rebuild(profile)
 
 
 func _build_loadout_screen() -> void:
@@ -489,7 +454,6 @@ func _hide_all_screens() -> void:
 	save_slot_screen.visible = false
 	options_screen.visible = false
 	hangar_screen.visible = false
-	stage_select_screen.visible = false
 	loadout_screen.visible = false
 	skill_tree_screen.visible = false
 	credits_screen.stop()

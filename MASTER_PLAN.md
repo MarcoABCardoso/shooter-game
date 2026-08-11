@@ -6,14 +6,15 @@ This section is the handoff point between work sessions. Read it before starting
 implementation and update it before ending a session that changes the game or
 the plan.
 
-- **Overall status:** Planning complete; full-game implementation not started.
+- **Overall status:** Evolution and control play is complete; Chapter 1 mission
+  and build integration is underway.
 - **Active chapter:** Chapter 1 - Prove the new operation.
 - **Working branch:** `codex/master-plan`
-- **Last updated:** 2026-08-10
+- **Last updated:** 2026-08-11
 
 | Chapter | Status | Playable outcome |
 |---|---|---|
-| 1. Prove the new operation | Not started | One representative three-mission operation with distinct builds |
+| 1. Prove the new operation | In progress | One representative three-mission operation with distinct builds |
 | 2. Rebuild the opening sector | Not started | A compact but complete first sector using the full-game structure |
 | 3. Establish build breadth | Not started | Multiple behaviorally distinct builds worth revisiting |
 | 4. Complete the campaign | Not started | Three-sector campaign, final operation, and definitive ending |
@@ -22,42 +23,107 @@ the plan.
 
 ### Current handoff
 
-- **Last completed:** Authored the master plan, recast the old design decisions,
-  and established that all pre-release saves are disposable with no requirement
-  for backward compatibility.
-- **In progress:** Nothing in runtime code.
-- **Next action:** Inspect the existing stage lifecycle and map which parts can
-  support operation-scoped state, three connected missions, and partial rewards
-  before choosing the smallest implementation slice.
-- **Blockers:** None.
-- **Verification:** Documentation whitespace and `git diff --check` pass. All
-  nine baseline Godot tests pass sequentially on Godot 4.7.1. Some tests emit
-  pre-existing ObjectDB or resource-leak warnings while exiting successfully;
-  treat those as known baseline noise until deliberately investigated.
+- **Last completed:** Completed the required Evolution and control play with both
+  Bastion and Scatter. Signal Defense was a strong change of pace, both builds
+  changed positioning, and the operation length and intermissions felt right.
+  The play also exposed the remaining prototype seams: missions two and three
+  are indistinguishable survival encounters, Scatter substantially outperforms
+  Bastion, Sentinel charge is too binary, Phase Mooring loses charge before Dash
+  can help, the two evolution pauses cluster early, and three targeting modes are
+  awkward.
+- **In progress:** Chapter 1 mission and build integration.
+- **Next action:** First refine the comparison: make Sentinel charge drain with
+  displacement instead of resetting, make Phase Mooring preserve that charge
+  through Dash, bring Scatter closer to Bastion's power, move the second
+  transformation later, and reduce targeting to Nearest/Ranged Threats with a
+  prominent mode cue. Then replace the two generic Assault missions with two
+  distinct rhythms and add one further build that exploits one of them.
+- **Blockers:** Do not begin the opening-sector rebuild until the revised
+  three-rhythm operation passes the Chapter 1 integration play stop.
+- **Verification:** All nine current Godot tests, including
+  `evolution_control.gd`, pass sequentially with explicit waits and exit-code
+  checks on Godot 4.7.1. `git diff --check` passes. Known
+  ObjectDB/resource-leak warnings remain visible on some clean exits.
 
 ### Active checklist: Chapter 1
 
 - [x] Record the creator's current-playable baseline: what must survive, what has
   become weak, and what the first new build should prove.
-- [ ] Map the current stage, run, reward, pause, and UI lifecycle to the proposed
+- [x] Map the original deployment, reward, pause, and UI lifecycle to the proposed
   operation model.
-- [ ] Define the smallest operation and mission data needed by three real
+- [x] Define the smallest operation and mission data needed by three real
   missions; avoid a universal mission framework.
-- [ ] Connect three missions with an intermission and a partial-reward failure or
+- [x] Connect three missions with an intermission and a partial-reward failure or
   retreat flow.
 - [ ] Give the operation at least three mission rhythms, one new arena rule, and
   a miniboss or substantial boss variation.
-- [ ] Replace frequent scalar resonance prompts with automatic growth and a
+- [x] Replace frequent scalar resonance prompts with automatic growth and a
   small, visible transformational evolution tree.
-- [ ] Support two builds that demand noticeably different positioning or
+- [x] Support two builds that demand noticeably different positioning or
   targeting behavior.
-- [ ] Add one authored interaction between weapons, an active skill, or a
+- [x] Add one authored interaction between weapons, an active skill, or a
   doctrine.
-- [ ] Compare automatic targeting, target marking, aim bias, and manual aim
-  through direct play; keep only the useful control.
+- [x] Play the three cyclic target-priority modes under pressure. Keep Nearest
+  and Ranged Threats; remove Highest Health and add a stronger mode cue.
+- [ ] Replace binary Sentinel reset with displacement-based charge drain and
+  make Phase Mooring preserve charge through Dash input.
+- [ ] Rebalance Scatter toward Bastion without removing its close-range movement
+  advantage, and move the second evolution breakpoint later in the operation.
+- [ ] Add one further behaviorally distinct build tied to a new mission rhythm.
 - [ ] Add representative music, sound, and restrained narrative framing.
-- [ ] Play the complete operation with both builds and record the honest design
+- [x] Play the complete operation with both builds and record the honest design
   judgment in this handoff section.
+
+### Recorded direction after the Operation spine play
+
+- Operations replace the selectable route as the campaign structure. Signal
+  Breach is now the sole deployment flow; obsolete progression and tests were
+  removed without a compatibility layer.
+- The current mission experiment is a short Signal Defense opener because a
+  spatial objective is the clearest contrast with the current kite-and-fire Assault.
+  Later mission families must earn their place by producing similarly visible
+  behavioral differences.
+- Intermissions are valuable relief from sustained bullet pressure. They now
+  fully repair hull while preserving resonance and evolution commitments.
+- Retreat must be safer than defeat. The current tuning comparison recovers
+  75% of earned Flux on retreat versus 50% on defeat; mastery remains banked in
+  either case.
+- The first intended build is Sentinel. Remaining nearly stationary builds
+  damage, knockback, or range benefits; ordinary movement resets them. Later
+  evolutions may permit slow repositioning without a reset, while active skills
+  provide emergency relocation or push enemies away.
+- The immediate contrasting build is a short-range, auto-targeting scatter
+  weapon that becomes effective through constant kiting and aggressive spacing.
+- Scalar resonance choices remain a chore and are now automatic baseline growth.
+  Generic projectile speed is absent unless a specific weapon
+  transformation makes it behaviorally relevant.
+- The current targeting prototype cycles discrete priority modes with one key.
+  Keyboard and mouse are the minimum Chapter 1 comparison target; other input
+  mappings follow only if the control earns its place.
+- Mission variety remains the next priority. The successful comparison now
+  unblocks additional rhythms.
+
+### Recorded direction after the Evolution and control play
+
+- Signal Defense succeeds as a real rhythm change. It was the first objective
+  prototype, not the intended exception in an otherwise survival-only operation.
+  Missions two and three now need their own immediately legible objectives.
+- Sentinel charge becomes a reserve that movement spends in proportion to
+  displacement. Small corrections should lose a little power and let the player
+  settle back in without repeating the entire charge delay.
+- Phase Mooring should preserve Sentinel charge through Phase Dash. Directional
+  input used to trigger Dash must not erase the benefit before the ability fires.
+- Scatter and Bastion are equally interesting, but Scatter is much stronger.
+  Tune their power toward parity while keeping Scatter's close-range kiting edge.
+- Sparse pauses are working, but levels 2 and 4 arrive too close together. Keep
+  the first early commitment and move the follow-up later in the operation.
+- Highest Health has no useful tactical case while clearing more small enemies is
+  always safer. Reduce the prototype to Nearest and Ranged Threats, and make the
+  active mode unmistakable without adding aiming workload.
+- The desire to try more builds is strong enough to justify another Chapter 1
+  build after mission variety exists. Sentinel-specific Flux or achievement
+  hooks are promising future incentives, but a raw Flux advantage must not turn
+  one positioning style into the mandatory farming build.
 
 ### Tracking rules
 
@@ -76,6 +142,34 @@ the plan.
 
 ### Session log
 
+- **2026-08-11:** Completed the Evolution and control play stop with both builds.
+  Signal Defense, positioning contrast, operation length, and intermissions all
+  worked. Planned a displacement-spent Sentinel charge, functional Phase Mooring,
+  Scatter rebalance, later second evolution, two-mode targeting with a clearer
+  cue, two genuinely distinct follow-up missions, and another build. Mission
+  variety is the immediate content priority before the Chapter 1 integration
+  stop.
+- **2026-08-11:** Removed the standalone deployment route instead of preserving
+  it for compatibility. Deploy now starts Signal Breach directly; operation-owned
+  encounter profiles replace the campaign-stage catalog; scalar upgrade state,
+  UI, progression gates, migrations, and obsolete regression tests are gone.
+- **2026-08-11:** Implemented the Evolution and control comparison and stopped at
+  its required play gate. Signal Defense now opens the operation; intermissions
+  repair hull; retreat and defeat have distinct recovery. Operation resonance
+  automatically grows output and offers sparse Bastion/Scatter transformations,
+  including a Phase Dash interaction. Q cycles three target-priority modes.
+- **2026-08-11:** Completed the required Operation spine play by clearing Signal
+  Breach, deliberately failing, and retreating. The operation arc and pauses are
+  worth keeping, but three escalating Assault missions collapse into the same
+  kite-and-fire answer and overload the opener. Chose Signal Defense as the next
+  contrast; future intermissions repair hull and keep upgrades, retreat must beat
+  defeat economically, and operations will replace rather than coexist with the
+  old deployment mode.
+- **2026-08-11:** Implemented the first operation spine and stopped at its
+  required creator play gate. Signal Breach connects three placeholder assault
+  missions using the existing Stage 1-3 encounters, preserves operation state
+  through intermissions, and distinguishes full completion rewards from 50%
+  Flux recovery on retreat or defeat. Additional mission families wait on play.
 - **2026-08-10:** Added mandatory creator play stops and completed the technical
   baseline. All nine existing Godot tests pass; pre-existing ObjectDB and
   resource-leak warnings remain visible on some clean test exits.
@@ -438,10 +532,9 @@ The project is pre-release and its saves are disposable. Incompatible profile
 changes may reset all progress without a migration path. Do not preserve an old
 schema at the cost of a clearer game or implementation.
 
-The current five-stage campaign is prototype material, not immutable content. It
-may be reworked into the first sector, redistributed among new operations, or
-partly replaced. Existing code and encounters should be reused where they serve
-the new structure, not merely because they already exist.
+Removed prototype content should return only when a future operation gives it a
+clear role. Existing enemies and encounter ideas may be reused where they serve
+the new structure, not merely because they once existed.
 
 ## How the work advances
 
@@ -461,21 +554,25 @@ right or wrong, and what changes before continuing.
 | Baseline | Play the current campaign and record what must survive, what feels weak, and the build the new direction should enable. | Runtime restructuring |
 | Operation spine | Complete three connected placeholder missions; deliberately fail and retreat to inspect state, rewards, and pacing. | Additional mission families and campaign content |
 | Evolution and control | Play the same operation with two intended builds, then compare the targeting variants in real pressure. | More weapons and control polish |
-| Chapter 1 integration | Complete the representative operation with both builds and decide whether engineering another configuration is genuinely appealing. | Rebuilding the complete opening sector |
+| Chapter 1 integration | Complete the revised three-rhythm operation with the tuned builds and one new configuration; verify each mission asks a different combat question. | Rebuilding the complete opening sector |
 | Chapter 2 | Start from an empty profile, experience failure and optional power growth, then clear the entire first sector. | Broad build production |
 | Chapter 3 | Play several named builds through the same demanding operation or boss and revise numerical duplicates. | Final campaign content production |
 | Chapter 4 | Complete the whole campaign from an empty profile and watch the ending. The finite game must feel satisfying by itself. | Post-game production |
 | Chapter 5 | Complete at least one threat run and one challenge; confirm that they change decisions rather than only health and damage. | Release finishing work |
 | Chapter 6 | Complete the release candidate from an empty profile, including failure, reset, pause, and missing or corrupt save recovery. | Declaring the game finished |
 
-The baseline stop is complete and recorded above. Later stops remain incomplete
-until their corresponding game exists.
+The Baseline, Operation spine, and Evolution and control stops are complete and
+recorded above. Later stops remain incomplete until their corresponding game
+exists.
 
 ### Chapter 1: Prove the new operation
 
 Build one representative operation before multiplying campaign content.
 
 - Chain three missions with an intermission and partial-reward failure flow.
+- Use a short, lower-pressure Signal Defense mission as the opener; fully repair
+  hull at intermissions, preserve operation upgrades, and make voluntary retreat
+  recover more Flux than defeat.
 - Include at least three mission rhythms, one new arena rule, and a miniboss or
   substantial boss variation.
 - Replace frequent scalar resonance prompts with automatic growth and a small
@@ -483,17 +580,22 @@ Build one representative operation before multiplying campaign content.
 - Support at least two builds that demand noticeably different positioning or
   targeting behavior.
 - Make one of those builds a Sentinel: it should hold ground and keep enemies at
-  bay through control, defense, retaliation, or space ownership rather than
-  merely receiving a stationary damage bonus.
+  bay by accumulating damage, knockback, or range while stationary. Movement
+  spends stored charge in proportion to displacement; small corrections should
+  preserve some benefit, while active skills may relocate the ship or push
+  enemies away without invalidating the build.
+- Make the immediate counter-build a short-range auto-targeting scatter weapon
+  that demands constant kiting and aggressive spacing.
 - Add one clear interaction between weapons, an active skill, or a doctrine.
-- Compare automatic targeting, target marking, aim bias, and manual aim cheaply
-  enough to make a direct control decision. The comparison must include touch
-  play and prioritizing a Gunner while closer enemies are present.
+- Prototype a keyboard-and-mouse key that switches between Nearest and Ranged
+  Threats, including a way to prioritize a Gunner while closer enemies are present,
+  with a prominent active-mode cue.
+  Expand the mapping to touch or controller only if the control proves useful.
 - Give the slice representative music, sound, and restrained narrative framing.
 
-The practical question is simple: after playing both builds through the complete
-operation, is planning and executing another configuration genuinely appealing?
-If not, improve the build and encounter relationship before adding sectors.
+The remaining Chapter 1 question is whether three distinct missions expose
+different build strengths and whether another configuration adds a new plan
+rather than another damage curve. Resolve that before adding sectors.
 
 ### Chapter 2: Rebuild the opening sector
 
@@ -501,7 +603,7 @@ Turn the current playable campaign into a proper introduction to the larger game
 
 - Teach the operation structure, automatic growth, evolution, retreat, banking,
   and targeting controls without presenting every system immediately.
-- Reuse and revise the current enemies, stages, unlocks, and Overseer according to
+- Reuse and revise the current enemies, encounter ideas, unlocks, and Overseer according to
   their best campaign role.
 - Ensure the first required route is clearable without permanent grinding.
 - Add optional routes that provide power, equipment, or mastery before the boss.

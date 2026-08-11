@@ -84,7 +84,6 @@ const DEFINITIONS := {
 		"position": Vector2(0.08, 0.46),
 		"requires": {"distant_power": 2},
 		"mastery": {"pulse": 2},
-		"stage": "stage_1",
 	},
 	"surrounded_power": {
 		"name": "CLOSE QUARTERS",
@@ -95,7 +94,6 @@ const DEFINITIONS := {
 		"value": 0.09,
 		"position": Vector2(0.36, 0.46),
 		"requires": {"anchored_power": 2},
-		"stage": "stage_1",
 	},
 	"projectile_matrix": {
 		"name": "PROJECTILE MATRIX",
@@ -106,7 +104,6 @@ const DEFINITIONS := {
 		"value": 0.18,
 		"position": Vector2(0.64, 0.46),
 		"requires": {"pulse_acceleration": 2},
-		"stage": "stage_1",
 	},
 	"reinforced_core": {
 		"name": "REINFORCED CORE",
@@ -117,7 +114,6 @@ const DEFINITIONS := {
 		"value": 12.0,
 		"position": Vector2(0.92, 0.46),
 		"requires": {"salvage_protocol": 2},
-		"stage": "stage_1",
 	},
 	"arc_overload": {
 		"name": "IMPACT VECTOR II",
@@ -128,7 +124,6 @@ const DEFINITIONS := {
 		"value": 44.0,
 		"position": Vector2(0.08, 0.70),
 		"requires": {"impact_vector": 1},
-		"stage": "stage_2",
 	},
 	"orbit_overdrive": {
 		"name": "ORBIT OVERDRIVE",
@@ -140,7 +135,6 @@ const DEFINITIONS := {
 		"position": Vector2(0.36, 0.70),
 		"requires": {"surrounded_power": 1},
 		"mastery": {"orbit": 1},
-		"stage": "stage_2",
 	},
 	"splash_payload": {
 		"name": "SPLASH PAYLOAD",
@@ -151,7 +145,6 @@ const DEFINITIONS := {
 		"value": 0.16,
 		"position": Vector2(0.64, 0.70),
 		"requires": {"projectile_matrix": 1},
-		"stage": "stage_2",
 	},
 	"reactive_shield": {
 		"name": "REACTIVE SHIELD",
@@ -162,7 +155,6 @@ const DEFINITIONS := {
 		"value": 1.0,
 		"position": Vector2(0.92, 0.70),
 		"requires": {"reinforced_core": 1},
-		"stage": "stage_2",
 	},
 	"nova_reactor": {
 		"name": "AMPLIFIED CORE II",
@@ -173,7 +165,6 @@ const DEFINITIONS := {
 		"value": 0.06,
 		"position": Vector2(0.08, 0.94),
 		"requires": {"arc_overload": 1},
-		"stage": "stage_3",
 	},
 	"siege_posture_2": {
 		"name": "SIEGE POSTURE II",
@@ -184,7 +175,6 @@ const DEFINITIONS := {
 		"value": 0.10,
 		"position": Vector2(0.36, 0.94),
 		"requires": {"orbit_overdrive": 1},
-		"stage": "stage_3",
 	},
 	"volatile_radius": {
 		"name": "VOLATILE RADIUS",
@@ -195,7 +185,6 @@ const DEFINITIONS := {
 		"value": 0.22,
 		"position": Vector2(0.64, 0.94),
 		"requires": {"splash_payload": 1},
-		"stage": "stage_3",
 	},
 	"emergency_cycle": {
 		"name": "EMERGENCY CYCLE",
@@ -206,7 +195,6 @@ const DEFINITIONS := {
 		"value": 0.08,
 		"position": Vector2(0.92, 0.94),
 		"requires": {"reactive_shield": 1},
-		"stage": "stage_3",
 	},
 }
 

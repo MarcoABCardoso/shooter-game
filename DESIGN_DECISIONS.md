@@ -172,18 +172,37 @@ Candidate mission families are Assault, Elite Hunt, Signal Defense, Breach,
 Salvage, Anomaly, and Boss. A family survives only if it makes builds prioritize,
 move, or target differently.
 
+The first operation-spine play confirmed that escalation and pauses are useful,
+but three back-to-back Assault encounters still feel like one repeated
+kite-and-fire problem and are too intense for an opener. The current comparison
+uses a short, lower-pressure Signal Defense opener. Intermissions fully repair
+hull and preserve operation upgrades. Voluntary retreat recovers 75% of Flux
+versus 50% after defeat, with mastery banked in both cases.
+
+The Evolution and control play confirmed Signal Defense as a strong change of
+pace, but also made the two following Assault missions feel indistinguishable.
+The opener was the first objective prototype, not an intended one-off. The next
+slice gives missions two and three their own immediately legible objectives so
+the operation contains three actual rhythms rather than one objective followed
+by two survival timers.
+
+Operations are the sole deployment structure. The selectable prototype route and
+its scalar upgrade loop have been removed rather than retained as a second mode.
+
 ### H002: Automatic targeting with optional added agency
 
-Automatic targeting remains the baseline while target marking, aim bias, and
-full manual aim are compared through direct play. Added input is valuable only if
-it helps express a build without overwhelming movement and threat reading.
+Automatic targeting remains the baseline. Direct play found three cyclic modes
+awkward and found no useful case for Highest Health while clearing more small
+enemies is always safer. The next comparison switches only between Nearest and
+Ranged Threats, with a prominent persistent cue instead of continuous aim.
 
-The first comparison must cover touch controls and the need to prioritize a
-Gunner while nearer enemies compete for automatic targeting.
+The keyboard-and-mouse comparison confirmed that Ranged Threats can prioritize a
+Gunner while nearer enemies compete for automatic targeting. Touch and controller
+mappings follow only if the simpler two-mode control survives its next comparison.
 
-Targeting doctrines such as nearest, highest health, lowest health, densest
-cluster, ranged threats first, or persistent marked target may provide strategic
-control without continuous aiming.
+Future targeting doctrines such as lowest health, densest cluster, or a
+persistent marked target must first demonstrate a tactical case the baseline
+modes do not cover.
 
 ### H003: Chassis or doctrines
 
@@ -192,9 +211,23 @@ amplified weapon, two balanced weapons, or three weaker weapons. It should be
 omitted if it becomes another menu of minor stat bonuses or duplicates the skill
 tree.
 
-The first behavior target is a Sentinel build that holds ground and keeps enemies
-at bay through control, defense, retaliation, or space ownership. A stationary
-damage multiplier alone does not satisfy the target.
+The implemented first behavior target is a Sentinel build that finds a safe
+position and accumulates damage, knockback, or range while remaining nearly
+stationary. Direct play validated the tension but rejected an all-or-nothing
+reset. Movement should spend stored charge in proportion to displacement, so a
+small correction costs some power and settling down resumes charging without the
+full startup delay. Phase Mooring should preserve charge through Phase Dash;
+directional input must not clear it before the ability activates.
+
+Its implemented foil is a short-range, auto-targeting scatter weapon whose damage
+requires constant kiting and aggressive spacing. These builds should be
+describable through their positioning behavior, not their damage percentages.
+Direct play found both styles equally interesting but Scatter substantially more
+powerful, so their output should move toward parity without erasing Scatter's
+close-range movement advantage. The strong desire to try another build validates
+further build work once the operation has more than one meaningful mission
+rhythm. Build-specific achievements may reinforce identity; permanent Flux
+advantages require caution because they can make one style the mandatory farm.
 
 ### H004: Authored music and restrained narrative
 
@@ -247,28 +280,26 @@ preserved so code, tests, and earlier discussion remain understandable.
 
 ## Current prototype balance reference
 
-These values describe the playable five-stage build. They are tuning references,
-not targets for the future campaign.
+These values describe the playable Signal Breach slice. They are tuning
+references, not targets for the future campaign.
 
 | System | Current starting value | Current growth |
 |---|---:|---:|
 | Player hull | 100 | Behavioral mutations; +12 permanent rank |
 | Player speed | 300 px/s | Fixed; movement physics are unaffected by facing and targeting |
 | Pulse Cannon | 5 damage / 0.34 s / 190 px range | Skill tree + 2.5% per native mastery rank |
-| Stage 1 | 55 s, Drones only | 0.68x health base; no elites or boss |
-| Stage 2 | 75 s, adds Strikers | 0.90x health base; no elites |
-| Stage 3 | 90 s, adds elites | Elite every 42 s |
-| Stage 4 | 105 s, adds Gunners | Higher pressure; elite every 38 s |
-| Stage 5 | 120 s, adds Tanks | Elite every 34 s; Overseer after evacuation |
+| Signal Defense | 18 s hold objective | Drone pressure; leaving the field decays progress |
+| Striker Screen | 75 s Assault | Introduces Strikers after the opener |
+| Gunner Lock | 68 s Assault | Adds Gunners and timed elite pressure |
 | Phase Dash | 0.18 s movement, 0.30 s invulnerability | 1.25 s cooldown |
 
 Current tuning locations remain:
 
-- Stage rosters, durations, health, pressure, and boss presence:
-  `scripts/content/stage_catalog.gd`
+- Encounter rosters, durations, health, and pressure:
+  `scripts/content/encounter_catalog.gd`
 - Enemy base values: `scripts/content/enemy_catalog.gd`
 - Weapon base values: `scripts/content/weapon_catalog.gd`
-- Current run upgrades: `scripts/content/run_upgrade_catalog.gd`
+- Operation transformations: `scripts/content/operation_evolution_catalog.gd`
 - Permanent graph content: `scripts/content/skill_tree_catalog.gd`
 - Profile mastery curves and unlock transactions: `scripts/profile.gd`
 - Boss behavior and vector presentation: `scripts/entities/enemy.gd`
@@ -278,16 +309,19 @@ Current tuning locations remain:
 The prototype currently includes:
 
 - A title screen, hangar, discovery-gated Arsenal Library, and save reset.
-- A five-stage sequential route with deterministic resonance choices, swarm
-  evacuation, the Overseer boss, rewards, and retry.
+- A three-mission Signal Breach operation spine with intermissions and partial
+  reward recovery. It opens with objective-driven Signal Defense, then advances
+  through two escalating Assault missions.
+- Automatic resonance growth, two visible Pulse evolution tiers,
+  Sentinel and Scatter positioning builds, and keyboard target-priority cycling.
 - Weapon and active-skill loadouts, a Flux skill graph with free respec, native
   mastery, four implemented weapon families, a combo multiplier, pickups, pause,
   and feedback.
 - Keyboard and single-stick touch movement.
 
 This is evidence that the compact loop works. It is raw material for the opening
-sector, not a promise that every current stage, reward, duration, or menu survives
-unchanged.
+sector, not a promise that every current mission, reward, duration, or menu
+survives unchanged.
 
 ## Intentionally open questions
 
