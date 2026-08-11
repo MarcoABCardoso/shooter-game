@@ -78,6 +78,16 @@ godot --headless --path . --script res://tests/mobile_controls.gd
 
 If the executable is named `godot4`, substitute that command name. Do not encode a local executable path in repository files.
 
+On Windows, the agent shell may not inherit the same `PATH` as the user's terminal. If `Get-Command godot` and `Get-Command godot4` both fail while the desktop editor is already running, discover the executable for the current session from the running process:
+
+```powershell
+Get-Process | Where-Object { $_.ProcessName -like 'Godot*' } | Select-Object -ExpandProperty Path -Unique
+```
+
+Use the discovered path only in the current command invocation; never write it into project files. When invoking that path from PowerShell, explicitly wait for each headless process and check its exit code. Windows may otherwise treat the Godot executable as a GUI process, return control before the test finishes, and leave `$LASTEXITCODE` misleading. `Start-Process -Wait -PassThru -NoNewWindow` is a reliable pattern for sequential test runs.
+
+If a restricted execution environment reports that Godot failed to open `user://logs` and the engine then crashes before a test result, rerun the same test with normal access to the user's Godot data directory. Treat this as an environment failure, not a project test failure. Do not redirect Godot logs into the repository as a workaround.
+
 Testing expectations:
 
 - Add or update regression coverage for behavior changes.
