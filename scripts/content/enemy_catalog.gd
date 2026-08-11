@@ -20,6 +20,10 @@ const DEFINITIONS := {
 		"health": 135.0, "speed": 52.0, "contact_damage": 22.0,
 		"flux": 5, "resonance": 18, "radius": 23.0, "shoot_interval": 0.0,
 	},
+	"relay": {
+		"health": 260.0, "speed": 0.0, "contact_damage": 0.0,
+		"flux": 10, "resonance": 32, "radius": 28.0, "shoot_interval": 0.0,
+	},
 	"boss": {
 		"health": 1650.0, "speed": 48.0, "contact_damage": 28.0,
 		"flux": 75, "resonance": 180, "radius": 66.0, "shoot_interval": 0.0,

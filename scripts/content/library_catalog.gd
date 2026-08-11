@@ -31,8 +31,8 @@ const DEFINITIONS := {
 	},
 	"vector_parry": {
 		"kind": "ACTIVE SKILL", "name": "VECTOR PARRY", "role": "Radial defense and counterfire",
-		"mechanics": "Return nearby hostile projectiles as counterfire. Mastery shortens recharge.",
-		"acquisition": "Future operation reward", "clue": "Decode a future ability signal.",
+		"mechanics": "Return nearby hostile projectiles as counterfire. It is strongest against Gunner and Overseer patterns. Mastery shortens recharge.",
+		"acquisition": "Standard hangar equipment", "clue": "Standard hangar equipment.",
 	},
 }
 

@@ -9,6 +9,8 @@ class ArenaBackground:
 	var objective_radius := 0.0
 	var objective_progress := 0.0
 	var objective_occupied := false
+	var relay_positions: Array[Vector2] = []
+	var remaining_relays: Array[int] = []
 
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, Vector2(1280, 720)), GamePalette.BACKGROUND, true)
@@ -31,6 +33,15 @@ class ArenaBackground:
 			draw_arc(objective_position, objective_radius + 9.0, -PI * 0.5, -PI * 0.5 + TAU * objective_progress, 64, field_color, 6.0, true)
 			draw_circle(objective_position, 9.0, Color(field_color, 0.16))
 			draw_arc(objective_position, 15.0, 0.0, TAU, 24, field_color, 2.0, true)
+		if not relay_positions.is_empty():
+			for index in relay_positions.size():
+				var next_index := (index + 1) % relay_positions.size()
+				draw_dashed_line(relay_positions[index], relay_positions[next_index], Color(GamePalette.MAGENTA, 0.28), 2.0, 14.0)
+			for index in relay_positions.size():
+				var intact := remaining_relays.has(index)
+				var relay_color := GamePalette.ORANGE if intact else Color(GamePalette.GREEN, 0.26)
+				draw_circle(relay_positions[index], 42.0, Color(relay_color, 0.045 if intact else 0.02))
+				draw_arc(relay_positions[index], 42.0, 0.0, TAU, 32, Color(relay_color, 0.72), 3.0 if intact else 1.0, true)
 
 var shake_strength := 0.0
 var background: ArenaBackground
@@ -65,4 +76,13 @@ func show_signal_objective(world_position: Vector2, radius: float, progress: flo
 
 func hide_objective() -> void:
 	background.objective_visible = false
+	background.relay_positions.clear()
+	background.remaining_relays.clear()
+	background.queue_redraw()
+
+
+func show_relay_network(positions: Array[Vector2], remaining: Array[int]) -> void:
+	background.objective_visible = false
+	background.relay_positions = positions.duplicate()
+	background.remaining_relays = remaining.duplicate()
 	background.queue_redraw()

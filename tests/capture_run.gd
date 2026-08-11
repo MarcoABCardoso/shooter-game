@@ -9,7 +9,7 @@ func _capture() -> void:
 	var game := (load("res://main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
 	await process_frame
-	game.start_operation("signal_breach")
+	game.start_operation("signal_hold")
 	await process_frame
 	game.session.elapsed = 92.0
 	game.weapon_system.weapons["orbit"]["level"] = 2

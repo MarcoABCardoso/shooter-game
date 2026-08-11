@@ -45,9 +45,11 @@ game.gd
 - Preserve existing public signals and facade methods unless the task explicitly calls for an API change.
 - Use `preload("res://...")` for required script dependencies and existing `class_name` types where that improves clarity.
 - Use `UIFactory` for interface controls that should match the established visual language.
+- Do not explain what visuals, controls, or immediate outcomes already make obvious. HUD copy, banners, transmissions, and audio cues must add decision-relevant information or atmosphere instead of narrating the player's action.
 - Keep gameplay visuals asset-free and built from Godot primitives unless a design decision explicitly changes that constraint.
 - Put tunable values in the owning catalog or balance module rather than scattering literals through runtime code.
-- Keep operation evolution behavior deterministic; do not introduce random offerings without changing the design contract.
+- Keep objective mechanics reusable and stage layouts content-defined. Compose missions from objectives, placements, encounter profiles, and arena rules; do not clone a fixed obstacle layout with only higher stats.
+- Keep stage evolution behavior deterministic; do not introduce random offerings without changing the design contract.
 - Preserve simulation-level pausing through the `run_entities` group. UI needed during pause must remain responsive.
 - Do not hand-edit generated `.uid`, `.import`, or `.godot/` cache contents. If Godot generates a required `.uid` for a new tracked script, include it without modifying its value.
 

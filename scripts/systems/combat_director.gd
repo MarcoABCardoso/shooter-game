@@ -4,6 +4,7 @@ extends Node
 signal damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int)
 signal enemy_defeated(kind: String)
 signal boss_defeated
+signal objective_target_defeated(objective_index: int)
 signal resonance_gained(amount: int)
 signal flux_gained(amount: int)
 signal repair_collected(amount: float)
@@ -50,6 +51,8 @@ func tick_contacts(delta: float) -> void:
 		return
 	for enemy: NeonEnemy in enemies:
 		if is_instance_valid(enemy) and enemy.active:
+			if enemy.contact_damage <= 0.0:
+				continue
 			var contact_radius := enemy.radius + 14.0
 			if enemy.global_position.distance_squared_to(player.global_position) >= contact_radius * contact_radius:
 				continue
@@ -60,12 +63,24 @@ func tick_contacts(delta: float) -> void:
 
 
 func spawn_enemy(kind: String, elite: bool) -> void:
+	_spawn_enemy_at(kind, elite, Vector2.INF, -1)
+
+
+func spawn_objective_enemy(kind: String, world_position: Vector2, objective_index: int) -> void:
+	_spawn_enemy_at(kind, false, world_position, objective_index)
+
+
+func _spawn_enemy_at(kind: String, elite: bool, world_position: Vector2, objective_index: int) -> void:
 	if enemies.size() >= GameBalance.MAX_ENEMIES or not is_instance_valid(player):
 		return
 	var enemy: NeonEnemy = EnemyScene.new()
 	enemy.configure(kind, GameBalance.enemy_difficulty(current_encounter_id, session.encounter_elapsed()), elite)
+	enemy.objective_index = objective_index
 	enemy.target = player
-	enemy.global_position = Vector2(arena.get_center().x, arena.position.y + 112.0) if kind == "boss" else _random_edge_position()
+	if world_position != Vector2.INF:
+		enemy.global_position = world_position
+	else:
+		enemy.global_position = Vector2(arena.get_center().x, arena.position.y + 112.0) if kind == "boss" else _random_edge_position()
 	enemy.add_to_group("enemies")
 	enemy.add_to_group("run_entities")
 	enemy.destroyed.connect(_on_enemy_destroyed)
@@ -102,7 +117,6 @@ func parry_projectiles(origin: Vector2) -> void:
 		node.reflect(return_direction)
 		reflected += 1
 	if reflected > 0:
-		banner_requested.emit("VECTOR PARRY — %d SHOT%s RETURNED" % [reflected, "" if reflected == 1 else "S"], GamePalette.CYAN)
 		shake_requested.emit(4.0)
 		tone_requested.emit(760.0, 0.1, 0.18, 900.0)
 	else:
@@ -175,12 +189,14 @@ func _on_boss_module_broken(world_position: Vector2, remaining: int) -> void:
 	shake_requested.emit(9.0)
 
 
-func _on_enemy_destroyed(_enemy: NeonEnemy, kind: String, flux: int, resonance: int, world_position: Vector2) -> void:
+func _on_enemy_destroyed(enemy: NeonEnemy, kind: String, flux: int, resonance: int, world_position: Vector2) -> void:
 	enemy_defeated.emit(kind)
 	resonance_gained.emit(resonance)
 	var fortune_bonus := profile.skill_effect("fortune")
 	var awarded_flux := maxi(1, int(round(flux * session.combo * (1.0 + fortune_bonus))))
 	flux_gained.emit(awarded_flux)
+	if enemy.objective_index >= 0:
+		objective_target_defeated.emit(enemy.objective_index)
 	if rng.randf() < 0.018 * (1.0 + fortune_bonus):
 		_spawn_repair(world_position, 12)
 	spawn_burst(world_position, GamePalette.MAGENTA if kind != "boss" else GamePalette.ORANGE, 70.0 if kind == "boss" else 26.0, 14 if kind == "boss" else 7)

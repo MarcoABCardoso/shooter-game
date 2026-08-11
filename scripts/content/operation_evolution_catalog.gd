@@ -1,7 +1,7 @@
 class_name OperationEvolutionCatalog
 extends RefCounted
 
-const BREAKPOINTS := {2: 1, 4: 2}
+const BREAKPOINTS := {2: 1, 5: 2}
 
 const ORDER: Array[String] = [
 	"bastion_array",
@@ -18,7 +18,7 @@ const DEFINITIONS := {
 		"tier": 1,
 		"branch": "bastion",
 		"requires": "",
-		"description": "Hold position to charge damage, range, and knockback. Normal movement resets the charge.",
+		"description": "Hold position to charge damage, range, and knockback. Repositioning spends charge by distance moved.",
 		"future": "GRAVITY WELL or PHASE MOORING",
 	},
 	"scatter_array": {
@@ -111,10 +111,11 @@ static func apply(id: String, weapons: Dictionary) -> bool:
 			pulse["anchor_range"] = 105.0
 			pulse["anchor_knockback"] = 55.0
 			pulse["anchor_charge_time"] = 2.6
+			pulse["anchor_drain_distance"] = 180.0
 		"scatter_array":
 			pulse["evolution"] = "scatter"
-			pulse["damage"] = float(pulse["damage"]) * 0.55
-			pulse["interval"] = float(pulse["interval"]) * 1.10
+			pulse["damage"] = float(pulse["damage"]) * 0.32
+			pulse["interval"] = float(pulse["interval"]) * 1.18
 			pulse["count"] = 5
 			pulse["spread"] = 0.17
 			pulse["range"] = 155.0

@@ -13,8 +13,6 @@ var kills := 0
 var combo := 1.0
 var combo_timer := 0.0
 var operation_id := ""
-var mission_index := -1
-var completed_missions := 0
 var operation_evolutions: Array[String] = []
 var pending_evolution_tiers: Array[int] = []
 var automatic_growth_levels := 0
@@ -32,8 +30,6 @@ func reset() -> void:
 	combo = 1.0
 	combo_timer = 0.0
 	operation_id = ""
-	mission_index = -1
-	completed_missions = 0
 	operation_evolutions.clear()
 	pending_evolution_tiers.clear()
 	automatic_growth_levels = 0
@@ -55,19 +51,7 @@ func encounter_elapsed() -> float:
 func begin_operation(id: String) -> void:
 	reset()
 	operation_id = id
-	mission_index = 0
 	mission_elapsed = 0.0
-
-
-func begin_next_mission() -> void:
-	mission_index += 1
-	mission_elapsed = 0.0
-	combo = 1.0
-	combo_timer = 0.0
-
-
-func complete_mission() -> void:
-	completed_missions = maxi(completed_missions, mission_index + 1)
 
 
 func queue_evolution_tier(tier: int) -> void:

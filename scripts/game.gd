@@ -3,7 +3,7 @@ extends Node2D
 # Composition root: owns lifecycle and wires independent systems together.
 # Gameplay rules, content, rendering, and widgets live in their own modules.
 
-enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, LEVEL_UP, CREDITS, INTERMISSION, OPERATION_CLEAR }
+enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, LEVEL_UP, CREDITS, STAGE_CLEAR }
 
 const PlayerScene := preload("res://scripts/entities/player.gd")
 const AudioScene := preload("res://scripts/audio.gd")
@@ -49,6 +49,9 @@ func _process(_delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	if state == GameState.RUNNING:
 		session.tick(delta)
+		if _mission_timed_out():
+			_end_operation(false, true)
+			return
 		spawn_director.tick(delta)
 		weapon_system.tick(delta)
 		combat_director.tick_contacts(delta)
@@ -92,6 +95,7 @@ func _connect_modules() -> void:
 	combat_director.damage_dealt.connect(_on_damage_dealt)
 	combat_director.enemy_defeated.connect(_on_enemy_defeated)
 	combat_director.boss_defeated.connect(_on_boss_defeated)
+	combat_director.objective_target_defeated.connect(objective_director.register_objective_target_defeated)
 	combat_director.resonance_gained.connect(add_resonance)
 	combat_director.flux_gained.connect(session.add_flux)
 	combat_director.repair_collected.connect(_repair_player)
@@ -100,6 +104,8 @@ func _connect_modules() -> void:
 	combat_director.tone_requested.connect(audio.tone)
 	objective_director.mission_completed.connect(_complete_operation_mission)
 	objective_director.objective_updated.connect(arena_view.show_signal_objective)
+	objective_director.relay_network_updated.connect(arena_view.show_relay_network)
+	objective_director.objective_target_requested.connect(combat_director.spawn_objective_enemy)
 	objective_director.objective_hidden.connect(arena_view.hide_objective)
 	objective_director.banner_requested.connect(ui.show_banner)
 	ui.new_game_requested.connect(_show_new_game_slots)
@@ -126,7 +132,6 @@ func _connect_modules() -> void:
 	ui.mobile_input_changed.connect(_on_mobile_input_changed)
 	ui.mobile_ability_requested.connect(_on_mobile_ability_requested)
 	ui.mobile_pause_requested.connect(_on_mobile_pause_requested)
-	ui.continue_operation_requested.connect(_continue_operation)
 	ui.retreat_operation_requested.connect(_retreat_operation)
 
 
@@ -216,9 +221,9 @@ func show_skill_tree() -> void:
 		ui.show_skill_tree(profile)
 
 
-func _deploy_operation() -> void:
+func _deploy_operation(id: String) -> void:
 	if state == GameState.MENU:
-		start_operation(OperationCatalog.ORDER[0])
+		start_operation(id)
 
 
 func start_operation(id: String) -> void:
@@ -233,12 +238,13 @@ func start_operation(id: String) -> void:
 
 
 func _start_current_operation_mission() -> void:
-	var mission := OperationCatalog.mission(session.operation_id, session.mission_index)
+	var mission := OperationCatalog.mission(session.operation_id)
 	if mission.is_empty():
 		return
 	current_encounter_id = String(mission["encounter_id"])
 	_clear_mission_entities()
 	player.global_position = GameBalance.ARENA.get_center()
+	weapon_system.sync_player_position()
 	combat_director.configure(player, profile, session, current_encounter_id)
 	spawn_director.configure(session, current_encounter_id, mission)
 	objective_director.configure(mission, player)
@@ -247,9 +253,10 @@ func _start_current_operation_mission() -> void:
 	ui.show_run()
 	ui.set_ability(profile.equipped_ability())
 	ui.show_banner(_current_encounter_label(), GamePalette.CYAN)
+	ui.show_transmission(String(mission.get("speaker", "VELA")), String(mission.get("transmission", "")))
 	hud_update_timer = HUD_UPDATE_INTERVAL
 	ui.update_hud(session, weapon_system.weapons, _current_encounter_label(), weapon_system.target_mode_name())
-	audio.play_music(&"combat")
+	audio.play_music(mission.get("music", &"combat") as StringName)
 	audio.tone(220.0, 0.18, 0.2, 600.0)
 	if not session.pending_evolution_tiers.is_empty():
 		call_deferred("_open_next_operation_evolution")
@@ -304,39 +311,22 @@ func _on_boss_started() -> void:
 func _complete_operation_mission() -> void:
 	if state not in [GameState.RUNNING, GameState.LEVEL_UP]:
 		return
-	session.complete_mission()
 	_set_combat_active(false)
-	player.heal(player.max_health)
 	objective_director.clear()
 	_clear_mission_entities()
-	var missions := OperationCatalog.missions(session.operation_id)
-	if session.completed_missions >= missions.size():
-		_end_operation(true, false)
-		return
-	state = GameState.INTERMISSION
-	var completed := OperationCatalog.mission(session.operation_id, session.mission_index)
-	ui.show_operation_intermission(session.operation_id, session, completed, missions.size())
-	audio.stop_music()
-	audio.play_stinger(&"clear")
-
-
-func _continue_operation() -> void:
-	if state != GameState.INTERMISSION:
-		return
-	session.begin_next_mission()
-	_start_current_operation_mission()
+	_end_operation(true, false)
 
 
 func _retreat_operation() -> void:
-	if session.operation_id.is_empty() or state not in [GameState.RUNNING, GameState.PAUSED, GameState.INTERMISSION, GameState.LEVEL_UP]:
+	if session.operation_id.is_empty() or state not in [GameState.RUNNING, GameState.PAUSED, GameState.LEVEL_UP]:
 		return
 	_end_operation(false, false)
 
 
 func _end_operation(completed: bool, defeated: bool) -> void:
-	if state in [GameState.GAME_OVER, GameState.OPERATION_CLEAR]:
+	if state in [GameState.GAME_OVER, GameState.STAGE_CLEAR]:
 		return
-	state = GameState.OPERATION_CLEAR if completed else GameState.GAME_OVER
+	state = GameState.STAGE_CLEAR if completed else GameState.GAME_OVER
 	_set_combat_active(false)
 	var banked_flux := session.flux
 	if not completed:
@@ -355,8 +345,19 @@ func _retry_current_deployment() -> void:
 
 
 func _current_encounter_label() -> String:
-	var mission := OperationCatalog.mission(session.operation_id, session.mission_index)
-	return "MISSION %d/%d — %s" % [session.mission_index + 1, OperationCatalog.missions(session.operation_id).size(), String(mission.get("name", "UNKNOWN"))]
+	var mission := OperationCatalog.mission(session.operation_id)
+	var label := "STAGE — %s" % String(mission.get("name", "UNKNOWN"))
+	var time_limit := float(mission.get("time_limit", 0.0))
+	if time_limit > 0.0:
+		var seconds_left := maxi(0, int(ceil(time_limit - session.mission_elapsed)))
+		label += "  //  TIME %02d:%02d" % [seconds_left / 60, seconds_left % 60]
+	return label
+
+
+func _mission_timed_out() -> bool:
+	var mission := OperationCatalog.mission(session.operation_id)
+	var time_limit := float(mission.get("time_limit", 0.0))
+	return time_limit > 0.0 and session.mission_elapsed >= time_limit
 
 
 func _on_ability_selected(id: String) -> void:

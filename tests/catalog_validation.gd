@@ -13,7 +13,7 @@ func _initialize() -> void:
 	_validate_weapons()
 	_validate_skill_tree()
 	_validate_library()
-	print("CATALOG_OK operation encounters, sparse evolutions, enemies, loadout, skill tree, and mastery validated")
+	print("CATALOG_OK focused stages, encounters, sparse evolutions, loadout, skill tree, and mastery validated")
 	quit(0)
 
 
@@ -34,33 +34,40 @@ func _validate_encounters() -> void:
 		for field: String in ["duration", "health_base", "health_growth", "spawn_base", "spawn_min", "spawn_pressure", "double_spawn_at", "elite_interval", "boss"]:
 			assert(definition.has(field), "Encounter %s is missing %s" % [id, field])
 		assert(float(definition["duration"]) > 0.0, "Encounter duration must be positive")
-		assert(not bool(definition["boss"]), "The current operation slice should not inherit a campaign boss")
+	assert(not bool(EncounterCatalog.definition("defense_swarm")["boss"]), "Signal Defense should remain a focused opener")
+	assert(not bool(EncounterCatalog.definition("relay_breach")["boss"]), "The relay mission should end through its objective")
+	assert(bool(EncounterCatalog.definition("overseer_lock")["boss"]), "Overseer Lock should own the boss encounter")
 	assert(EncounterCatalog.choose_standard("defense_swarm", 999.0, 0.0) == "drone", "Signal Defense should use its focused drone pressure")
-	assert(EncounterCatalog.choose_standard("striker_assault", 20.0, 0.0) == "striker", "The second mission should introduce Strikers")
-	assert(EncounterCatalog.choose_standard("gunner_assault", 30.0, 0.0) == "gunner", "The finale should introduce Gunners")
+	assert(EncounterCatalog.choose_standard("relay_breach", 20.0, 0.0) == "striker", "The breach should use Strikers to pressure relay approaches")
+	assert(EncounterCatalog.choose_standard("overseer_lock", 10.0, 0.0) == "gunner", "The finale should expose projectiles before the Overseer")
 
 
 func _validate_operations() -> void:
-	assert(OperationCatalog.ORDER == ["signal_breach"], "Chapter 1 should expose one representative operation")
-	var missions := OperationCatalog.missions("signal_breach")
-	assert(missions.size() == 3, "The representative operation should contain three missions")
-	var mission_ids: Array[String] = []
+	assert(OperationCatalog.ORDER == ["signal_hold", "relay_breach", "overseer_lock"], "Chapter 1 should expose three independently deployable stages")
 	var referenced_encounters: Array[String] = []
-	for mission: Dictionary in missions:
-		assert(mission.has("id") and mission.has("name") and mission.has("rhythm") and mission.has("lifecycle") and mission.has("encounter_id"), "Operation missions should contain their lifecycle and encounter data")
-		assert(not mission_ids.has(String(mission["id"])), "Operation mission IDs should be unique")
-		assert(EncounterCatalog.ORDER.has(String(mission["encounter_id"])), "Operation missions should reference an existing encounter profile")
-		mission_ids.append(String(mission["id"]))
+	for stage_id: String in OperationCatalog.ORDER:
+		var stage := OperationCatalog.definition(stage_id)
+		var mission := OperationCatalog.mission(stage_id)
+		assert(stage.has("name") and stage.has("description") and stage.has("mission"), "Stage %s should own one focused mission" % stage_id)
+		assert(mission.has("id") and mission.has("name") and mission.has("rhythm") and mission.has("lifecycle") and mission.has("encounter_id"), "Stage missions should contain their lifecycle and encounter data")
+		assert(mission.has("speaker") and mission.has("transmission") and mission.has("music"), "Every Chapter 1 mission should carry representative framing and music")
+		assert(float(mission.get("time_limit", 0.0)) > 0.0, "Every mission should expose a content-defined anti-farming deadline")
+		assert(EncounterCatalog.ORDER.has(String(mission["encounter_id"])), "Stage missions should reference an existing encounter profile")
 		referenced_encounters.append(String(mission["encounter_id"]))
-	assert(referenced_encounters == EncounterCatalog.ORDER, "Encounter profiles should exist only for missions consumed by Signal Breach")
-	assert(String(missions[0]["lifecycle"]) == "signal_defense", "The operation should open with the distinct Signal Defense rhythm")
-	assert(OperationCatalog.retreat_flux("signal_breach", 101) == 75, "Retreat should recover 75% of earned Flux, rounded down")
-	assert(OperationCatalog.defeat_flux("signal_breach", 101) == 50, "Defeat should recover only half of earned Flux, rounded down")
+	assert(referenced_encounters == EncounterCatalog.ORDER, "Each encounter profile should belong to one independently selected stage")
+	var hold := OperationCatalog.mission("signal_hold")
+	assert(String(hold["lifecycle"]) == "signal_defense", "Signal Hold should own the defense rhythm")
+	assert(float(hold["time_limit"]) > float(hold["hold_duration"]), "Signal Defense should leave recovery time without permitting indefinite farming")
+	var breach := OperationCatalog.mission("relay_breach")
+	assert(String(breach["lifecycle"]) == "relay_breach" and (breach["relay_positions"] as Array).size() == 3, "Relay Breach should own three content-defined targets")
+	assert(String(OperationCatalog.mission("overseer_lock")["lifecycle"]) == "boss", "Overseer Lock should be a focused boss stage")
+	assert(OperationCatalog.retreat_flux("signal_hold", 101) == 75, "Retreat should recover 75% of earned Flux, rounded down")
+	assert(OperationCatalog.defeat_flux("overseer_lock", 101) == 50, "Defeat should recover only half of earned Flux, rounded down")
 
 
 func _validate_operation_evolutions() -> void:
-	assert(OperationEvolutionCatalog.tier_for_level(2) == 1 and OperationEvolutionCatalog.tier_for_level(4) == 2, "Operation evolution breakpoints should remain sparse and visible")
-	assert(OperationEvolutionCatalog.tier_for_level(3) == 0, "Ordinary resonance levels should not interrupt combat")
+	assert(OperationEvolutionCatalog.tier_for_level(2) == 1 and OperationEvolutionCatalog.tier_for_level(5) == 2, "Operation evolution breakpoints should remain sparse and separated")
+	assert(OperationEvolutionCatalog.tier_for_level(3) == 0 and OperationEvolutionCatalog.tier_for_level(4) == 0, "Ordinary resonance levels should not interrupt combat")
 	assert(OperationEvolutionCatalog.choices_for(1, []) == ["bastion_array", "scatter_array"], "The first transformation should choose between Bastion and Scatter behavior")
 	assert(OperationEvolutionCatalog.choices_for(2, ["bastion_array"]) == ["gravity_well", "phase_mooring"], "Bastion should expose only its visible follow-up choices")
 	assert(OperationEvolutionCatalog.choices_for(2, ["scatter_array"]) == ["overrun_choke", "escape_velocity"], "Scatter should expose only its visible follow-up choices")
@@ -103,4 +110,5 @@ func _validate_library() -> void:
 		for field in ["kind", "name", "role", "mechanics", "acquisition", "clue"]:
 			assert(LibraryCatalog.DEFINITIONS[id].has(field), "Library entry %s is missing %s" % [id, field])
 	assert(SaveProfile.DEFAULT_DATA["equipped_ability"] == "dash" and SaveProfile.DEFAULT_DATA["equipped_weapons"] == ["pulse"], "A profile should begin with Pulse and Phase Dash")
-	assert(SaveProfile.new().unlocked_weapon_slots() == 1, "The operation prototype should expose one weapon slot")
+	assert(bool(SaveProfile.DEFAULT_DATA["discovered"]["vector_parry"]), "Vector Parry should be available for the third Chapter 1 configuration")
+	assert(SaveProfile.new().unlocked_weapon_slots() == 1, "The stage prototype should expose one weapon slot")

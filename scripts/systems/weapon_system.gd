@@ -11,11 +11,10 @@ signal tone_requested(frequency: float, duration: float, volume: float, slide: f
 
 const ORBIT_CHECK_INTERVAL := 1.0 / 30.0
 const VISUAL_UPDATE_INTERVAL := 1.0 / 30.0
-const TARGET_MODES: Array[String] = ["nearest", "ranged", "high_health"]
+const TARGET_MODES: Array[String] = ["nearest", "ranged"]
 const TARGET_MODE_NAMES := {
 	"nearest": "NEAREST",
 	"ranged": "RANGED THREATS",
-	"high_health": "HIGHEST HEALTH",
 }
 
 var player: NeonPlayer
@@ -31,6 +30,8 @@ var active := false
 var orbit_check_timer := 0.0
 var visual_update_timer := 0.0
 var target_mode_index := 0
+var anchor_charge := 0.0
+var last_player_position := Vector2.ZERO
 
 
 func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession, tracked_enemies: Array[NeonEnemy]) -> void:
@@ -46,6 +47,8 @@ func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: R
 	orbit_check_timer = 0.0
 	visual_update_timer = 0.0
 	target_mode_index = 0
+	anchor_charge = 0.0
+	last_player_position = player.global_position
 	active = true
 
 
@@ -67,6 +70,9 @@ func apply_operation_evolution(id: String) -> bool:
 		return false
 	if bool(weapons["pulse"].get("preserve_anchor_on_dash", false)):
 		player.set_preserve_stationary_on_dash(true)
+	if id == "bastion_array":
+		anchor_charge = 0.0
+		last_player_position = player.global_position
 	queue_redraw()
 	return true
 
@@ -84,11 +90,17 @@ func target_mode_name() -> String:
 	return String(TARGET_MODE_NAMES[target_mode()])
 
 
+func sync_player_position() -> void:
+	if is_instance_valid(player):
+		last_player_position = player.global_position
+
+
 func tick(delta: float) -> void:
 	var transient_visuals_were_active := not arc_visuals.is_empty() or nova_visual > 0.0
 	_update_visuals(delta)
 	if not active or not is_instance_valid(player):
 		return
+	_update_anchor_charge(delta)
 	if int(weapons["pulse"]["level"]) > 0:
 		timers["pulse"] -= delta
 		if timers["pulse"] <= 0.0:
@@ -211,15 +223,15 @@ func _scaled_damage(weapon: String, base: float, target_position := Vector2.INF)
 		if evolution == "bastion":
 			multiplier *= 1.0 + anchor_charge_ratio() * float(weapons["pulse"].get("anchor_damage", 0.0))
 		elif evolution == "scatter":
-			multiplier *= 1.15 if player.velocity.length() >= 40.0 else 0.72
+			multiplier *= 1.08 if player.velocity.length() >= 40.0 else 0.68
 	return base * multiplier
 
 
 func pulse_interval() -> float:
 	var interval := float(weapons["pulse"]["interval"])
 	if String(weapons["pulse"].get("evolution", "")) == "scatter":
-		var moving_multiplier := float(weapons["pulse"].get("moving_interval_multiplier", 0.72))
-		interval *= moving_multiplier if player.velocity.length() >= 40.0 else 1.28
+		var moving_multiplier := float(weapons["pulse"].get("moving_interval_multiplier", 0.86))
+		interval *= moving_multiplier if player.velocity.length() >= 40.0 else 1.35
 	return interval
 
 
@@ -240,14 +252,13 @@ func pulse_knockback() -> float:
 func anchor_charge_ratio() -> float:
 	if String(weapons["pulse"].get("evolution", "")) != "bastion":
 		return 0.0
-	return clampf(player.stationary_time / float(weapons["pulse"].get("anchor_charge_time", 2.6)), 0.0, 1.0)
+	return anchor_charge
 
 
 func select_target(from: Vector2, max_distance: float, excluded: Array[int]) -> NeonEnemy:
 	var best: NeonEnemy = null
 	var best_distance_squared := max_distance * max_distance
 	var best_priority := 2
-	var best_health := -INF
 	for enemy: NeonEnemy in enemies:
 		if not is_instance_valid(enemy) or not enemy.active or excluded.has(enemy.get_instance_id()):
 			continue
@@ -256,14 +267,9 @@ func select_target(from: Vector2, max_distance: float, excluded: Array[int]) -> 
 			continue
 		match target_mode():
 			"ranged":
-				var priority := 0 if enemy.kind in ["gunner", "tank", "boss"] else 1
+				var priority := 0 if enemy.kind in ["gunner", "tank", "relay", "boss"] else 1
 				if priority < best_priority or (priority == best_priority and distance_squared < best_distance_squared):
 					best_priority = priority
-					best_distance_squared = distance_squared
-					best = enemy
-			"high_health":
-				if enemy.health > best_health or (is_equal_approx(enemy.health, best_health) and distance_squared < best_distance_squared):
-					best_health = enemy.health
 					best_distance_squared = distance_squared
 					best = enemy
 			_:
@@ -271,6 +277,20 @@ func select_target(from: Vector2, max_distance: float, excluded: Array[int]) -> 
 					best_distance_squared = distance_squared
 					best = enemy
 	return best
+
+
+func _update_anchor_charge(delta: float) -> void:
+	if String(weapons["pulse"].get("evolution", "")) != "bastion":
+		last_player_position = player.global_position
+		return
+	var distance := player.global_position.distance_to(last_player_position)
+	last_player_position = player.global_position
+	var dash_preserves_charge := player.preserve_stationary_on_dash and (player.dash_duration > 0.0 or player.stationary_grace > 0.0)
+	if distance > 0.1 and not dash_preserves_charge:
+		var drain_distance := float(weapons["pulse"].get("anchor_drain_distance", 180.0))
+		anchor_charge = maxf(0.0, anchor_charge - distance / drain_distance)
+	elif distance <= 0.1:
+		anchor_charge = minf(1.0, anchor_charge + delta / float(weapons["pulse"].get("anchor_charge_time", 2.6)))
 
 
 func _nearby_enemy_count(from: Vector2, radius: float) -> int:

@@ -3,7 +3,7 @@ extends RefCounted
 
 const SAVE_SLOT_PATH := "user://neon_requiem_save_%d.json"
 const SLOT_COUNT := 3
-const SAVE_VERSION := 10
+const SAVE_VERSION := 11
 const MASTERY_MAX := 20
 const MASTERY_BONUS_PER_POINT := 0.025
 const DEFAULT_DATA := {
@@ -48,7 +48,7 @@ const DEFAULT_DATA := {
 		"arc": false,
 		"nova": false,
 		"dash": true,
-		"vector_parry": false,
+		"vector_parry": true,
 	},
 }
 
@@ -302,6 +302,6 @@ func _repair_profile() -> void:
 	data["discovered"]["orbit"] = false
 	data["discovered"]["arc"] = false
 	data["discovered"]["nova"] = false
-	data["discovered"]["vector_parry"] = false
+	data["discovered"]["vector_parry"] = true
 	data["equipped_ability"] = "dash"
 	data["equipped_weapons"] = ["pulse"]

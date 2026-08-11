@@ -34,27 +34,31 @@ The longer path from the current build to the intended full game is described in
   progression, and encounters must create recognizable strategies rather than a
   collection of independent percentage bonuses.
 
-### C002: Combat is organized into short sorties and varied operations
+### C002: Combat is organized into short, focused stages
 
-- **Commitment:** Concentrated combat missions remain short and intense. Several
-  missions with different rhythms may form a larger operation, with decisions or
-  recovery between them.
+- **Commitment:** A stage presents one legible strategic thesis and gives the
+  player its objective, arena rule, and important threats before deployment.
+  Different objective families are separate stages with a hangar/build decision
+  between them. Multi-part stages deepen the same thesis rather than changing
+  the exam after the build is locked.
 - **Why:** The current gauntlets are engaging because pressure rises quickly.
-  Extending the same pressure uniformly would create fatigue rather than depth.
-- **Consequence:** Campaign length comes from mission variety, build development,
-  routes, and changing combat questions rather than a single long survival timer.
+  Direct play also showed that chaining unrelated objectives rewards generic
+  survival builds over engineering for a known problem.
+- **Consequence:** Campaign variety comes from distinct stages and routes. A
+  mixed-objective gauntlet is an explicitly advertised optional challenge, not
+  the default campaign container.
 
 ### C003: Important choices are infrequent and transformational
 
 - **Commitment:** Resonance or an equivalent resource automatically improves
   baseline weapon power. The player chooses less often, and important choices
-  change behavior, introduce a tradeoff, or commit the operation to a strategy.
+  change behavior, introduce a tradeoff, or commit the stage to a strategy.
   Evolution paths and prerequisites remain visible.
 - **Why:** A recurring choice between small damage, rate, and speed bonuses tends
   to have a calculable best answer and interrupts combat without producing a new
   way to play.
 - **Consequence:** Generic stat growth belongs in automatic curves or permanent
-  progression. Operation choices own weapon identities, interactions, and
+  progression. Stage choices own weapon identities, interactions, and
   transformations.
 
 ### C004: Permanent progression grants power and possibility
@@ -150,7 +154,7 @@ The longer path from the current build to the intended full game is described in
 
 ### T004: Simulation-level pause
 
-- **Contract:** Pausing, modal operation decisions, and terminal combat states
+- **Contract:** Pausing, modal stage decisions, and terminal combat states
   freeze the complete simulation while required UI remains responsive.
 - **Why:** Freezing only the player creates hidden enemy, projectile, pickup, and
   timer drift.
@@ -162,39 +166,38 @@ The longer path from the current build to the intended full game is described in
 These ideas guide the next playable work but are not commitments merely because
 they are written here.
 
-### H001: Three-mission operations
+### H001: Focused stages and reusable objectives
 
-An operation will likely contain about three short missions and last roughly
-10-15 minutes including intermissions. Failure preserves partial rewards and may
-allow a retry, retreat, or operation restart depending on the mission.
+The three-mission operation hypothesis is rejected for the default campaign.
+Chapter 1 play proved Signal Defense, Relay Breach, and the Overseer individually,
+but chaining them locked an optimized build before forcing it through unrelated
+challenges. The current slice exposes them as separate hangar deployments so the
+player can inspect a problem, configure for it, and bank that stage independently.
 
 Candidate mission families are Assault, Elite Hunt, Signal Defense, Breach,
 Salvage, Anomaly, and Boss. A family survives only if it makes builds prioritize,
 move, or target differently.
 
-The first operation-spine play confirmed that escalation and pauses are useful,
-but three back-to-back Assault encounters still feel like one repeated
-kite-and-fire problem and are too intense for an opener. The current comparison
-uses a short, lower-pressure Signal Defense opener. Intermissions fully repair
-hull and preserve operation upgrades. Voluntary retreat recovers 75% of Flux
-versus 50% after defeat, with mastery banked in both cases.
+Every stage needs content-defined time pressure with a visible countdown.
+Pressure prevents safe objective missions from becoming farming spaces and asks
+the player to execute the build rather than wait for more rewards. The first
+comparison uses generous deadlines appropriate to opening stages.
 
-The Evolution and control play confirmed Signal Defense as a strong change of
-pace, but also made the two following Assault missions feel indistinguishable.
-The opener was the first objective prototype, not an intended one-off. The next
-slice gives missions two and three their own immediately legible objectives so
-the operation contains three actual rhythms rather than one objective followed
-by two survival timers.
+Objective mechanics are reusable vocabulary, not fixed stage templates. Future
+stages should compose objectives, placements, encounter profiles, and arena
+rules in new combinations; repeating one obstacle layout with more health and
+more enemies does not count as new level design.
 
-Operations are the sole deployment structure. The selectable prototype route and
-its scalar upgrade loop have been removed rather than retained as a second mode.
+A stage may contain several waves, spaces, or phases when each elaborates the
+same strategic question. The sector route supplies larger-scale continuity while
+the hangar between stages preserves deliberate specialization.
 
 ### H002: Automatic targeting with optional added agency
 
 Automatic targeting remains the baseline. Direct play found three cyclic modes
 awkward and found no useful case for Highest Health while clearing more small
-enemies is always safer. The next comparison switches only between Nearest and
-Ranged Threats, with a prominent persistent cue instead of continuous aim.
+enemies is always safer. The integration slice now toggles only between Nearest
+and Ranged Threats, with a prominent persistent cue instead of continuous aim.
 
 The keyboard-and-mouse comparison confirmed that Ranged Threats can prioritize a
 Gunner while nearer enemies compete for automatic targeting. Touch and controller
@@ -214,25 +217,32 @@ tree.
 The implemented first behavior target is a Sentinel build that finds a safe
 position and accumulates damage, knockback, or range while remaining nearly
 stationary. Direct play validated the tension but rejected an all-or-nothing
-reset. Movement should spend stored charge in proportion to displacement, so a
+reset. Movement now spends stored charge in proportion to displacement, so a
 small correction costs some power and settling down resumes charging without the
-full startup delay. Phase Mooring should preserve charge through Phase Dash;
-directional input must not clear it before the ability activates.
+full startup delay. Phase Mooring preserves charge through Phase Dash.
 
 Its implemented foil is a short-range, auto-targeting scatter weapon whose damage
 requires constant kiting and aggressive spacing. These builds should be
 describable through their positioning behavior, not their damage percentages.
 Direct play found both styles equally interesting but Scatter substantially more
-powerful, so their output should move toward parity without erasing Scatter's
-close-range movement advantage. The strong desire to try another build validates
-further build work once the operation has more than one meaningful mission
-rhythm. Build-specific achievements may reinforce identity; permanent Flux
+powerful, so the integration tuning reduces its pellet damage and movement cadence
+advantage without erasing its close-range identity. Direct play found Bastion
+and Scatter balanced through different strengths. Sentinel plus Vector Parry
+felt intentional and powerful, especially when returning concentrated Overseer
+fire; Parry retains the same timing-and-payoff rhythm as Dash while producing a
+meaningfully different use. All tested configurations were fun enough to invite
+immediate comparison. Build-specific achievements may reinforce identity; permanent Flux
 advantages require caution because they can make one style the mandatory farm.
 
 ### H004: Authored music and restrained narrative
 
-Representative authored music, richer sound, and reactive boss layers should be
-explored because they may substantially elevate the neon arcade identity.
+Signal Defense, Relay Breach, and the Overseer handoff compare two authored
+combat tracks, a boss layer, procedural action tones, and mission transmissions.
+Direct play found the music adequate polish rather than a defining strength. The
+chained prototype's clear cue was too large for an ordinary intermission; the
+focused-stage model removes that transition entirely. Explanatory transmissions
+and Parry result banners also narrated outcomes already clear on screen. Cues
+should be reserved for information or atmosphere the action does not communicate.
 
 Narrative begins with a clear conflict, short transmissions, focused voices or
 signals, connected Library entries, recognizable boss identities, and a
@@ -262,7 +272,7 @@ preserved so code, tests, and earlier discussion remain understandable.
 
 | Original decision | Current disposition | Historical value |
 |---|---|---|
-| **D001: Five finite stages in one bounded arena** | Superseded | Produced a legible compact campaign and proved that the Overseer works as a finite milestone. The full game moves to sectors, operations, mission variety, and multiple arenas. |
+| **D001: Five finite stages in one bounded arena** | Partially reframed by C002 | Finite stages and hangar reconfiguration correctly support build specialization. The exact count and single-arena campaign remain prototype history. |
 | **D002: Deliberate hangar builds plus persistent growth** | Reframed as C001, C003, and C004 | Correctly identified tactical authorship as the missing layer. Frequent exhaustive scalar resonance choices are now considered a prototype weakness. |
 | **D003: Movement and active skill are the only combat inputs** | Reopened as H002 | Auto-targeting prevented control overload and remains the baseline. Additional targeting agency is now worth exploring without committing to manual aim. |
 | **D004: Unlockable weapon loadouts** | Partially retained | Progressive equipment discovery remains useful. The exact Pulse, Orbit, Stage 1, Stage 5, and second-slot schedule is prototype content. |
@@ -276,11 +286,11 @@ preserved so code, tests, and earlier discussion remain understandable.
 | **D012: Simulation-level pause** | Retained as T004 | The current resonance overlay may change, but whole-simulation pause remains correct. |
 | **D013: Native item mastery** | Expanded by C004 | Intrinsic, non-transferable mastery remains valuable. It may unlock transformations and interactions as well as bounded power. |
 | **D014: Bosses interrupt the crowd-control rhythm** | Principle retained | Bosses should create readable exploitation windows and test build understanding. The Overseer's exact attacks remain authored prototype content. |
-| **D015: Sparse equipment rewards plus first-clear Flux** | Reopened | Memorable unlocks remain desirable. The exact reward schedule and first-clear formula must be redesigned for operations and a larger campaign. |
+| **D015: Sparse equipment rewards plus first-clear Flux** | Reopened | Memorable unlocks remain desirable. The exact reward schedule and first-clear formula must be redesigned for stages and a larger campaign. |
 
 ## Current prototype balance reference
 
-These values describe the playable Signal Breach slice. They are tuning
+These values describe the playable Chapter 1 stage slice. They are tuning
 references, not targets for the future campaign.
 
 | System | Current starting value | Current growth |
@@ -289,8 +299,8 @@ references, not targets for the future campaign.
 | Player speed | 300 px/s | Fixed; movement physics are unaffected by facing and targeting |
 | Pulse Cannon | 5 damage / 0.34 s / 190 px range | Skill tree + 2.5% per native mastery rank |
 | Signal Defense | 18 s hold objective | Drone pressure; leaving the field decays progress |
-| Striker Screen | 75 s Assault | Introduces Strikers after the opener |
-| Gunner Lock | 68 s Assault | Adds Gunners and timed elite pressure |
+| Relay Breach | 80 s deadline | Three linked targets under Drone/Striker pressure |
+| Overseer Lock | 105 s deadline | Gunner screen followed by the multi-pattern boss |
 | Phase Dash | 0.18 s movement, 0.30 s invulnerability | 1.25 s cooldown |
 
 Current tuning locations remain:
@@ -299,7 +309,7 @@ Current tuning locations remain:
   `scripts/content/encounter_catalog.gd`
 - Enemy base values: `scripts/content/enemy_catalog.gd`
 - Weapon base values: `scripts/content/weapon_catalog.gd`
-- Operation transformations: `scripts/content/operation_evolution_catalog.gd`
+- Stage transformations: `scripts/content/operation_evolution_catalog.gd`
 - Permanent graph content: `scripts/content/skill_tree_catalog.gd`
 - Profile mastery curves and unlock transactions: `scripts/profile.gd`
 - Boss behavior and vector presentation: `scripts/entities/enemy.gd`
@@ -309,9 +319,9 @@ Current tuning locations remain:
 The prototype currently includes:
 
 - A title screen, hangar, discovery-gated Arsenal Library, and save reset.
-- A three-mission Signal Breach operation spine with intermissions and partial
-  reward recovery. It opens with objective-driven Signal Defense, then advances
-  through two escalating Assault missions.
+- Three independently selectable stages with partial retreat/defeat recovery:
+  objective-driven Signal Hold, a linked Relay Breach, and Overseer Lock. Each
+  returns to the hangar before another deployment.
 - Automatic resonance growth, two visible Pulse evolution tiers,
   Sentinel and Scatter positioning builds, and keyboard target-priority cycling.
 - Weapon and active-skill loadouts, a Flux skill graph with free respec, native
@@ -328,7 +338,7 @@ survives unchanged.
 - Final release platforms, storefronts, pricing, and distribution.
 - The final targeting and aiming control model.
 - Whether chassis or doctrines justify their complexity.
-- The exact campaign map and operation failure rules.
+- The exact campaign map, route rules, and stage failure rules.
 - The final quantity of weapons, skills, enemies, arenas, and threat levels.
 - The extent of authored narrative, music, voice, and external presentation
   assets.

@@ -7,7 +7,7 @@ const MobileControlsScript := preload("res://scripts/ui/mobile_controls.gd")
 const RunHudScript := preload("res://scripts/ui/run_hud.gd")
 const OverlayViewScript := preload("res://scripts/ui/overlay_view.gd")
 
-signal deploy_requested
+signal deploy_requested(id: String)
 signal new_game_requested
 signal load_game_requested
 signal options_requested
@@ -30,7 +30,6 @@ signal master_volume_changed(value: float)
 signal mobile_input_changed(movement: Vector2)
 signal mobile_ability_requested
 signal mobile_pause_requested
-signal continue_operation_requested
 signal retreat_operation_requested
 
 var hud
@@ -189,27 +188,13 @@ func set_ability(id: String) -> void:
 	hud.set_ability(id)
 
 
-func show_operation_intermission(operation_id: String, session: RunSession, mission: Dictionary, mission_count: int) -> void:
-	var body := "%s complete  •  Mission %d of %d\n%d hostiles destroyed  •  %d Flux at risk\n\nHull fully repaired. Upgrades preserved.\nContinue or retreat with %d%% of earned Flux." % [
-		String(mission["name"]),
-		session.completed_missions,
-		mission_count,
-		session.kills,
-		session.flux,
-		OperationCatalog.retreat_flux_percent(operation_id),
-	]
-	_show_message("%s — INTERMISSION" % OperationCatalog.display_name(operation_id), body, "CONTINUE", continue_operation_requested.emit, "RETREAT", retreat_operation_requested.emit)
-
-
 func show_operation_end(operation_id: String, session: RunSession, banked_flux: int, completed: bool, defeated: bool) -> void:
 	var title := "%s COMPLETE" % OperationCatalog.display_name(operation_id)
 	if not completed:
-		title = "SIGNAL LOST" if defeated else "OPERATION RETREATED"
+		title = "STAGE LOST" if defeated else "STAGE RETREATED"
 	var recovery_percent := OperationCatalog.defeat_flux_percent(operation_id) if defeated else OperationCatalog.retreat_flux_percent(operation_id)
-	var reward_note := "Full operation rewards secured." if completed else "Partial recovery secured  •  %d%% of earned Flux." % recovery_percent
-	var body := "Completed %d of %d missions in %s\n%d hostiles destroyed  •  %d Flux banked\n\n%s\nMastery progress saved." % [
-		session.completed_missions,
-		OperationCatalog.missions(operation_id).size(),
+	var reward_note := "Stage rewards secured." if completed else "Partial recovery secured  •  %d%% of earned Flux." % recovery_percent
+	var body := "Finished in %s\n%d hostiles destroyed  •  %d Flux banked\n\n%s\nMastery progress saved." % [
 		_format_time(session.elapsed),
 		session.kills,
 		banked_flux,
@@ -220,7 +205,7 @@ func show_operation_end(operation_id: String, session: RunSession, banked_flux: 
 
 func show_operation_pause() -> void:
 	hud.set_controls_active(false)
-	_show_message("PAUSED", "Operation state is holding.", "RESUME", resume_requested.emit, "RETREAT", retreat_operation_requested.emit)
+	_show_message("PAUSED", "Stage state is holding.", "RESUME", resume_requested.emit, "RETREAT", retreat_operation_requested.emit)
 
 
 func show_reset_confirmation() -> void:
@@ -229,6 +214,10 @@ func show_reset_confirmation() -> void:
 
 func show_banner(text: String, color: Color) -> void:
 	hud.show_banner(text, color)
+
+
+func show_transmission(speaker: String, text: String) -> void:
+	hud.show_transmission(speaker, text)
 
 
 func _build_hud() -> void:
@@ -355,27 +344,34 @@ func _build_hangar_screen() -> void:
 	_add_menu_label(panel, "HANGAR", 36, GamePalette.CYAN, Vector2(58, 48))
 	hangar_slot_label = _add_menu_label(panel, "SAVE SLOT 01", 11, Color(GamePalette.GREEN, 0.72), Vector2(58, 96))
 	_add_menu_label(panel, "PREPARE YOUR SHIP FOR THE NEXT SIGNAL.", 13, Color(GamePalette.CYAN, 0.66), Vector2(58, 119))
-	var deploy := UIFactory.button("DEPLOY", Vector2(58, 216), Vector2(310, 64))
-	deploy.name = "DeployButton"
-	deploy.pressed.connect(deploy_requested.emit)
-	panel.add_child(deploy)
-	var loadout := UIFactory.button("LOADOUT", Vector2(58, 296), Vector2(150, 54))
+	_add_menu_label(panel, "SELECT STAGE", 11, Color(GamePalette.YELLOW, 0.72), Vector2(58, 154))
+	for index in OperationCatalog.ORDER.size():
+		var stage_id := OperationCatalog.ORDER[index]
+		var stage := OperationCatalog.definition(stage_id)
+		var mission := OperationCatalog.mission(stage_id)
+		var seconds := int(mission.get("time_limit", 0.0))
+		var deploy := UIFactory.button("%02d  %s  //  %02d:%02d" % [index + 1, stage["name"], seconds / 60, seconds % 60], Vector2(58, 176 + index * 55), Vector2(370, 46))
+		deploy.name = "DeployButton_" + stage_id
+		deploy.tooltip_text = "%s  •  %s" % [mission["rhythm"], stage["description"]]
+		deploy.pressed.connect(deploy_requested.emit.bind(stage_id))
+		panel.add_child(deploy)
+	var loadout := UIFactory.button("LOADOUT", Vector2(58, 354), Vector2(180, 48))
 	loadout.name = "LoadoutButton"
 	loadout.pressed.connect(loadout_requested.emit)
 	panel.add_child(loadout)
-	var skills := UIFactory.button("SKILL TREE", Vector2(218, 296), Vector2(150, 54))
+	var skills := UIFactory.button("SKILL TREE", Vector2(248, 354), Vector2(180, 48))
 	skills.name = "SkillTreeButton"
 	skills.pressed.connect(skills_requested.emit)
 	panel.add_child(skills)
-	var reset := UIFactory.button("RESET PROFILE", Vector2(58, 366), Vector2(150, 54))
+	var reset := UIFactory.button("RESET PROFILE", Vector2(58, 412), Vector2(180, 48))
 	reset.name = "ResetProfileButton"
 	reset.pressed.connect(show_reset_confirmation)
 	panel.add_child(reset)
-	var library := UIFactory.button("LIBRARY", Vector2(218, 366), Vector2(150, 54))
+	var library := UIFactory.button("LIBRARY", Vector2(248, 412), Vector2(180, 48))
 	library.name = "LibraryButton"
 	library.pressed.connect(library_requested.emit)
 	panel.add_child(library)
-	var title_button := UIFactory.button("RETURN TO TITLE", Vector2(58, 436), Vector2(310, 42))
+	var title_button := UIFactory.button("RETURN TO TITLE", Vector2(58, 470), Vector2(370, 42))
 	title_button.name = "ReturnToTitleButton"
 	title_button.pressed.connect(title_requested.emit)
 	panel.add_child(title_button)
@@ -548,7 +544,7 @@ func _rebuild_loadout(profile: SaveProfile) -> void:
 		button.custom_minimum_size = Vector2(215, 50)
 		button.disabled = not unlocked or selected
 		button.add_theme_font_size_override("font_size", 13)
-		button.text = "VECTOR PARRY\nUNLOCKS AFTER STAGE 5" if not unlocked else button.text + (" ✓" if selected else "")
+		button.text = "VECTOR PARRY\nNOT YET UNLOCKED" if not unlocked else button.text + (" ✓" if selected else "")
 		button.pressed.connect(ability_selected.emit.bind(ability))
 		ability_row.add_child(button)
 	loadout_box.add_child(ability_row)

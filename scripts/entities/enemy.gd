@@ -41,6 +41,7 @@ var boss_modules := 3
 var knockback_velocity := Vector2.ZERO
 var velocity := Vector2.ZERO
 var visual_update_timer := 0.0
+var objective_index := -1
 
 
 func configure(enemy_kind: String, difficulty: float, is_elite: bool = false) -> void:
@@ -104,6 +105,8 @@ func _physics_process(delta: float) -> void:
 		facing_direction = direction
 		facing_angle = direction.angle()
 	match kind:
+		"relay":
+			velocity = Vector2.ZERO
 		"gunner":
 			velocity = (direction + direction.rotated(PI * 0.5) * sin(phase * 1.7) * 0.45).normalized() * speed
 		"boss":
@@ -224,7 +227,7 @@ func take_damage(amount: float, source_weapon: String) -> float:
 
 
 func apply_knockback(origin: Vector2, amount: float) -> void:
-	if not active or amount <= 0.0:
+	if not active or amount <= 0.0 or kind == "relay":
 		return
 	var direction := global_position - origin
 	if direction.length_squared() <= 0.001:
@@ -248,6 +251,11 @@ func _draw() -> void:
 		"tank":
 			_shape(_regular_polygon(4, radius, PI * 0.25), c)
 			draw_rect(Rect2(-radius * 0.42, -radius * 0.42, radius * 0.84, radius * 0.84), Color(c, 0.22), true)
+		"relay":
+			_shape(_regular_polygon(6, radius, phase * 0.1), ORANGE)
+			draw_arc(Vector2.ZERO, radius * 0.62, -phase, TAU - phase, 28, Color(GamePalette.YELLOW, 0.9), 3.0)
+			for spoke in 3:
+				draw_line(Vector2.from_angle(phase + TAU * spoke / 3.0) * 8.0, Vector2.from_angle(phase + TAU * spoke / 3.0) * (radius + 12.0), Color(GamePalette.MAGENTA, 0.72), 3.0)
 		"boss":
 			_draw_boss(c)
 	if elite:

@@ -22,7 +22,7 @@ func show_operation_evolution(session: RunSession, choices: Array[String]) -> vo
 	var title := UIFactory.label("RESONANCE TRANSFORMATION", 28, GamePalette.CYAN)
 	title.position = Vector2(30, 20)
 	panel.add_child(title)
-	var subtitle := UIFactory.label("LEVEL %02d  •  BASELINE POWER INCREASED AUTOMATICALLY\nChoose a behavior. The commitment lasts for this operation." % session.level, 12, Color(GamePalette.GREEN, 0.78))
+	var subtitle := UIFactory.label("LEVEL %02d  •  BASELINE POWER INCREASED AUTOMATICALLY\nChoose a behavior. The commitment lasts for this stage." % session.level, 12, Color(GamePalette.GREEN, 0.78))
 	subtitle.position = Vector2(32, 58)
 	subtitle.size = Vector2(1035, 48)
 	panel.add_child(subtitle)

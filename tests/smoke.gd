@@ -60,16 +60,23 @@ func _run() -> void:
 	game.ui.credits_screen.exit_requested.emit()
 	await process_frame
 	assert(game.ui.hangar_screen.visible, "Leaving the credits should return to the hangar")
-	game.ui.hangar_screen.find_child("DeployButton", true, false).emit_signal("pressed")
+	assert(game.ui.hangar_screen.find_child("DeployButton_signal_hold", true, false) != null, "The hangar should expose Signal Hold as its own stage")
+	assert(game.ui.hangar_screen.find_child("DeployButton_relay_breach", true, false) != null, "The hangar should expose Relay Breach as its own stage")
+	assert(game.ui.hangar_screen.find_child("DeployButton_overseer_lock", true, false) != null, "The hangar should expose Overseer Lock as its own stage")
+	game.ui.hangar_screen.find_child("DeployButton_signal_hold", true, false).emit_signal("pressed")
 	await process_frame
-	assert(game.state == game.GameState.RUNNING and game.session.operation_id == "signal_breach", "Deploy should start the representative operation directly")
-	assert(game.current_encounter_id == "defense_swarm", "Deployment should begin with the operation's defense encounter")
+	assert(game.state == game.GameState.RUNNING and game.session.operation_id == "signal_hold", "Stage selection should deploy the chosen objective directly")
+	assert(game.current_encounter_id == "defense_swarm", "Signal Hold should begin with its defense encounter")
 	game.show_menu()
 	game.show_loadout()
 	await process_frame
 	assert(game.ui.loadout_screen.visible, "Loadout should open independently")
 	assert(game.ui.loadout_screen.find_child("LoadoutRow_pulse", true, false) != null, "Loadout should render weapon rows")
 	assert(game.profile.is_discovered("pulse") and not game.profile.is_discovered("orbit") and not game.profile.is_discovered("arc") and not game.profile.is_discovered("nova"), "Only Pulse Cannon should be available initially")
+	assert(game.profile.is_discovered("vector_parry"), "Vector Parry should be available as the third Chapter 1 configuration")
+	assert(not game.ui.loadout_screen.find_child("AbilitySelect_vector_parry", true, false).disabled, "The loadout should allow selecting Vector Parry")
+	game.ui.loadout_screen.find_child("AbilitySelect_vector_parry", true, false).emit_signal("pressed")
+	assert(game.profile.equipped_ability() == "vector_parry", "The third configuration should be selectable before deployment")
 	assert(game.profile.equipped_weapons() == ["pulse"], "A new profile should begin with one Pulse slot")
 	game.show_menu()
 	game.show_skill_tree()
@@ -84,7 +91,7 @@ func _run() -> void:
 	assert(game.ui.overlay.find_child("LibraryEntry_dash", true, false) != null, "Library should render ability entries")
 	assert(game.ui.overlay.find_child("LibraryEntry_vector_parry", true, false) != null, "Library should render locked future equipment")
 	game.show_menu()
-	game.start_operation("signal_breach")
+	game.start_operation("signal_hold")
 	await process_frame
 	assert(game.state == 1, "Deploy should start a run")
 	assert(is_instance_valid(game.player), "Player should spawn")
@@ -148,7 +155,7 @@ func _run() -> void:
 	assert(game.ui.overlay.find_child("EvolutionChoice_bastion_array", true, false) != null, "The choice should expose the positioning-focused Bastion branch")
 	assert(game.ui.overlay.find_child("EvolutionChoice_scatter_array", true, false) != null, "The choice should expose the kiting-focused Scatter branch")
 	game._on_operation_evolution_selected("bastion_array")
-	assert(game.state == game.GameState.RUNNING, "Choosing an operation evolution should resume combat")
+	assert(game.state == game.GameState.RUNNING, "Choosing a stage evolution should resume combat")
 	assert(float(game.weapon_system.weapons["pulse"]["damage"]) > pulse_damage_before, "Automatic level growth should raise Pulse damage")
 	assert(game.session.has_operation_evolution("bastion_array"), "The run should track the selected behavioral branch")
 	game._fire_nova()
@@ -163,7 +170,7 @@ func _run() -> void:
 	await process_frame
 	assert(game.state == 3, "Projectile death should end the run after the physics callback")
 	assert(run_player.process_mode == Node.PROCESS_MODE_DISABLED, "Deferred run teardown should freeze collision objects safely")
-	print("SMOKE_OK operation deployment, sparse evolution, rewards, and combat flow validated")
+	print("SMOKE_OK stage selection, sparse evolution, rewards, and combat flow validated")
 	quit(0)
 
 
