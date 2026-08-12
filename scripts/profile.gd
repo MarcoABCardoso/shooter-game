@@ -1,9 +1,10 @@
 class_name SaveProfile
 extends RefCounted
 
+const OperationCatalog := preload("res://scripts/content/operation_catalog.gd")
 const SAVE_SLOT_PATH := "user://neon_requiem_save_%d.json"
 const SLOT_COUNT := 3
-const SAVE_VERSION := 11
+const SAVE_VERSION := 13
 const MASTERY_MAX := 20
 const MASTERY_BONUS_PER_POINT := 0.025
 const DEFAULT_DATA := {
@@ -13,24 +14,30 @@ const DEFAULT_DATA := {
 	"best_level": 1,
 	"total_kills": 0,
 	"runs": 0,
+	"stage_clears": {
+		"signal_hold": 0,
+		"drift_cache": 0,
+		"relay_breach": 0,
+		"overseer_lock": 0,
+	},
 	"equipped_weapons": ["pulse"],
 	"equipped_ability": "dash",
 	"skill_ranks": {
 		"core_damage": 0,
 		"distant_power": 0,
 		"anchored_power": 0,
-		"pulse_acceleration": 0,
+		"threat_uplink": 0,
 		"salvage_protocol": 0,
 		"impact_vector": 0,
 		"surrounded_power": 0,
-		"projectile_matrix": 0,
+		"breach_rounds": 0,
 		"reinforced_core": 0,
-		"arc_overload": 0,
-		"orbit_overdrive": 0,
+		"arc_conduction": 0,
+		"orbit_formation": 0,
 		"splash_payload": 0,
 		"reactive_shield": 0,
-		"nova_reactor": 0,
-		"siege_posture_2": 0,
+		"arc_reach": 0,
+		"orbit_intercept": 0,
 		"volatile_radius": 0,
 		"emergency_cycle": 0,
 	},
@@ -41,6 +48,7 @@ const DEFAULT_DATA := {
 		"nova": 0.0,
 		"dash": 0.0,
 		"vector_parry": 0.0,
+		"gravity_tether": 0.0,
 	},
 	"discovered": {
 		"pulse": true,
@@ -48,7 +56,8 @@ const DEFAULT_DATA := {
 		"arc": false,
 		"nova": false,
 		"dash": true,
-		"vector_parry": true,
+		"vector_parry": false,
+		"gravity_tether": false,
 	},
 }
 
@@ -136,6 +145,22 @@ func is_discovered(id: String) -> bool:
 	return bool(data["discovered"].get(id, false))
 
 
+func stage_clear_count(id: String) -> int:
+	return int(data["stage_clears"].get(id, 0))
+
+
+func is_stage_unlocked(id: String) -> bool:
+	return OperationCatalog.is_unlocked(id, data["stage_clears"])
+
+
+func sector_one_completed() -> bool:
+	return OperationCatalog.sector_completed(data["stage_clears"])
+
+
+func hangar_systems_unlocked() -> bool:
+	return stage_clear_count("signal_hold") > 0
+
+
 func discover_entries(ids: Array[String]) -> bool:
 	var changed := false
 	for id: String in ids:
@@ -187,7 +212,7 @@ func equipped_ability() -> String:
 
 
 func equip_ability(id: String) -> bool:
-	if id not in ["dash", "vector_parry"] or not is_discovered(id):
+	if id not in LibraryCatalog.ABILITY_ORDER or not is_discovered(id):
 		return false
 	data["equipped_ability"] = id
 	save_profile()
@@ -270,14 +295,28 @@ func skill_effect(effect: String) -> float:
 	return total
 
 
-func bank_run(flux: int, elapsed: float, level: int, kills: int, mastery: Dictionary) -> void:
+func bank_run(flux: int, elapsed: float, level: int, kills: int, mastery: Dictionary, completed_stage: String = "") -> Dictionary:
+	var rewards := {"first_clear": false, "bonus_flux": 0, "discoveries": []}
 	data["flux"] = int(data["flux"]) + flux
 	data["best_time"] = maxf(float(data["best_time"]), elapsed)
 	data["best_level"] = maxi(int(data["best_level"]), level)
 	data["total_kills"] = int(data["total_kills"]) + kills
 	data["runs"] = int(data["runs"]) + 1
 	_apply_mastery_rewards(mastery)
+	if OperationCatalog.ORDER.has(completed_stage):
+		var previous_clears := stage_clear_count(completed_stage)
+		data["stage_clears"][completed_stage] = previous_clears + 1
+		if previous_clears == 0:
+			rewards["first_clear"] = true
+			rewards["bonus_flux"] = OperationCatalog.first_clear_flux(completed_stage)
+			data["flux"] = int(data["flux"]) + int(rewards["bonus_flux"])
+			var discoveries: Array[String] = OperationCatalog.first_clear_discoveries(completed_stage)
+			rewards["discoveries"] = discoveries
+			for id: String in discoveries:
+				if data["discovered"].has(id):
+					data["discovered"][id] = true
 	save_profile()
+	return rewards
 
 
 func _apply_mastery_rewards(mastery: Dictionary) -> void:
@@ -302,6 +341,15 @@ func _repair_profile() -> void:
 	data["discovered"]["orbit"] = false
 	data["discovered"]["arc"] = false
 	data["discovered"]["nova"] = false
-	data["discovered"]["vector_parry"] = true
-	data["equipped_ability"] = "dash"
-	data["equipped_weapons"] = ["pulse"]
+	data["discovered"]["vector_parry"] = stage_clear_count("drift_cache") > 0
+	var arsenal_unlocked := stage_clear_count("overseer_lock") > 0
+	for id: String in ["orbit", "arc", "nova", "gravity_tether"]:
+		data["discovered"][id] = arsenal_unlocked
+	if not is_discovered(String(data.get("equipped_ability", "dash"))):
+		data["equipped_ability"] = "dash"
+	var repaired_weapons: Array[String] = []
+	for value: Variant in data.get("equipped_weapons", ["pulse"]):
+		var id := String(value)
+		if WeaponCatalog.ORDER.has(id) and is_discovered(id) and not repaired_weapons.has(id):
+			repaired_weapons.append(id)
+	data["equipped_weapons"] = repaired_weapons if not repaired_weapons.is_empty() else ["pulse"]

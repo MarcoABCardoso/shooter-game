@@ -26,8 +26,8 @@ func show_operation_evolution(session: RunSession, choices: Array[String]) -> vo
 	subtitle.position = Vector2(32, 58)
 	subtitle.size = Vector2(1035, 48)
 	panel.add_child(subtitle)
-	var card_width := 490.0
-	var gap := 28.0
+	var card_width := 490.0 if choices.size() <= 2 else 322.0
+	var gap := 18.0
 	var total_width := card_width * choices.size() + gap * maxi(0, choices.size() - 1)
 	var start_x := (1100.0 - total_width) * 0.5
 	for index: int in choices.size():
@@ -56,7 +56,7 @@ func show_operation_evolution(session: RunSession, choices: Array[String]) -> vo
 		choose.name = "EvolutionChoice_" + id
 		choose.pressed.connect(operation_evolution_requested.emit.bind(id))
 		card.add_child(choose)
-	var tree_note := UIFactory.label("BASTION ARRAY → GRAVITY WELL / PHASE MOORING     •     SCATTER ARRAY → OVERRUN CHOKE / ESCAPE VELOCITY", 12, Color(GamePalette.CYAN, 0.65))
+	var tree_note := UIFactory.label("MASTERY REVEALS THE SECOND FOLLOW-UP FOR EACH NAMED BUILD", 12, Color(GamePalette.CYAN, 0.65))
 	tree_note.position = Vector2(28, 520)
 	tree_note.size = Vector2(1044, 30)
 	tree_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -160,7 +160,7 @@ func _build_library_entry(parent: Control, id: String, profile: SaveProfile) -> 
 	card.add_child(badge)
 	var body_text: String
 	if discovered:
-		body_text = "%s\n%s\nSource: %s" % [definition["role"], definition["mechanics"], definition["acquisition"]]
+		body_text = "%s\n%s\n%s\nSource: %s" % [definition["role"], definition["mechanics"], definition.get("plans", ""), definition["acquisition"]]
 	else:
 		body_text = "Hint: %s" % definition["clue"]
 	var body := RichTextLabel.new()

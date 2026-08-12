@@ -6,6 +6,7 @@ const EncounterCatalog := preload("res://scripts/content/encounter_catalog.gd")
 const ARENA := Rect2(54.0, 76.0, 1172.0, 590.0)
 const MAX_ENEMIES := 190
 const BOSS_INTRO_DURATION := 2.4
+const MISSION_OUTRO_DURATION := 1.6
 
 
 static func enemy_difficulty(encounter_id: String, elapsed: float) -> float:

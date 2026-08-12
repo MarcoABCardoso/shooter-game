@@ -6,44 +6,102 @@ This section is the handoff point between work sessions. Read it before starting
 implementation and update it before ending a session that changes the game or
 the plan.
 
-- **Overall status:** Chapter 1 and its mandatory integration play are complete;
-  the feedback revision is implemented and validated. Chapter 2 is ready.
-- **Active chapter:** Chapter 2 - Rebuild the opening sector (not started).
+- **Overall status:** Chapters 1 and 2 are complete. Chapter 3 implementation is
+  ready for its mandatory creator play: the opening sector now unlocks four
+  weapon families, three active skills, eight named weapon plans, mastery-revealed
+  follow-ups, and a behavior-first permanent graph.
+- **Active chapter:** Chapter 3 - Establish build breadth (mandatory play pending).
 - **Working branch:** `codex/master-plan`
 - **Last updated:** 2026-08-11
 
 | Chapter | Status | Playable outcome |
 |---|---|---|
 | 1. Prove focused stages | Complete | Three focused stages and distinct builds worth optimizing for them |
-| 2. Rebuild the opening sector | Not started | A compact but complete first sector using the full-game structure |
-| 3. Establish build breadth | Not started | Multiple behaviorally distinct builds worth revisiting |
+| 2. Rebuild the opening sector | Complete | A compact but complete first sector using the full-game structure |
+| 3. Establish build breadth | Play gate | Multiple behaviorally distinct builds worth revisiting |
 | 4. Complete the campaign | Not started | Three-sector campaign, final stage, and definitive ending |
 | 5. Open the post-game | Not started | Threats and challenges that transform the campaign |
 | 6. Finish the product | Not started | Coherent, reliable release candidate for the chosen platforms |
 
 ### Current handoff
 
-- **Last completed:** Completed the mandatory Chapter 1 integration play across
-  all configurations. Hold, Breach, and Boss felt genuinely different and all
-  three builds were fun; Bastion and Scatter felt balanced, while Sentinel plus
-  Vector Parry made concentrated boss fire especially satisfying. Target modes,
-  displacement-spent charge, and the level-5 breakpoint worked. The play asked
-  for visible anti-farming deadlines, less explanatory UI/audio, and composable
-  objective layouts rather than repeated fixed stages. The revision adds mission
-  timers, preserves Sentinel charge when a follow-up evolution opens, shortens
-  transmissions, and removes the redundant Parry banner. A final design review
-  rejected the back-to-back container: Signal Hold, Relay Breach, and Overseer
-  Lock are now separate hangar deployments, so the player can optimize between
-  known challenges and bank each stage independently.
-- **In progress:** None. Chapter 2 has not started.
-- **Next action:** Begin Chapter 2 from the proven stage vocabulary. Rebuild
-  the opening sector with content-driven combinations of objectives, placements,
-  encounters, and arena rules; do not multiply the current exact layouts.
-- **Blockers:** None. The Chapter 1 integration play gate is complete.
-- **Verification:** All nine Godot tests pass after the focused-stage adjustment,
-  sequentially with explicit waits and exit-code checks on Godot 4.7.1.
-  `git diff --check` passes. Known
-  ObjectDB/resource-leak warnings remain visible on some clean exits.
+- **Last completed:** The Chapter 3 implementation comparison is assembled.
+  Pulse supports Sentinel and Harrier, Orbit supports Interceptor and Aegis, Arc
+  supports Conduit and Executioner, and Nova supports Singularity and Purifier.
+  Native mastery reveals an alternate follow-up for each plan. Gravity Tether
+  creates formation setup without Dash or Parry invulnerability. The permanent
+  graph replaces projectile speed/size and late numerical duplicates with reach,
+  pierce, chain, blade, and interception thresholds. Carriers add a formation
+  problem to the final Breach chamber and Overseer approach. The Library explains
+  the resulting plans. A separate chassis layer was omitted because it currently
+  duplicates weapon transformation rules.
+- **In progress:** Mandatory Chapter 3 creator play and numerical duplicate audit.
+- **Next action:** Equip several named builds and replay Relay Breach under the
+  same objective, corridor, and Carrier pressure. Include at least one focused build (Sentinel or Executioner), one
+  formation build (Conduit or Singularity), and one close/defensive build
+  (Interceptor, Aegis, Harrier, or Purifier). Record which plan changes movement,
+  targeting, timing, or risk; which mastery follow-up invites a replay; and any
+  branch that still feels like a numerical duplicate. Use an Overseer replay as
+  an optional focused-fire check, not as the common comparison. Do not begin Chapter 4
+  content before that judgment is recorded.
+- **Blockers:** Chapter 3 stops at its mandatory play gate by design.
+- **Verification:** The ten Godot tests, including `build_breadth.gd`, pass on
+  Godot 4.7.1. `git diff --check` passes. Known ObjectDB and resource-leak
+  warnings remain visible on some clean exits.
+
+### Active checklist: Chapter 3
+
+- [x] Give Pulse, Orbit, Arc, and Nova two named tactical identities.
+- [x] Give every identity a full two-tier transformation path, with native
+  mastery revealing the second follow-up.
+- [x] Replace projectile speed, projectile size, and late numerical duplicates
+  in the permanent graph with tactical reach, pierce, chains, blades, and
+  interception.
+- [x] Add Gravity Tether as a formation-setup active skill distinct from Dash and
+  Vector Parry.
+- [x] Retain Nearest and Ranged Threats as useful targeting doctrines.
+- [x] Decide against a separate chassis layer while it duplicates weapon rules.
+- [x] Add Carrier formation pressure to a late objective and the shared boss
+  approach.
+- [x] Expand the Arsenal Library around named plans and future mastery choices.
+- [x] Add deterministic regression coverage for the Chapter 3 contracts.
+- [ ] Complete the mandatory same-boss named-build play and record the design
+  judgment before Chapter 4.
+
+### Active checklist: Chapter 2
+
+- [x] Turn the proven focused stages into a visible, gated opening-sector route.
+- [x] Keep the first required route clearable without permanent grinding.
+- [x] Reveal loadout and permanent skill allocation after the first deployment.
+- [x] Add an optional route that provides meaningful power and a boss-relevant
+  equipment configuration without blocking the required path.
+- [x] Keep the hangar limited to stage names and deadlines, express campaign
+  gates through disabled buttons, and let each mission introduce its own rules.
+- [x] Preserve full clear, safer retreat, weaker defeat, and intrinsic mastery
+  banking across the campaign route.
+- [x] Add a sector boss reward and compact ending beat that point forward.
+- [x] Complete the mandatory fresh-profile Chapter 2 play and record the design
+  judgment.
+- [x] Replace the flat stage menu with a route presentation that separates the
+  required chain from optional preparation.
+- [x] Make stage clears visibly accumulate toward the Overseer without adding
+  explanatory mission dossiers or isolated dialogue.
+- [x] Replace one-and-done non-boss activities with content-defined sequential
+  objectives and one generous overall mission deadline.
+- [x] Reveal only the active objective or small relay group while preserving one
+  coherent combat thesis per deployment.
+- [x] Separate sequential objectives into horizontally scrolling chambers while
+  preserving constrained gauntlet arenas and screen-space HUD presentation.
+- [x] Treat travel as an explicit lifecycle: preserve pressure, constrain the
+  corridor, move the spawn window, and activate the destination on arrival.
+- [x] Lock the camera during constrained objectives and use dead-zone horizontal
+  follow only during travel.
+- [x] Animate objective completion and evacuate enemies only during the final
+  mission outro before displaying rewards.
+- [x] Defer formal first-unlock guidance and reduced-motion options to Chapter 6;
+  preserve them as explicit finish work now that the route structure is stable.
+- [x] Replay the revised sector and confirm that it feels like one complete
+  opening chapter before beginning broad build production.
 
 ### Active checklist: Chapter 1
 
@@ -176,6 +234,72 @@ the plan.
 
 ### Session log
 
+- **2026-08-11:** Passed the refined Chapter 2 traversal play. The creator reports
+  that the slice now scans and feels like a true game rather than adjacent
+  activities. It still needs finishing treatment, particularly presentation,
+  onboarding, and camera accessibility options, but its campaign and mission
+  structure no longer block expansion. Mark Chapter 2 Complete and advance the
+  active handoff to the Chapter 3 permanent-tree and named-build audit.
+- **2026-08-11:** Refined horizontal traversal after direct play. Enemy pressure
+  now continues between chambers instead of evacuating after every objective.
+  Locked chambers use a fixed camera; transit uses a smoothed horizontal dead
+  zone so small player corrections do not move the entire world. Completed
+  objectives pulse and expand before yielding to travel. Only the final objective
+  disables spawning, clears hostile fire, and disperses enemies during a 1.6-second
+  outro before the result screen. Replay Signal Hold and Relay Breach before
+  beginning Chapter 3.
+- **2026-08-11:** Replaced short movement inside one ring with horizontal mission
+  traversal. Signal Hold and Relay Breach now cross three separated combat
+  chambers; Drift Cache crosses two. Objectives lock their chamber while active.
+  Completion evacuates remaining pressure, pauses spawns, opens a constrained
+  corridor, and starts the next objective only after the side-scrolling camera
+  follows the player into its chamber. Stop for a focused traversal replay before
+  expanding the world or beginning Chapter 3.
+- **2026-08-11:** The revised route reads better, but direct review found that
+  its deployments conclude too quickly to feel like missions. Signal Hold now
+  crosses three sequential defense fields, Drift Cache progresses from approach
+  to extraction, and Relay Breach reveals three relay pairs from left to right.
+  Mission deadlines were extended to support travel, recovery, and escalation;
+  the HUD shows only the active step and sequence count. A wider or scrolling
+  arena remains an explicit follow-up only if the fixed-arena comparison feels
+  compressed. Stop for the focused Signal Hold/Relay Breach flow replay.
+- **2026-08-11:** Implemented the Chapter 2 route revisit. Stage positions now
+  live in the operation catalog. A focused `SectorRouteView` draws prerequisites
+  as a main Signal Hold → Relay Breach → Overseer Lock spine with Drift Cache on
+  a lower branch. Available required and optional links are visually distinct;
+  completed nodes and links turn green. The hangar retains only names, deadlines,
+  Flux, and navigation. A focused cohesion replay is now required.
+- **2026-08-11:** Completed the mandatory Chapter 2 fresh-profile run. Failure,
+  recovery, permanent growth, unlock pacing, the no-grind required route, and the
+  Overseer payoff all worked. The flat stage menu did not: Drift Cache looked like
+  a peer in the required sequence, and the four activities did not build into one
+  larger mission. Chapter 2 moves to Revisit for a spatial sector-route treatment
+  and stronger cumulative state. First-unlock guidance remains an onboarding risk.
+  Projectile speed and size also felt largely irrelevant with automatic aiming;
+  Chapter 3 must audit permanent nodes for perceptible build value.
+- **2026-08-11:** Continued the Chapter 2 play into Signal Hold. The fresh Pulse
+  loadout could not reliably finish before the 45-second deadline, contradicting
+  the no-grind opening requirement. Increased the deadline to 75 seconds, reduced
+  required control to 16 seconds, and softened progress decay so partial holds
+  survive recovery movement. Removed the isolated Vela lines and their floating
+  HUD label; mission dialogue is deferred until it can establish real context and
+  a coherent presentation. The fresh-profile play must restart again.
+- **2026-08-11:** Began the mandatory Chapter 2 play and stopped at the fresh
+  hangar because it front-loaded too much information. Reduced the hangar to
+  stage buttons containing only names and deadlines, a Flux readout, and the
+  actual navigation controls. Disabled buttons carry stage gating without OPEN,
+  LOCKED, or REQUIRED labels. Removed the mission dossier, sector jargon,
+  record/loadout summaries, reset button, tutorial copy, and decorative double
+  slashes. Missions now introduce their own objectives and combat concepts. The
+  complete fresh-profile play must restart after validation.
+- **2026-08-11:** Implemented the Chapter 2 Null Meridian candidate and stopped
+  at its mandatory creator play. The sector now gates Signal Hold into required
+  Relay Breach and optional Drift Cache routes, reveals build systems after the
+  opener, grants deterministic first-clear Flux, recovers Vector Parry from the
+  optional route, and rewards Orbit Blades plus a forward signal after the
+  Overseer. The later play revision removed the stage briefings from the hangar.
+  All nine automated tests pass; the fresh-profile failure, optional-growth,
+  and complete-sector play remains mandatory.
 - **2026-08-11:** Rejected the back-to-back operation container after reviewing
   the completed integration play. The three objectives remain, but Signal Hold,
   Relay Breach, and Overseer Lock are now independently selected and rewarded
@@ -339,18 +463,19 @@ an incomplete tutorial.
 Campaign
 |-- Sector
 |   |-- Stage
-|   |   |-- Focused objective
-|   |   `-- Variations that deepen the same build question
+|   |   |-- Focused objective sequence
+|   |   `-- Steps that deepen the same build question
 |   |-- Hangar / route decision
 |   `-- Sector boss
 `-- Final stage and ending
 ```
 
 A likely full campaign contains three sectors. Each sector has authored routes,
-optional branches, several focused stages, and a major boss. The next stage's
-objective, arena rule, and important threats are visible before deployment so
-the player can configure deliberately. A stage may use multiple waves, spaces,
-or phases only when they elaborate the same strategic question.
+optional branches, several focused stages, and a major boss. The hangar names a
+stage and its deadline without front-loading a combat dossier. The objective,
+arena rule, and important threats become legible through the stage itself. A
+stage may use multiple waves, spaces, or phases only when they elaborate the same
+strategic question.
 
 Failure should preserve some earned mastery and Flux. Depending on the stage,
 the player may retry, retreat with partial rewards, or return to the route.
@@ -618,10 +743,10 @@ right or wrong, and what changes before continuing.
 | Chapter 5 | Complete at least one threat run and one challenge; confirm that they change decisions rather than only health and damage. | Release finishing work |
 | Chapter 6 | Complete the release candidate from an empty profile, including failure, reset, pause, and missing or corrupt save recovery. | Declaring the game finished |
 
-The Baseline, Operation spine, Evolution and control, and Chapter 1 integration
-stops are complete and recorded above. The chained-operation result is retained
-as history; its container was subsequently replaced by focused stages without
-adding another play target. Later stops remain incomplete until their
+The Baseline, Operation spine, Evolution and control, Chapter 1 integration, and
+Chapter 2 stops are complete and recorded above. The chained-operation result is
+retained as history; its container was subsequently replaced by focused missions
+without adding another play target. Later stops remain incomplete until their
 corresponding game exists.
 
 ### Chapter 1: Prove focused stages
@@ -630,8 +755,8 @@ Build a small set of representative stages before multiplying campaign content.
 
 - Expose Hold, Breach, and Boss as separate, independently rewarded hangar
   deployments with fresh run state between them.
-- Show each stage's objective, deadline, and important combat premise before
-  deployment so the player can optimize rather than build for unknown tests.
+- Keep stage selection quiet: show the name and deadline, then introduce the
+  objective and important combat premise through the stage itself.
 - Keep voluntary retreat safer than defeat and preserve earned mastery in either
   case.
 - Include at least three stage rhythms, one new arena rule, and a substantial
@@ -682,6 +807,9 @@ scale, now using the intended full-game structure.
 Expand the build language before producing the final campaign volume.
 
 - Bring several weapon identities to full transformational depth.
+- Audit the permanent tree against automatic targeting. Replace projectile speed,
+  size, and other technically functional but imperceptible nodes with benefits
+  that change a build's decisions, reliability, or tactical reach.
 - Add active skills that create different tactical plans rather than serving as
   interchangeable panic buttons.
 - Decide whether chassis or doctrines earn their complexity.

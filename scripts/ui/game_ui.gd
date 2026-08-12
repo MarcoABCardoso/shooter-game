@@ -6,6 +6,7 @@ const CreditsViewScript := preload("res://scripts/ui/credits_view.gd")
 const MobileControlsScript := preload("res://scripts/ui/mobile_controls.gd")
 const RunHudScript := preload("res://scripts/ui/run_hud.gd")
 const OverlayViewScript := preload("res://scripts/ui/overlay_view.gd")
+const SectorRouteViewScript := preload("res://scripts/ui/sector_route_view.gd")
 
 signal deploy_requested(id: String)
 signal new_game_requested
@@ -43,8 +44,6 @@ var skill_tree_screen: Control
 var credits_screen
 var overlay
 var start_flux_label: Label
-var start_stats_label: Label
-var start_mastery_label: Label
 var hangar_slot_label: Label
 var loadout_box: VBoxContainer
 var loadout_slots_label: Label
@@ -57,6 +56,9 @@ var master_volume_value_label: Label
 var cached_slot_summaries: Array[Dictionary] = []
 var creating_new_slot := false
 var mobile_controls_available := false
+var sector_route_view
+var loadout_button: Button
+var skills_button: Button
 
 
 func _ready() -> void:
@@ -126,13 +128,9 @@ func show_menu(profile: SaveProfile) -> void:
 	hangar_screen.visible = true
 	hangar_slot_label.text = "SAVE SLOT %02d" % profile.active_slot if profile.active_slot > 0 else "TEMPORARY PROFILE"
 	start_flux_label.text = "◆  %d" % int(profile.data["flux"])
-	start_stats_label.text = "BEST TIME  %s\nBEST LEVEL  %02d\nRUNS  %02d" % [_format_time(float(profile.data["best_time"])), int(profile.data["best_level"]), int(profile.data["runs"])]
-	var equipped := profile.equipped_weapons()
-	var weapon_names: Array[String] = []
-	for weapon: String in equipped:
-		weapon_names.append(WeaponCatalog.display_name(weapon))
-	var ability_name := "VECTOR PARRY" if profile.equipped_ability() == "vector_parry" else "PHASE DASH"
-	start_mastery_label.text = "%s\n\n%s\nMASTERY %02d" % ["\n".join(weapon_names), ability_name, profile.mastery_level(profile.equipped_ability())]
+	sector_route_view.rebuild(profile)
+	loadout_button.visible = profile.hangar_systems_unlocked()
+	skills_button.visible = profile.hangar_systems_unlocked()
 
 
 func show_credits() -> void:
@@ -188,12 +186,21 @@ func set_ability(id: String) -> void:
 	hud.set_ability(id)
 
 
-func show_operation_end(operation_id: String, session: RunSession, banked_flux: int, completed: bool, defeated: bool) -> void:
+func show_operation_end(operation_id: String, session: RunSession, banked_flux: int, completed: bool, defeated: bool, rewards: Dictionary = {}) -> void:
 	var title := "%s COMPLETE" % OperationCatalog.display_name(operation_id)
 	if not completed:
 		title = "STAGE LOST" if defeated else "STAGE RETREATED"
+	elif operation_id == "overseer_lock" and bool(rewards.get("first_clear", false)):
+		title = "SECTOR 01 SECURED"
 	var recovery_percent := OperationCatalog.defeat_flux_percent(operation_id) if defeated else OperationCatalog.retreat_flux_percent(operation_id)
 	var reward_note := "Stage rewards secured." if completed else "Partial recovery secured  •  %d%% of earned Flux." % recovery_percent
+	if completed:
+		reward_note = String(OperationCatalog.definition(operation_id).get("completion_copy", reward_note))
+	if bool(rewards.get("first_clear", false)):
+		reward_note += "\nFirst clear: +%d Flux." % int(rewards.get("bonus_flux", 0))
+		var discoveries: Array = rewards.get("discoveries", [])
+		for value: Variant in discoveries:
+			reward_note += "\nUnlocked: %s." % String(LibraryCatalog.definition(String(value)).get("name", String(value).to_upper()))
 	var body := "Finished in %s\n%d hostiles destroyed  •  %d Flux banked\n\n%s\nMastery progress saved." % [
 		_format_time(session.elapsed),
 		session.kills,
@@ -214,10 +221,6 @@ func show_reset_confirmation() -> void:
 
 func show_banner(text: String, color: Color) -> void:
 	hud.show_banner(text, color)
-
-
-func show_transmission(speaker: String, text: String) -> void:
-	hud.show_transmission(speaker, text)
 
 
 func _build_hud() -> void:
@@ -339,53 +342,40 @@ func _build_hangar_screen() -> void:
 	hangar_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(hangar_screen)
 	start_screen = hangar_screen
-	var panel := UIFactory.panel(Vector2(160, 80), Vector2(960, 560), Color(GamePalette.CYAN, 0.25))
+	var panel := UIFactory.panel(Vector2(250, 65), Vector2(780, 590), Color(GamePalette.CYAN, 0.25))
 	hangar_screen.add_child(panel)
-	_add_menu_label(panel, "HANGAR", 36, GamePalette.CYAN, Vector2(58, 48))
-	hangar_slot_label = _add_menu_label(panel, "SAVE SLOT 01", 11, Color(GamePalette.GREEN, 0.72), Vector2(58, 96))
-	_add_menu_label(panel, "PREPARE YOUR SHIP FOR THE NEXT SIGNAL.", 13, Color(GamePalette.CYAN, 0.66), Vector2(58, 119))
-	_add_menu_label(panel, "SELECT STAGE", 11, Color(GamePalette.YELLOW, 0.72), Vector2(58, 154))
-	for index in OperationCatalog.ORDER.size():
-		var stage_id := OperationCatalog.ORDER[index]
-		var stage := OperationCatalog.definition(stage_id)
-		var mission := OperationCatalog.mission(stage_id)
-		var seconds := int(mission.get("time_limit", 0.0))
-		var deploy := UIFactory.button("%02d  %s  //  %02d:%02d" % [index + 1, stage["name"], seconds / 60, seconds % 60], Vector2(58, 176 + index * 55), Vector2(370, 46))
-		deploy.name = "DeployButton_" + stage_id
-		deploy.tooltip_text = "%s  •  %s" % [mission["rhythm"], stage["description"]]
-		deploy.pressed.connect(deploy_requested.emit.bind(stage_id))
-		panel.add_child(deploy)
-	var loadout := UIFactory.button("LOADOUT", Vector2(58, 354), Vector2(180, 48))
-	loadout.name = "LoadoutButton"
-	loadout.pressed.connect(loadout_requested.emit)
-	panel.add_child(loadout)
-	var skills := UIFactory.button("SKILL TREE", Vector2(248, 354), Vector2(180, 48))
-	skills.name = "SkillTreeButton"
-	skills.pressed.connect(skills_requested.emit)
-	panel.add_child(skills)
-	var reset := UIFactory.button("RESET PROFILE", Vector2(58, 412), Vector2(180, 48))
-	reset.name = "ResetProfileButton"
-	reset.pressed.connect(show_reset_confirmation)
-	panel.add_child(reset)
-	var library := UIFactory.button("LIBRARY", Vector2(248, 412), Vector2(180, 48))
+	_add_menu_label(panel, "HANGAR", 36, GamePalette.CYAN, Vector2(50, 40))
+	hangar_slot_label = _add_menu_label(panel, "SAVE SLOT 01", 11, Color(GamePalette.GREEN, 0.72), Vector2(50, 88))
+	var flux_caption := _add_menu_label(panel, "FLUX", 11, Color(GamePalette.YELLOW, 0.64), Vector2(540, 45))
+	flux_caption.size = Vector2(170, 22)
+	flux_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	start_flux_label = _add_menu_label(panel, "◆  0", 25, GamePalette.YELLOW, Vector2(540, 65))
+	start_flux_label.size = Vector2(170, 34)
+	start_flux_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	sector_route_view = SectorRouteViewScript.new()
+	sector_route_view.name = "SectorRouteView"
+	sector_route_view.position = Vector2(50, 108)
+	sector_route_view.size = Vector2(680, 286)
+	sector_route_view.deploy_requested.connect(deploy_requested.emit)
+	panel.add_child(sector_route_view)
+	loadout_button = UIFactory.button("LOADOUT", Vector2(50, 410), Vector2(210, 48))
+	loadout_button.name = "LoadoutButton"
+	loadout_button.pressed.connect(loadout_requested.emit)
+	panel.add_child(loadout_button)
+	skills_button = UIFactory.button("SKILL TREE", Vector2(285, 410), Vector2(210, 48))
+	skills_button.name = "SkillTreeButton"
+	skills_button.pressed.connect(skills_requested.emit)
+	panel.add_child(skills_button)
+	var library := UIFactory.button("LIBRARY", Vector2(520, 410), Vector2(210, 48))
 	library.name = "LibraryButton"
 	library.pressed.connect(library_requested.emit)
 	panel.add_child(library)
-	var title_button := UIFactory.button("RETURN TO TITLE", Vector2(58, 470), Vector2(370, 42))
+	var title_button := UIFactory.button("RETURN TO TITLE", Vector2(50, 486), Vector2(680, 46))
 	title_button.name = "ReturnToTitleButton"
 	title_button.pressed.connect(title_requested.emit)
 	panel.add_child(title_button)
 
-	var status_panel := UIFactory.panel(Vector2(470, 54), Vector2(430, 350), Color(GamePalette.GREEN, 0.22))
-	panel.add_child(status_panel)
-	_add_menu_label(status_panel, "FLUX", 11, Color(GamePalette.YELLOW, 0.64), Vector2(30, 28))
-	start_flux_label = _add_menu_label(status_panel, "◆  0", 28, GamePalette.YELLOW, Vector2(27, 48))
-	_add_menu_label(status_panel, "RECORD", 11, Color(GamePalette.CYAN, 0.58), Vector2(30, 112))
-	start_stats_label = _add_menu_label(status_panel, "BEST TIME  00:00\nBEST LEVEL  01\nRUNS  00", 16, Color.WHITE, Vector2(29, 136))
-	start_stats_label.add_theme_constant_override("line_spacing", 7)
-	_add_menu_label(status_panel, "LOADOUT", 11, Color(GamePalette.GREEN, 0.58), Vector2(224, 112))
-	start_mastery_label = _add_menu_label(status_panel, "PULSE CANNON\nPHASE DASH\nMASTERY 00", 13, Color(GamePalette.GREEN, 0.86), Vector2(223, 136))
-	start_mastery_label.add_theme_constant_override("line_spacing", 10)
+
 func _build_credits_screen() -> void:
 	credits_screen = CreditsViewScript.new()
 	credits_screen.name = "CreditsScreen"
@@ -534,17 +524,18 @@ func _rebuild_loadout(profile: SaveProfile) -> void:
 	var ability_row := HBoxContainer.new()
 	ability_row.name = "ActiveSkillLoadout"
 	var caption := UIFactory.label("ACTIVE SKILL", 14, GamePalette.CYAN)
-	caption.custom_minimum_size = Vector2(420, 52)
+	caption.custom_minimum_size = Vector2(340, 52)
 	ability_row.add_child(caption)
-	for ability: String in ["dash", "vector_parry"]:
+	for ability: String in LibraryCatalog.ABILITY_ORDER:
 		var unlocked: bool = profile.is_discovered(ability)
 		var selected: bool = profile.equipped_ability() == ability
-		var button := UIFactory.button(("PHASE DASH" if ability == "dash" else "VECTOR PARRY") + "\nMASTERY %02d" % profile.mastery_level(ability), Vector2.ZERO, Vector2(215, 50))
+		var ability_name := String(LibraryCatalog.definition(ability).get("name", ability.to_upper()))
+		var button := UIFactory.button(ability_name + "\nMASTERY %02d" % profile.mastery_level(ability), Vector2.ZERO, Vector2(170, 50))
 		button.name = "AbilitySelect_" + ability
-		button.custom_minimum_size = Vector2(215, 50)
+		button.custom_minimum_size = Vector2(170, 50)
 		button.disabled = not unlocked or selected
-		button.add_theme_font_size_override("font_size", 13)
-		button.text = "VECTOR PARRY\nNOT YET UNLOCKED" if not unlocked else button.text + (" ✓" if selected else "")
+		button.add_theme_font_size_override("font_size", 11)
+		button.text = ability_name + "\nNOT YET UNLOCKED" if not unlocked else button.text + (" ✓" if selected else "")
 		button.pressed.connect(ability_selected.emit.bind(ability))
 		ability_row.add_child(button)
 	loadout_box.add_child(ability_row)

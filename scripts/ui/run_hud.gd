@@ -2,6 +2,7 @@ class_name RunHud
 extends Control
 
 const MobileControlsScript := preload("res://scripts/ui/mobile_controls.gd")
+const OperationEvolutionCatalog := preload("res://scripts/content/operation_evolution_catalog.gd")
 
 signal mobile_input_changed(movement: Vector2)
 signal mobile_ability_requested
@@ -17,7 +18,6 @@ var combo_label: Label
 var weapon_label: Label
 var evolution_label: Label
 var target_mode_label: Label
-var transmission_label: Label
 var banner_label: Label
 var mobile_controls
 var banner_tween: Tween
@@ -44,13 +44,10 @@ func update(session: RunSession, weapons: Dictionary, context_label: String, tar
 		if int(weapons[id]["level"]) > 0:
 			names.append(id.to_upper())
 	weapon_label.text = "  •  ".join(names)
-	target_mode_label.text = "Q  //  TARGET  %s" % target_mode
+	target_mode_label.text = "Q  TARGET: %s" % target_mode
 	target_mode_label.modulate = GamePalette.YELLOW if target_mode == "RANGED THREATS" else GamePalette.CYAN
-	var build_name := ""
-	if session.has_operation_evolution("bastion_array"):
-		build_name = "  •  BASTION"
-	elif session.has_operation_evolution("scatter_array"):
-		build_name = "  •  SCATTER"
+	var build := OperationEvolutionCatalog.build_name(session.operation_evolutions)
+	var build_name := "  •  " + build if not build.is_empty() else ""
 	evolution_label.text = context_label + build_name
 
 
@@ -64,7 +61,7 @@ func set_dash(ratio: float) -> void:
 
 
 func set_ability(id: String) -> void:
-	ability_caption.text = "VECTOR PARRY" if id == "vector_parry" else "PHASE DASH"
+	ability_caption.text = String(LibraryCatalog.definition(id).get("name", "PHASE DASH"))
 
 
 func show_banner(text: String, color: Color) -> void:
@@ -76,10 +73,6 @@ func show_banner(text: String, color: Color) -> void:
 	banner_tween.tween_interval(1.8)
 	banner_tween.tween_property(banner_label, "modulate:a", 0.0, 0.6)
 	banner_tween.tween_callback(_clear_banner)
-
-
-func show_transmission(speaker: String, text: String) -> void:
-	transmission_label.text = "" if text.is_empty() else "%s:  %s" % [speaker, text]
 
 
 func _clear_banner() -> void:
@@ -118,7 +111,7 @@ func _build() -> void:
 	var target_panel := UIFactory.panel(Vector2(920, 78), Vector2(305, 44), Color(GamePalette.YELLOW, 0.34))
 	target_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(target_panel)
-	target_mode_label = UIFactory.label("Q  //  TARGET  NEAREST", 14, GamePalette.CYAN)
+	target_mode_label = UIFactory.label("Q  TARGET: NEAREST", 14, GamePalette.CYAN)
 	target_mode_label.name = "TargetModeCue"
 	target_mode_label.position = Vector2(14, 10)
 	target_mode_label.size = Vector2(278, 24)
@@ -127,15 +120,8 @@ func _build() -> void:
 	evolution_label = UIFactory.label("READY FOR DEPLOYMENT", 12, Color(GamePalette.GREEN, 0.78))
 	evolution_label.position = Vector2(55, 104)
 	add_child(evolution_label)
-	transmission_label = UIFactory.label("", 12, Color(GamePalette.CYAN, 0.72))
-	transmission_label.name = "MissionTransmission"
-	transmission_label.position = Vector2(130, 145)
-	transmission_label.size = Vector2(1020, 42)
-	transmission_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	transmission_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(transmission_label)
 	banner_label = UIFactory.label("", 21, GamePalette.CYAN)
-	banner_label.position = Vector2(0, 215)
+	banner_label.position = Vector2(0, 170)
 	banner_label.size = Vector2(1280, 34)
 	banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(banner_label)

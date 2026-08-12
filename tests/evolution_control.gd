@@ -12,6 +12,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
+	game.profile.data["mastery_xp"]["pulse"] = 140.0
 	game.start_operation("signal_hold")
 	await process_frame
 	assert(game.objective_director.active and game.spawn_director.objective_driven, "Signal Breach should open with objective-driven Signal Defense")

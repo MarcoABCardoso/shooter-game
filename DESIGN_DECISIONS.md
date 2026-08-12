@@ -34,19 +34,24 @@ The longer path from the current build to the intended full game is described in
   progression, and encounters must create recognizable strategies rather than a
   collection of independent percentage bonuses.
 
-### C002: Combat is organized into short, focused stages
+### C002: Combat is organized into focused missions
 
-- **Commitment:** A stage presents one legible strategic thesis and gives the
-  player its objective, arena rule, and important threats before deployment.
-  Different objective families are separate stages with a hangar/build decision
-  between them. Multi-part stages deepen the same thesis rather than changing
-  the exam after the build is locked.
+- **Commitment:** A deployment presents one legible strategic thesis through the
+  arena, objectives, and threats encountered during it. Objectives may arrive
+  sequentially or in small active groups so the player advances through a
+  mission instead of clearing one short activity. The hangar remains a quiet
+  preparation screen: mission name, deadline, and disabled-state gating are
+  enough. Different objective families remain separate deployments with a
+  hangar/build decision between them; multi-part missions deepen the same thesis
+  rather than changing the exam after the build is locked.
 - **Why:** The current gauntlets are engaging because pressure rises quickly.
   Direct play also showed that chaining unrelated objectives rewards generic
   survival builds over engineering for a known problem.
-- **Consequence:** Campaign variety comes from distinct stages and routes. A
-  mixed-objective gauntlet is an explicitly advertised optional challenge, not
-  the default campaign container.
+- **Consequence:** Campaign variety comes from distinct missions and routes.
+  Longer missions earn their duration through progression, changing placement,
+  and escalating objective groups rather than a longer survival timer. A
+  mixed-family gauntlet is an explicitly advertised optional challenge, not the
+  default campaign container.
 
 ### C003: Important choices are infrequent and transformational
 
@@ -174,6 +179,22 @@ but chaining them locked an optimized build before forcing it through unrelated
 challenges. The current slice exposes them as separate hangar deployments so the
 player can inspect a problem, configure for it, and bank that stage independently.
 
+The Chapter 2 play confirmed the separate deployments but rejected their flat
+menu as campaign structure. Drift Cache looked like a peer in the required
+sequence, and clearing four buttons did not make the activities feel cumulative.
+The implemented comparison shows Signal Hold, Relay Breach, and Overseer Lock as
+one main chain, places Drift Cache visibly off that chain, and lets each clear
+change node and link state. The next play determines whether this route state and
+the existing completion consequences create enough continuity without a restored
+mission dossier or isolated dialogue.
+
+The route revision read better, but the single-objective deployments ended
+before they could develop into missions. The current comparison gives Signal
+Hold three moving defense objectives, Drift Cache an approach and extraction,
+and Relay Breach three progressively revealed relay pairs. They share one
+generous mission deadline and preserve the hangar decision between different
+objective families.
+
 Candidate mission families are Assault, Elite Hunt, Signal Defense, Breach,
 Salvage, Anomaly, and Boss. A family survives only if it makes builds prioritize,
 move, or target differently.
@@ -234,20 +255,30 @@ meaningfully different use. All tested configurations were fun enough to invite
 immediate comparison. Build-specific achievements may reinforce identity; permanent Flux
 advantages require caution because they can make one style the mandatory farm.
 
+Chapter 3 does not add a chassis layer. Weapon-specific transformations already
+create the broad movement and targeting rules that a chassis would currently
+duplicate. The comparison set instead names eight plans: Sentinel and Harrier,
+Interceptor and Aegis, Conduit and Executioner, and Singularity and Purifier.
+This decision can be reopened only if a later loadout rule spans weapons in a way
+their transformations and permanent graph cannot express.
+
 ### H004: Authored music and restrained narrative
 
 Signal Defense, Relay Breach, and the Overseer handoff compare two authored
-combat tracks, a boss layer, procedural action tones, and mission transmissions.
+combat tracks, a boss layer, and procedural action tones. The prototype also
+compared mission transmissions, but the Chapter 2 play found a lone Vela line
+floating in the HUD without enough narrative structure to justify itself.
 Direct play found the music adequate polish rather than a defining strength. The
 chained prototype's clear cue was too large for an ordinary intermission; the
 focused-stage model removes that transition entirely. Explanatory transmissions
 and Parry result banners also narrated outcomes already clear on screen. Cues
 should be reserved for information or atmosphere the action does not communicate.
 
-Narrative begins with a clear conflict, short transmissions, focused voices or
-signals, connected Library entries, recognizable boss identities, and a
-definitive ending. A large cast, extensive voice acting, and a high-volume event
-system are not assumed.
+Mission dialogue is deferred until it can establish a voice, context, and a
+presentation language rather than appearing as isolated HUD copy. Narrative may
+later begin with a clear conflict, focused voices or signals, connected Library
+entries, recognizable boss identities, and a definitive ending. A large cast,
+extensive voice acting, and a high-volume event system are not assumed.
 
 ### H005: Working content range
 
@@ -264,6 +295,61 @@ Post-game threats may add enemy traits, boss variations, arena complications,
 and increased rewards while also opening new transformations, doctrines, or
 other player power. The post-game should not become the same encounters with
 larger health values and stricter reflex requirements.
+
+### H007: Permanent upgrades need perceptible tactical value
+
+The Chapter 2 play found projectile speed and projectile size largely irrelevant
+under automatic aiming. A modifier can function correctly and still fail as a
+choice when the player cannot feel a changed decision, reliability threshold, or
+combat role. Chapter 3 should audit the permanent tree for these numerical dead
+ends and replace them with benefits that visibly support a build identity.
+
+The Chapter 3 candidate removes projectile speed and size from the permanent
+graph. Their replacements change thresholds the player can plan around: Ranged
+Threats reach, Pulse piercing, Arc jump count and reach, Orbit blade count and
+projectile interception. Generic damage remains only where permanent power is
+the explicit purpose; deeper branches now reinforce a named behavior.
+
+Native mastery now reveals the second tier-two follow-up for each named weapon
+plan. This keeps mastery intrinsic while making revisitation open a choice rather
+than only increasing damage. The Arsenal Library exposes every discovered plan
+and its tactical use before deployment.
+
+### H008: Onboarding follows stable structure
+
+System unlock timing felt correct to the creator, but discoverability remains
+unproven because the creator already knew where Loadout, Skill Tree, targeting,
+and evolution controls lived. Add restrained first-unlock guidance after the
+sector route stabilizes. Defer a larger tutorial system until the game structure
+and final input presentation justify it.
+
+### H009: Spatial travel should earn a larger arena
+
+The creator expects forward travel to make sequential objectives feel more like
+a mission than flying one or two seconds across a ring. The implemented
+comparison places objectives in horizontally separated combat chambers. A
+chamber constrains the gauntlet while active and uses a fixed camera. Clearing it
+plays a visible completion pulse, opens a narrow corridor, and preserves enemy
+pressure. Transit uses a smoothed horizontal dead zone instead of gluing the
+camera to every player correction. The next objective appears on arrival. Only
+final mission completion clears hostile fire and disperses enemies during a
+short outro before the result screen.
+
+This camera split is an evidence-informed design inference, not a claim that one
+camera algorithm prevents motion sickness for every player. [Microsoft's camera
+accessibility guidance](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/117)
+recommends avoiding unnecessary camera motion and making automatic movement
+adjustable; [Unity's accessibility example](https://learn.unity.com/course/design-and-development/tutorial/camera-system?version=2022.3)
+defaults to static framing because excess movement can be uncomfortable, and
+warns that fast movement can disorient. The current comparison therefore
+minimizes scrolling during combat and avoids exact player lock during transit. A
+reduced-motion camera option remains finishing work if scrolling survives direct
+play.
+
+The refined traversal play confirmed the structure: the fixed chambers,
+pressure-preserving corridors, completion beat, and final evacuation scan as a
+true game slice. Further camera tuning, reduced-motion options, and richer
+transition presentation are finish work rather than blockers on build breadth.
 
 ## Prototype decision history
 
@@ -286,21 +372,22 @@ preserved so code, tests, and earlier discussion remain understandable.
 | **D012: Simulation-level pause** | Retained as T004 | The current resonance overlay may change, but whole-simulation pause remains correct. |
 | **D013: Native item mastery** | Expanded by C004 | Intrinsic, non-transferable mastery remains valuable. It may unlock transformations and interactions as well as bounded power. |
 | **D014: Bosses interrupt the crowd-control rhythm** | Principle retained | Bosses should create readable exploitation windows and test build understanding. The Overseer's exact attacks remain authored prototype content. |
-| **D015: Sparse equipment rewards plus first-clear Flux** | Reopened | Memorable unlocks remain desirable. The exact reward schedule and first-clear formula must be redesigned for stages and a larger campaign. |
+| **D015: Sparse equipment rewards plus first-clear Flux** | Active opening-sector hypothesis | Null Meridian now uses deterministic, non-repeating first-clear Flux. Its optional Drift Cache grants Vector Parry and enough Flux for meaningful permanent growth; the Overseer opens the Chapter 3 comparison arsenal: Orbit Blades, Arc Lash, Nova Burst, and Gravity Tether. The exact later-campaign schedule remains open. |
 
 ## Current prototype balance reference
 
-These values describe the playable Chapter 1 stage slice. They are tuning
-references, not targets for the future campaign.
+These values describe the playable Chapter 2 opening-sector candidate. They are
+tuning references, not targets for later sectors.
 
 | System | Current starting value | Current growth |
 |---|---:|---:|
 | Player hull | 100 | Behavioral mutations; +12 permanent rank |
 | Player speed | 300 px/s | Fixed; movement physics are unaffected by facing and targeting |
 | Pulse Cannon | 5 damage / 0.34 s / 190 px range | Skill tree + 2.5% per native mastery rank |
-| Signal Defense | 18 s hold objective | Drone pressure; leaving the field decays progress |
-| Relay Breach | 80 s deadline | Three linked targets under Drone/Striker pressure |
-| Overseer Lock | 105 s deadline | Gunner screen followed by the multi-pattern boss |
+| Signal Defense | 18 s + 20 s + 22 s holds / 180 s deadline | Three horizontally separated chambers under fresh-profile Drone pressure |
+| Drift Cache | 22 s approach + 26 s extraction / 165 s deadline | Optional Striker/Gunner pressure; 100 first-clear Flux and Vector Parry |
+| Relay Breach | 210 s deadline | Three sequential pairs progress across the arena under Drone/Striker pressure |
+| Overseer Lock | 180 s deadline | Gunner/Carrier screen followed by the multi-pattern boss; replayable with the post-clear comparison arsenal |
 | Phase Dash | 0.18 s movement, 0.30 s invulnerability | 1.25 s cooldown |
 
 Current tuning locations remain:
@@ -316,17 +403,35 @@ Current tuning locations remain:
 
 ## Current playable scope
 
-The prototype currently includes:
+The playable opening-sector candidate currently includes:
 
 - A title screen, hangar, discovery-gated Arsenal Library, and save reset.
-- Three independently selectable stages with partial retreat/defeat recovery:
-  objective-driven Signal Hold, a linked Relay Breach, and Overseer Lock. Each
-  returns to the hangar before another deployment.
+- A gated Null Meridian route with partial retreat/defeat recovery: the required
+  Signal Hold opener, optional Drift Cache power route, linked Relay Breach, and
+  Overseer Lock. Each returns to the hangar before another deployment.
+- Content-defined objective sequences within the three non-boss missions. The
+  HUD shows the active step and sequence count; only the active field or relay
+  group is revealed, and one overall deadline governs the deployment.
+- Horizontal mission traversal between constrained combat chambers. Completing
+  an objective opens a narrow corridor while enemies and spawning continue, then
+  activates the next chamber only after the player reaches it. The camera is
+  fixed for chamber combat and uses a horizontal dead zone during transit.
+- Animated objective completion and a final mission outro. Intermediate
+  objectives pulse before travel; final completion clears hostile fire and
+  disperses enemies before the result screen appears.
+- A minimal hangar: stage buttons show only name and deadline, campaign gates use
+  the disabled state, and mission concepts are introduced by the mission itself.
+- A content-driven sector route that places the required stage spine and optional
+  preparation branch spatially, with completed nodes and links changing state.
+- Deterministic first-clear Flux, optional Vector Parry recovery, a post-Overseer
+  comparison arsenal containing Orbit, Arc, Nova, and Gravity Tether, and a
+  compact sector-completion beat pointing deeper.
 - Automatic resonance growth, two visible Pulse evolution tiers,
   Sentinel and Scatter positioning builds, and keyboard target-priority cycling.
-- Weapon and active-skill loadouts, a Flux skill graph with free respec, native
-  mastery, four implemented weapon families, a combo multiplier, pickups, pause,
-  and feedback.
+- Weapon and active-skill loadouts, eight named weapon plans with mastery-revealed
+  follow-ups, a behavior-first Flux graph with free respec, native mastery, four
+  implemented weapon families, three active skills, a combo multiplier, pickups,
+  pause, and feedback.
 - Keyboard and single-stick touch movement.
 
 This is evidence that the compact loop works. It is raw material for the opening

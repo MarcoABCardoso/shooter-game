@@ -26,6 +26,7 @@ var objective_director
 var weapon_system: WeaponSystem
 var ui: GameUI
 var hud_update_timer := 0.0
+var mission_outro_timer := 0.0
 
 func _ready() -> void:
 	_build_modules()
@@ -49,13 +50,24 @@ func _process(_delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	if state == GameState.RUNNING:
 		session.tick(delta)
+		if mission_outro_timer > 0.0:
+			mission_outro_timer = maxf(0.0, mission_outro_timer - delta)
+			if is_instance_valid(player):
+				arena_view.follow_player(player.global_position)
+			if mission_outro_timer <= 0.0:
+				_complete_operation_mission()
+			return
 		if _mission_timed_out():
 			_end_operation(false, true)
 			return
+		if objective_director.traveling and is_instance_valid(player):
+			combat_director.set_arena(Rect2(player.global_position.x - GameBalance.ARENA.size.x * 0.5, GameBalance.ARENA.position.y, GameBalance.ARENA.size.x, GameBalance.ARENA.size.y))
 		spawn_director.tick(delta)
 		weapon_system.tick(delta)
 		combat_director.tick_contacts(delta)
 		objective_director.tick(delta)
+		if is_instance_valid(player):
+			arena_view.follow_player(player.global_position)
 		hud_update_timer -= delta
 		if hud_update_timer <= 0.0:
 			hud_update_timer += HUD_UPDATE_INTERVAL
@@ -107,6 +119,10 @@ func _connect_modules() -> void:
 	objective_director.relay_network_updated.connect(arena_view.show_relay_network)
 	objective_director.objective_target_requested.connect(combat_director.spawn_objective_enemy)
 	objective_director.objective_hidden.connect(arena_view.hide_objective)
+	objective_director.objective_completed.connect(arena_view.animate_objective_completion)
+	objective_director.mission_outro_started.connect(_on_mission_outro_started)
+	objective_director.combat_arena_changed.connect(_on_objective_arena_changed)
+	objective_director.travel_started.connect(_on_objective_travel_started)
 	objective_director.banner_requested.connect(ui.show_banner)
 	ui.new_game_requested.connect(_show_new_game_slots)
 	ui.load_game_requested.connect(_show_load_game_slots)
@@ -144,6 +160,7 @@ func _spawn_player() -> void:
 	player.health_changed.connect(ui.set_health)
 	player.dash_changed.connect(ui.set_dash)
 	player.parry_requested.connect(combat_director.parry_projectiles)
+	player.gravity_tether_requested.connect(combat_director.gravity_tether)
 	player.active_skill_used.connect(session.record_mastery)
 	player.configure({
 		"damage": profile.skill_effect("general_damage"),
@@ -212,22 +229,22 @@ func _select_save_slot(slot: int, create_new: bool) -> void:
 
 
 func show_loadout() -> void:
-	if state == GameState.MENU:
+	if state == GameState.MENU and profile.hangar_systems_unlocked():
 		ui.show_loadout(profile)
 
 
 func show_skill_tree() -> void:
-	if state == GameState.MENU:
+	if state == GameState.MENU and profile.hangar_systems_unlocked():
 		ui.show_skill_tree(profile)
 
 
 func _deploy_operation(id: String) -> void:
-	if state == GameState.MENU:
+	if state == GameState.MENU and profile.is_stage_unlocked(id):
 		start_operation(id)
 
 
 func start_operation(id: String) -> void:
-	if not OperationCatalog.ORDER.has(id):
+	if not OperationCatalog.ORDER.has(id) or not profile.is_stage_unlocked(id):
 		return
 	_set_run_entities_paused(false)
 	_clear_run()
@@ -243,8 +260,15 @@ func _start_current_operation_mission() -> void:
 		return
 	current_encounter_id = String(mission["encounter_id"])
 	_clear_mission_entities()
-	player.global_position = GameBalance.ARENA.get_center()
+	var mission_arenas := OperationCatalog.mission_arenas(session.operation_id)
+	if mission_arenas.is_empty():
+		mission_arenas.append(GameBalance.ARENA)
+	var starting_arena := mission_arenas[0]
+	arena_view.configure_mission(mission_arenas)
+	player.global_position = starting_arena.get_center()
+	player.set_combat_arena(starting_arena)
 	weapon_system.sync_player_position()
+	combat_director.set_arena(starting_arena)
 	combat_director.configure(player, profile, session, current_encounter_id)
 	spawn_director.configure(session, current_encounter_id, mission)
 	objective_director.configure(mission, player)
@@ -253,13 +277,34 @@ func _start_current_operation_mission() -> void:
 	ui.show_run()
 	ui.set_ability(profile.equipped_ability())
 	ui.show_banner(_current_encounter_label(), GamePalette.CYAN)
-	ui.show_transmission(String(mission.get("speaker", "VELA")), String(mission.get("transmission", "")))
 	hud_update_timer = HUD_UPDATE_INTERVAL
 	ui.update_hud(session, weapon_system.weapons, _current_encounter_label(), weapon_system.target_mode_name())
 	audio.play_music(mission.get("music", &"combat") as StringName)
 	audio.tone(220.0, 0.18, 0.2, 600.0)
 	if not session.pending_evolution_tiers.is_empty():
 		call_deferred("_open_next_operation_evolution")
+
+
+func _on_objective_arena_changed(arena: Rect2) -> void:
+	if not arena.has_area():
+		return
+	player.set_combat_arena(arena)
+	combat_director.set_arena(arena)
+	spawn_director.spawning_enabled = true
+	arena_view.set_active_arena(arena)
+
+
+func _on_objective_travel_started(travel_bounds: Rect2, destination_arena: Rect2) -> void:
+	if not travel_bounds.has_area() or not destination_arena.has_area():
+		return
+	player.set_travel_corridor(objective_director.current_arena, destination_arena)
+	spawn_director.spawning_enabled = true
+	arena_view.set_active_arena(destination_arena, true)
+
+
+func _on_mission_outro_started() -> void:
+	spawn_director.spawning_enabled = false
+	combat_director.begin_swarm_evacuation()
 
 
 func pause_game() -> void:
@@ -300,7 +345,10 @@ func _on_enemy_defeated(_kind: String) -> void:
 
 
 func _on_boss_defeated() -> void:
-	call_deferred("_complete_operation_mission")
+	if state != GameState.RUNNING or mission_outro_timer > 0.0:
+		return
+	mission_outro_timer = GameBalance.MISSION_OUTRO_DURATION
+	_on_mission_outro_started()
 
 
 func _on_boss_started() -> void:
@@ -331,8 +379,8 @@ func _end_operation(completed: bool, defeated: bool) -> void:
 	var banked_flux := session.flux
 	if not completed:
 		banked_flux = OperationCatalog.defeat_flux(session.operation_id, session.flux) if defeated else OperationCatalog.retreat_flux(session.operation_id, session.flux)
-	profile.bank_run(banked_flux, session.elapsed, session.level, session.kills, session.mastery)
-	ui.show_operation_end(session.operation_id, session, banked_flux, completed, defeated)
+	var rewards := profile.bank_run(banked_flux, session.elapsed, session.level, session.kills, session.mastery, session.operation_id if completed else "")
+	ui.show_operation_end(session.operation_id, session, banked_flux, completed, defeated, rewards)
 	audio.stop_music()
 	if defeated:
 		audio.play_stinger(&"defeat")
@@ -346,11 +394,13 @@ func _retry_current_deployment() -> void:
 
 func _current_encounter_label() -> String:
 	var mission := OperationCatalog.mission(session.operation_id)
-	var label := "STAGE — %s" % String(mission.get("name", "UNKNOWN"))
+	var label: String = objective_director.objective_label() if is_instance_valid(objective_director) else ""
+	if label.is_empty():
+		label = String(mission.get("name", "UNKNOWN"))
 	var time_limit := float(mission.get("time_limit", 0.0))
 	if time_limit > 0.0:
 		var seconds_left := maxi(0, int(ceil(time_limit - session.mission_elapsed)))
-		label += "  //  TIME %02d:%02d" % [seconds_left / 60, seconds_left % 60]
+		label += "   %02d:%02d" % [seconds_left / 60, seconds_left % 60]
 	return label
 
 
@@ -403,7 +453,8 @@ func _open_next_operation_evolution() -> void:
 		ui.show_run()
 		ui.show_banner("RESONANCE LEVEL %02d — AUTOMATIC POWER +10%%" % session.level, GamePalette.GREEN)
 		return
-	var choices := OperationEvolutionCatalog.choices_for(tier, session.operation_evolutions)
+	var equipped_weapon := profile.equipped_weapons()[0]
+	var choices := OperationEvolutionCatalog.choices_for(tier, session.operation_evolutions, equipped_weapon, profile.mastery_level(equipped_weapon))
 	if choices.is_empty():
 		session.pending_evolution_tiers.pop_front()
 		_open_next_operation_evolution()
@@ -483,6 +534,7 @@ func _fire_nova() -> void:
 
 
 func _clear_run() -> void:
+	mission_outro_timer = 0.0
 	weapon_system.active = false
 	if is_instance_valid(objective_director):
 		objective_director.clear()

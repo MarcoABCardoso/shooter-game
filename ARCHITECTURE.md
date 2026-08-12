@@ -25,14 +25,15 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 | `content/*.gd` | Stage, objective layout, encounter, enemy, weapon, stage-evolution, skill-tree, and library definitions | Runtime state |
 | `systems/spawn_director.gd` | Difficulty cadence and encounter states | Enemy construction |
 | `systems/combat_director.gd` | Entity construction, collisions, drops, combat outcomes | Weapon cadence or UI |
-| `systems/objective_director.gd` | Signal Defense progress, Relay Breach target state, and objective completion | Enemy construction, drawing, or lifecycle transitions |
-| `systems/weapon_system.gd` | Equipped weapon timers, targeting, damage, skill effects, and selected run mutations | Drops or choice presentation |
+| `systems/objective_director.gd` | Sequential objective state, animated completion delays, chamber/travel handoffs, Signal Defense progress, Relay Breach target groups, and final mission handoff | Enemy construction, drawing, or campaign reward transactions |
+| `systems/weapon_system.gd` | Equipped weapon timers, targeting, damage, weapon-specific transformations, projectile interception, and selected run mutations | Drops or choice presentation |
 | `ui/game_ui.gd` | Screen coordination and the stable UI façade used by `game.gd` | HUD rendering, overlay composition, or gameplay mutation |
+| `ui/sector_route_view.gd` | Content-driven stage placement, route-link state, and deployment buttons | Campaign transactions, unlock policy, or mission rules |
 | `ui/run_hud.gd` | Combat status, feedback banners, and mobile-control presentation | Run-state mutation or screen navigation |
 | `ui/overlay_view.gd` | Reusable messages, resonance choices, and the Arsenal Library | Lifecycle decisions or profile transactions |
 | `ui/mobile_controls.gd` | Mobile detection, movement stick, and touch action intent | Player or game-state mutation |
-| `presentation/arena_view.gd` | Arena, grid, and screen shake | Rules and entity lifecycle |
-| `profile.gd` | Local profile defaults, reset, unlocks, loadouts, native mastery, and Flux transactions | Balance definitions or backward compatibility for disposable prototype saves |
+| `presentation/arena_view.gd` | Objective chambers, connecting corridors, fixed combat framing, dead-zone transit follow, objective completion animation, grid, and screen shake | Rules and entity lifecycle |
+| `profile.gd` | Local profile defaults, reset, stage-clear state, first-clear transactions, unlocks, loadouts, native mastery, and Flux transactions | Balance definitions or backward compatibility for disposable prototype saves |
 
 ## Extension recipes
 
@@ -61,6 +62,7 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 2. Implement cadence and targeting inside `systems/weapon_system.gd`.
 3. Add mastery keys to `SaveProfile.DEFAULT_DATA` and `RunSession.mastery`, plus an unlock rule in the profile.
 4. Add its hangar and Library presentation.
+5. Give it two named tier-one plans and mastery-revealed follow-ups in `OperationEvolutionCatalog`; add runtime coverage in `build_breadth.gd`.
 
 ## Communication contracts
 
@@ -69,11 +71,16 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 - `SpawnDirector` emits swarm evacuation, boss arrival, or non-boss completion from the selected encounter definition; `game.gd` owns stage completion and reward persistence.
 - `GameUI` reports menu intent; `game.gd` validates state transitions and asks `SaveProfile` to transact.
 - `GameUI` keeps controller-facing methods stable while delegating combat presentation to `RunHud` and modal content to `OverlayView`; both child views return intent through signals or callables.
+- `SectorRouteView` derives its main spine and optional branch from catalog positions, prerequisites, required/optional role, and profile clear state. It emits deployment intent through `GameUI`; it does not decide unlocks or transact rewards.
 - Equipped weapons and the active skill are snapshotted when a stage starts. Returning to the hangar permits reconfiguration before another stage.
-- `OperationCatalog` currently catalogs independently deployable stages, each with one focused mission, content-driven layout, and deadline. `RunSession` carries values only for that deployment; `game.gd` enforces the deadline and banks full or partial rewards when the stage ends. The historical class name remains an internal implementation detail.
-- `ObjectiveDirector` evaluates the active mission's focused objective, requests fixed Relay Breach targets, and emits progress or completion. `CombatDirector` constructs those targets, `ArenaView` renders objective state, and `game.gd` wires the signals and translates completion into the mission lifecycle.
-- Stage resonance applies catalog-owned automatic growth at every level and pauses only at sparse `OperationEvolutionCatalog` breakpoints. `WeaponSystem` owns the resulting Pulse behavior and target-priority mode.
+- `OperationCatalog` catalogs the opening-sector route. Each independently deployable stage owns one focused mission, an ordered objective sequence and chamber layout where appropriate, route prerequisites, one overall deadline, and first-clear rewards. `SaveProfile` owns clear state and transactions; `RunSession` carries values only for the active deployment. The historical class name remains an internal implementation detail.
+- `ObjectiveDirector` advances the active mission through its content-defined objective sequence, holds completed geometry on screen for an animation beat, opens travel afterward, activates the next objective only after arrival, requests only the current Relay Breach target group, and emits a final-outro signal before mission completion.
+- `game.gd` translates objective arena/travel signals into player bounds and a moving transit spawn window. Intermediate completion and travel preserve enemies and spawning. Only the final-outro signal disables spawning, clears hostile fire, and disperses enemies before rewards appear.
+- `CombatDirector` spawns into the active chamber or moving transit window and assigns that arena to enemies and projectiles. `ArenaView` renders all mission chambers and corridors, locks the camera to a constrained chamber, follows horizontal transit through a dead zone, and animates completed objectives. The HUD remains screen-space through `GameUI`'s `CanvasLayer`.
+- Stage resonance applies catalog-owned automatic growth at every level and pauses only at sparse `OperationEvolutionCatalog` breakpoints. Choices are filtered to the equipped weapon and its native mastery. `WeaponSystem` owns the resulting named build behavior and target-priority mode.
+- Active skills remain entity-local input in `player.gd`; world-facing effects are emitted as signals. `CombatDirector` owns Gravity Tether's formation pull and Vector Parry's projectile conversion.
 - Damage and active-skill use accumulate native mastery, which is banked with the run.
+- Stage availability is derived from catalog prerequisites and profile clear counts. `game.gd` validates deployment even when UI intent is emitted programmatically; disabled route buttons are presentation, not authorization.
 - The skill tree is the sole permanent stat-growth system. Purchases and full refunds are profile transactions; combat only consumes named effects.
 - Manual pausing freezes the `run_entities` group while UI remains active.
 
@@ -85,5 +92,6 @@ Dependencies point downward. Content catalogs never depend on systems. Entities 
 - `tests/skill_effect_runtime.gd` validates shield recharge and projectile skill-effect wiring.
 - `tests/mastery_progression.gd` validates native weapon and active-skill mastery.
 - `tests/mobile_controls.gd` validates movement-stick input, the ability button, and safe input release.
-- `tests/operation_spine.gd` validates independent stage selection, fresh run state, hangar reconfiguration, the linked relay arena rule, the Overseer stage, full completion rewards, and partial retreat/defeat recovery.
+- `tests/operation_spine.gd` validates route geometry, optional-branch placement, independent stage selection, completion animation, fixed chamber framing, dead-zone transit follow, continuous intermediate pressure, final evacuation, corridor constraints and chamber handoffs, fresh run state, hangar reconfiguration, progressive relay groups, the Overseer stage, full completion rewards, and partial retreat/defeat recovery.
 - `tests/evolution_control.gd` validates Signal Defense, sparse automatic growth, visible Pulse branches, displacement-spent Sentinel charge, tuned Scatter behavior, the Phase Mooring interaction, and two-mode target-priority cycling.
+- `tests/build_breadth.gd` validates named Orbit, Arc, and Nova plans, mastery follow-ups, Gravity Tether setup, and formation-pressure contracts.

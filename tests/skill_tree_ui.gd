@@ -11,13 +11,14 @@ func _validate_skill_tree_ui() -> void:
 	await process_frame
 	await process_frame
 	game.profile.data["flux"] = 500
+	game.profile.data["stage_clears"]["signal_hold"] = 1
 	game.show_skill_tree()
 	await process_frame
 
 	var graph: SkillTreeView = game.ui.skill_tree_view
 	assert(graph.get_node_or_null("SkillNode_core_damage") != null, "The root module should render")
 	assert(graph.get_node_or_null("SkillNode_impact_vector") != null, "Mastery-gated modules should remain visible as progression milestones")
-	assert(graph.get_node_or_null("SkillNode_arc_overload") != null, "The full prerequisite graph should remain visible")
+	assert(graph.get_node_or_null("SkillNode_arc_conduction") != null, "The full behavior-first prerequisite graph should remain visible")
 	assert(graph.get_node_or_null("SkillDetailLayer") == null, "Details should stay hidden until a module is selected")
 	var root_module := graph.get_node("SkillNode_core_damage") as Button
 	root_module.pressed.emit()

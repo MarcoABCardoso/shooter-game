@@ -42,6 +42,10 @@ func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: R
 	contact_check_timer = 0.0
 
 
+func set_arena(bounds: Rect2) -> void:
+	arena = bounds if bounds.has_area() else GameBalance.ARENA
+
+
 func tick_contacts(delta: float) -> void:
 	contact_check_timer -= delta
 	if contact_check_timer > 0.0:
@@ -75,6 +79,7 @@ func _spawn_enemy_at(kind: String, elite: bool, world_position: Vector2, objecti
 		return
 	var enemy: NeonEnemy = EnemyScene.new()
 	enemy.configure(kind, GameBalance.enemy_difficulty(current_encounter_id, session.encounter_elapsed()), elite)
+	enemy.arena = arena
 	enemy.objective_index = objective_index
 	enemy.target = player
 	if world_position != Vector2.INF:
@@ -121,6 +126,19 @@ func parry_projectiles(origin: Vector2) -> void:
 		tone_requested.emit(760.0, 0.1, 0.18, 900.0)
 	else:
 		tone_requested.emit(240.0, 0.05, 0.08, -120.0)
+
+
+func gravity_tether(origin: Vector2) -> void:
+	var pulled := 0
+	for enemy: NeonEnemy in enemies:
+		if not is_instance_valid(enemy) or not enemy.active or enemy.kind in ["relay", "boss"]:
+			continue
+		if enemy.global_position.distance_squared_to(origin) <= 285.0 * 285.0:
+			enemy.apply_pull(origin, 620.0)
+			pulled += 1
+	spawn_burst(origin, GamePalette.GREEN, 125.0, 20)
+	shake_requested.emit(3.0 if pulled > 0 else 1.0)
+	tone_requested.emit(170.0, 0.18, 0.16, 720.0 if pulled > 0 else -80.0)
 
 
 func spawn_projectile(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int = 0, radius: float = 4.0, distant_bonus: float = 0.0, knockback: float = 0.0, max_range: float = INF, splash_damage: float = 0.0, splash_radius: float = 72.0) -> void:
@@ -204,6 +222,13 @@ func _on_enemy_destroyed(enemy: NeonEnemy, kind: String, flux: int, resonance: i
 		boss_defeated.emit()
 		banner_requested.emit("OVERSEER DESTROYED — +%d FLUX" % awarded_flux, GamePalette.YELLOW)
 		shake_requested.emit(11.0)
+	elif kind == "carrier":
+		call_deferred("_spawn_carrier_fragments", world_position)
+
+
+func _spawn_carrier_fragments(world_position: Vector2) -> void:
+	for angle in [-0.75, 0.75]:
+		_spawn_enemy_at("drone", false, world_position + Vector2.from_angle(angle) * 34.0, -1)
 
 
 func _spawn_repair(world_position: Vector2, amount: int) -> void:

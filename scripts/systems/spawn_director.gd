@@ -21,6 +21,7 @@ var next_elite := INF
 var encounter_state := EncounterState.COMBAT
 var intro_timer := 0.0
 var objective_driven := false
+var spawning_enabled := true
 
 
 func _ready() -> void:
@@ -38,11 +39,12 @@ func configure(run_session: RunSession, selected_encounter: String, mission: Dic
 	next_elite = elite_interval if elite_interval > 0.0 else INF
 	encounter_state = EncounterState.COMBAT
 	intro_timer = 0.0
-	objective_driven = String(mission.get("lifecycle", "assault")) in ["signal_defense", "relay_breach"]
+	spawning_enabled = true
+	objective_driven = not (mission.get("objectives", []) as Array).is_empty() or String(mission.get("lifecycle", "assault")) in ["signal_defense", "relay_breach"]
 
 
 func tick(delta: float) -> void:
-	if session == null:
+	if session == null or not spawning_enabled:
 		return
 	if encounter_state in [EncounterState.ENCOUNTER_OUTRO, EncounterState.BOSS_INTRO]:
 		intro_timer -= delta

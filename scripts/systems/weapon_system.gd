@@ -32,6 +32,7 @@ var visual_update_timer := 0.0
 var target_mode_index := 0
 var anchor_charge := 0.0
 var last_player_position := Vector2.ZERO
+var orbit_intercepts := 0
 
 
 func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession, tracked_enemies: Array[NeonEnemy]) -> void:
@@ -48,6 +49,7 @@ func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: R
 	visual_update_timer = 0.0
 	target_mode_index = 0
 	anchor_charge = 0.0
+	orbit_intercepts = 0
 	last_player_position = player.global_position
 	active = true
 
@@ -62,7 +64,8 @@ func apply_operation_evolution(id: String) -> bool:
 	if definition.is_empty():
 		return false
 	var tier := int(definition["tier"])
-	if not OperationEvolutionCatalog.choices_for(tier, session.operation_evolutions).has(id):
+	var equipped_weapon := profile.equipped_weapons()[0]
+	if not OperationEvolutionCatalog.choices_for(tier, session.operation_evolutions, equipped_weapon, profile.mastery_level(equipped_weapon)).has(id):
 		return false
 	if not OperationEvolutionCatalog.apply(id, weapons):
 		return false
@@ -116,13 +119,13 @@ func tick(delta: float) -> void:
 	if int(weapons["arc"]["level"]) > 0:
 		timers["arc"] -= delta
 		if timers["arc"] <= 0.0:
-			timers["arc"] += float(weapons["arc"]["interval"])
 			fire_arc()
+			timers["arc"] += arc_interval()
 	if int(weapons["nova"]["level"]) > 0:
 		timers["nova"] -= delta
 		if timers["nova"] <= 0.0:
-			timers["nova"] += float(weapons["nova"]["interval"])
 			fire_nova()
+			timers["nova"] += nova_interval()
 	visual_update_timer -= delta
 	if visual_update_timer <= 0.0 and (_has_dynamic_visuals() or transient_visuals_were_active):
 		visual_update_timer += VISUAL_UPDATE_INTERVAL
@@ -131,18 +134,18 @@ func tick(delta: float) -> void:
 
 func fire_pulse() -> bool:
 	var spec: Dictionary = weapons["pulse"]
-	var target := select_target(player.global_position, pulse_range(), [])
+	var target := select_target(player.global_position, targeting_range(pulse_range()), [])
 	if target == null:
 		return false
 	var fire_direction := _direction_to(target)
 	var count := int(spec["count"])
-	var projectile_speed := float(spec["projectile_speed"]) * (1.0 + profile.skill_effect("projectile_speed"))
-	var projectile_radius := 4.0 * (1.0 + profile.skill_effect("projectile_size"))
+	var projectile_speed := float(spec["projectile_speed"])
+	var projectile_radius := 4.0
 	var splash_damage := profile.skill_effect("splash_damage")
 	var splash_radius := 72.0 * (1.0 + profile.skill_effect("splash_radius"))
 	for i in count:
 		var offset := (float(i) - float(count - 1) * 0.5) * float(spec.get("spread", 0.13))
-		projectile_requested.emit(player.global_position + fire_direction * 24.0, fire_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), projectile_speed, true, "pulse", int(spec["pierce"]), projectile_radius, profile.skill_effect("distant_damage"), pulse_knockback(), pulse_range(), splash_damage, splash_radius)
+		projectile_requested.emit(player.global_position + fire_direction * 24.0, fire_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), projectile_speed, true, "pulse", int(spec["pierce"]) + int(profile.skill_effect("pulse_pierce")), projectile_radius, profile.skill_effect("distant_damage"), pulse_knockback(), targeting_range(pulse_range()), splash_damage, splash_radius)
 	tone_requested.emit(520.0, 0.025, 0.06, 900.0)
 	return true
 
@@ -152,14 +155,20 @@ func fire_arc() -> void:
 	var current := player.global_position
 	var hit: Array[int] = []
 	var points: Array[Vector2] = [current]
-	for chain in int(spec["chains"]):
-		var target := select_target(current, float(spec["range"]), hit)
+	var chain_count := int(spec["chains"]) + int(profile.skill_effect("arc_chain"))
+	var chain_range := targeting_range(float(spec["range"]) + profile.skill_effect("arc_reach"))
+	var falloff := float(spec.get("chain_falloff", 0.83))
+	for chain in chain_count:
+		var target := select_target(current, chain_range, hit)
 		if target == null:
 			break
 		hit.append(target.get_instance_id())
 		current = target.global_position
 		points.append(current)
-		var dealt := target.take_damage(_scaled_damage("arc", float(spec["damage"]), target.global_position) * pow(0.83, chain), "arc")
+		var arc_damage := _scaled_damage("arc", float(spec["damage"]), target.global_position) * pow(falloff, chain)
+		if target.kind == "boss" and target.boss_exposed:
+			arc_damage *= float(spec.get("exposed_multiplier", 1.0))
+		var dealt := target.take_damage(arc_damage, "arc")
 		target.apply_knockback(player.global_position, profile.skill_effect("knockback"))
 		damage_dealt.emit("arc", dealt, current, target.get_instance_id())
 	if points.size() > 1:
@@ -172,17 +181,36 @@ func fire_nova() -> void:
 		return
 	var spec: Dictionary = weapons["nova"]
 	var radius := float(spec["radius"])
+	var clustered := 0
+	if float(spec.get("pull_radius", 0.0)) > 0.0:
+		var pull_radius := float(spec["pull_radius"])
+		for enemy: NeonEnemy in enemies:
+			if is_instance_valid(enemy) and enemy.active and enemy.kind not in ["relay", "boss"] and enemy.global_position.distance_squared_to(player.global_position) <= pull_radius * pull_radius:
+				enemy.apply_pull(player.global_position, float(spec.get("pull_strength", 0.0)))
+				clustered += 1
 	for enemy: NeonEnemy in enemies:
 		if not is_instance_valid(enemy) or not enemy.active:
 			continue
 		var hit_radius := radius + enemy.radius
 		if enemy.global_position.distance_squared_to(player.global_position) <= hit_radius * hit_radius:
-			var dealt: float = enemy.take_damage(_scaled_damage("nova", float(spec["damage"]), enemy.global_position), "nova")
+			var damage := _scaled_damage("nova", float(spec["damage"]), enemy.global_position)
+			var edge_width := float(spec.get("edge_width", 0.0))
+			var distance := enemy.global_position.distance_to(player.global_position)
+			if edge_width > 0.0 and distance >= radius - edge_width:
+				damage *= 1.0 + float(spec.get("edge_damage", 0.0))
+			var dealt: float = enemy.take_damage(damage, "nova")
 			enemy.apply_knockback(player.global_position, profile.skill_effect("knockback"))
 			damage_dealt.emit("nova", dealt, enemy.global_position, enemy.get_instance_id())
+	var cleared := 0
+	var clear_radius := float(spec.get("clear_radius", radius))
 	for bullet: Node in get_tree().get_nodes_in_group("enemy_projectiles"):
-		if is_instance_valid(bullet) and bullet.global_position.distance_squared_to(player.global_position) <= radius * radius:
+		if is_instance_valid(bullet) and bullet.global_position.distance_squared_to(player.global_position) <= clear_radius * clear_radius:
 			bullet.queue_free()
+			cleared += 1
+	if cleared >= int(spec.get("projectile_shield_threshold", 999999)):
+		player.restore_shield_charge()
+	if clustered >= 3:
+		timers["nova"] -= nova_interval() * (1.0 - float(spec.get("cluster_interval_multiplier", 1.0)))
 	nova_visual = 0.42
 	queue_redraw()
 	shake_requested.emit(5.0)
@@ -192,10 +220,12 @@ func fire_nova() -> void:
 
 func _update_orbits() -> void:
 	var spec: Dictionary = weapons["orbit"]
-	var count := int(spec["count"])
+	var count := int(spec["count"]) + int(profile.skill_effect("orbit_blade"))
+	var radius := orbit_radius()
+	var speed := orbit_speed()
 	for i in count:
-		var angle := session.elapsed * float(spec["speed"]) + TAU * i / count
-		var blade_position := player.global_position + Vector2.from_angle(angle) * float(spec["radius"])
+		var angle := session.elapsed * speed + TAU * i / count
+		var blade_position := player.global_position + Vector2.from_angle(angle) * radius
 		for enemy: NeonEnemy in enemies:
 			if is_instance_valid(enemy) and enemy.active:
 				var hit_radius := enemy.radius + 12.0
@@ -207,6 +237,16 @@ func _update_orbits() -> void:
 					var dealt: float = enemy.take_damage(_scaled_damage("orbit", float(spec["damage"]), enemy.global_position), "orbit")
 					enemy.apply_knockback(player.global_position, profile.skill_effect("knockback"))
 					damage_dealt.emit("orbit", dealt, blade_position, enemy.get_instance_id())
+		var intercept_radius := float(spec.get("intercept_radius", 0.0)) + profile.skill_effect("orbit_intercept")
+		if intercept_radius > 0.0:
+			for bullet: Node in get_tree().get_nodes_in_group("enemy_projectiles"):
+				if is_instance_valid(bullet) and bullet.global_position.distance_squared_to(blade_position) <= intercept_radius * intercept_radius:
+					bullet.queue_free()
+					orbit_intercepts += 1
+	var shield_threshold := int(spec.get("intercept_shield", 0))
+	if shield_threshold > 0 and orbit_intercepts >= shield_threshold:
+		orbit_intercepts -= shield_threshold
+		player.restore_shield_charge()
 
 
 func _scaled_damage(weapon: String, base: float, target_position := Vector2.INF) -> float:
@@ -224,7 +264,34 @@ func _scaled_damage(weapon: String, base: float, target_position := Vector2.INF)
 			multiplier *= 1.0 + anchor_charge_ratio() * float(weapons["pulse"].get("anchor_damage", 0.0))
 		elif evolution == "scatter":
 			multiplier *= 1.08 if player.velocity.length() >= 40.0 else 0.68
+	elif weapon == "orbit" and String(weapons["orbit"].get("evolution", "")) == "razor" and player.velocity.length() >= 40.0:
+		multiplier *= 1.0 + float(weapons["orbit"].get("moving_damage", 0.0))
 	return base * multiplier
+
+
+func arc_interval() -> float:
+	var interval := float(weapons["arc"]["interval"])
+	if target_mode() == "ranged":
+		interval *= float(weapons["arc"].get("ranged_interval_multiplier", 1.0))
+	return interval
+
+
+func nova_interval() -> float:
+	return float(weapons["nova"]["interval"])
+
+
+func orbit_radius() -> float:
+	var spec: Dictionary = weapons["orbit"]
+	return float(spec["radius"]) + (float(spec.get("moving_radius", 0.0)) if player.velocity.length() >= 40.0 else 0.0)
+
+
+func orbit_speed() -> float:
+	var spec: Dictionary = weapons["orbit"]
+	return float(spec["speed"]) * (float(spec.get("moving_speed", 1.0)) if player.velocity.length() >= 40.0 else 1.0)
+
+
+func targeting_range(base_range: float) -> float:
+	return base_range + (profile.skill_effect("ranged_target_reach") if target_mode() == "ranged" else 0.0)
 
 
 func pulse_interval() -> float:
@@ -325,11 +392,13 @@ func _draw() -> void:
 		return
 	var orbit: Dictionary = weapons["orbit"]
 	if int(orbit["level"]) > 0:
-		var count := int(orbit["count"])
-		draw_arc(player.global_position, float(orbit["radius"]), 0, TAU, 48, Color(GamePalette.GREEN, 0.08), 1.0)
+		var count := int(orbit["count"]) + int(profile.skill_effect("orbit_blade"))
+		var radius := orbit_radius()
+		var speed := orbit_speed()
+		draw_arc(player.global_position, radius, 0, TAU, 48, Color(GamePalette.GREEN, 0.08), 1.0)
 		for i in count:
-			var angle := session.elapsed * float(orbit["speed"]) + TAU * i / count
-			var point := player.global_position + Vector2.from_angle(angle) * float(orbit["radius"])
+			var angle := session.elapsed * speed + TAU * i / count
+			var point := player.global_position + Vector2.from_angle(angle) * radius
 			draw_circle(point, 15.0, Color(GamePalette.GREEN, 0.08))
 			var blade := PackedVector2Array([point + Vector2.from_angle(angle) * 13.0, point + Vector2.from_angle(angle + 2.2) * 8.0, point + Vector2.from_angle(angle - 2.2) * 8.0, point + Vector2.from_angle(angle) * 13.0])
 			draw_polyline(blade, GamePalette.GREEN, 2.2, true)

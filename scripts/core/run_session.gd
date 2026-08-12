@@ -16,7 +16,7 @@ var operation_id := ""
 var operation_evolutions: Array[String] = []
 var pending_evolution_tiers: Array[int] = []
 var automatic_growth_levels := 0
-var mastery := {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0, "dash": 0.0, "vector_parry": 0.0}
+var mastery := {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0, "dash": 0.0, "vector_parry": 0.0, "gravity_tether": 0.0}
 
 
 func reset() -> void:
@@ -33,7 +33,7 @@ func reset() -> void:
 	operation_evolutions.clear()
 	pending_evolution_tiers.clear()
 	automatic_growth_levels = 0
-	mastery = {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0, "dash": 0.0, "vector_parry": 0.0}
+	mastery = {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0, "dash": 0.0, "vector_parry": 0.0, "gravity_tether": 0.0}
 
 
 func tick(delta: float) -> void:

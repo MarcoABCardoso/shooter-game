@@ -29,30 +29,41 @@ Weapons fire automatically. During a stage, ordinary resonance levels
 improve baseline weapon output automatically; levels 2 and 5 pause for a visible,
 behavior-changing Pulse evolution.
 
-The Chapter 1 prototype exposes three separate stages from the hangar: **Signal
-Hold**, **Relay Breach**, and **Overseer Lock**. Each stage asks one focused
-combat question and returns to the hangar before another stage, so the player can
-optimize the loadout instead of carrying one locked build through unrelated tests.
-Every stage has a visible deadline so completing the objective remains more
-valuable than farming its enemy pressure.
+The opening sector, **Null Meridian**, begins with **Signal Hold**, then opens a
+required route through **Relay Breach** and an optional power route through
+**Drift Cache** before **Overseer Lock**. Each deployment develops one focused
+combat problem through a short sequence of objective chambers. Clearing a
+chamber plays a visible completion pulse and opens forward travel without
+removing enemy pressure. The camera remains fixed during a locked chamber, then
+scrolls through a horizontal dead zone in the connecting corridor. The next
+objective begins only after the player arrives. Final completion evacuates the
+remaining enemies before returning to the hangar. The hangar renders
+Signal Hold, Relay Breach, and Overseer Lock as one route spine, with Drift Cache
+visibly branching from the opener. Disabled buttons communicate campaign gates,
+and completed links change state without adding status copy. The mission introduces
+its current objective and overall deadline when play begins.
 Retreat banks 75% of earned Flux, defeat banks 50%, both preserve earned mastery,
 and stage completion banks all rewards.
 
-The first stage transformation chooses between Bastion Array, which charges
-damage, range, and knockback while the ship holds position and spends charge by
-distance moved, and Scatter Array, a
-close-range spread that fires harder and faster while the ship is moving. Press
-Q to toggle Nearest and Ranged Threats targeting modes. Phase Dash and Vector
-Parry are both available in the starting hangar for the Chapter 1 comparison.
+Each equipped weapon now owns two named transformation plans. Pulse becomes the
+stationary Sentinel or kiting Harrier; Orbit becomes the pursuing Interceptor or
+projectile-screen Aegis; Arc becomes the crowd-clearing Conduit or priority-target
+Executioner; and Nova becomes the formation-setting Singularity or defensive
+Purifier. Native mastery reveals a second follow-up for each plan. Press Q to
+toggle Nearest and Ranged Threats targeting modes. Phase Dash is standard
+equipment, Drift Cache unlocks Vector Parry, and securing the Overseer unlocks
+the comparison arsenal plus Gravity Tether, a formation-setup active skill.
 
 ## Progression
 
 - A new profile starts with Pulse Cannon and one weapon slot.
-- Phase Dash and Vector Parry are available as alternative active-skill configurations.
-- Signal Hold, Relay Breach, and Overseer Lock are independently selectable from the hangar.
+- Phase Dash is available immediately; Drift Cache unlocks Vector Parry and a meaningful Flux reserve.
+- Clearing Signal Hold reveals the optional cache and required breach routes. Relay Breach reveals the sector boss.
+- Defeating the Overseer secures Null Meridian and unlocks Orbit Blades, Arc Lash, Nova Burst, and Gravity Tether for Chapter 3 build trials.
+- First-clear stage rewards are permanent and do not repeat; earned run Flux still uses full, retreat, and defeat banking rules.
 - Weapons and active skills earn their own permanent mastery. Mastery is intrinsic and cannot be reallocated.
 - Resonance uses automatic growth and sparse transformations instead of repeated scalar choices.
-- The expanded skill tree begins at Amplified Core and branches into positional damage, projectile speed/size/splash, salvage, weapon-specific damage, shields, and active-skill recharge.
+- The permanent tree replaces imperceptible projectile speed/size bonuses with targeting reach, piercing, additional Arc jumps and Orbit blades, projectile interception, splash, defense, salvage, and active-skill cadence.
 - Skill nodes use Flux, support multiple ranks, and may require parent ranks or item mastery.
 - **Respec All** refunds every Flux point spent on the tree.
 
@@ -77,4 +88,5 @@ godot --headless --path . --script res://tests/mastery_progression.gd
 godot --headless --path . --script res://tests/mobile_controls.gd
 godot --headless --path . --script res://tests/operation_spine.gd
 godot --headless --path . --script res://tests/evolution_control.gd
+godot --headless --path . --script res://tests/build_breadth.gd
 ```

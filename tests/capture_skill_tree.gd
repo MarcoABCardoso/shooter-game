@@ -11,6 +11,7 @@ func _capture() -> void:
 	await process_frame
 	await process_frame
 	game.profile.data["flux"] = 850
+	game.profile.data["stage_clears"]["signal_hold"] = 1
 	game.profile.data["skill_ranks"]["core_damage"] = 2
 	game.profile.data["skill_ranks"]["distant_power"] = 1
 	game.show_skill_tree()
