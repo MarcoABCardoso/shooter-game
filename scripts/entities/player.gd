@@ -5,6 +5,8 @@ signal died
 signal health_changed(current: float, maximum: float)
 signal dash_changed(ratio: float)
 signal parry_requested(world_position: Vector2)
+signal gravity_tether_requested(world_position: Vector2)
+signal phase_lane_requested(from: Vector2, to: Vector2)
 signal active_skill_used(id: String, mastery_xp: float)
 
 const CYAN := Color("45f3ff")
@@ -14,6 +16,7 @@ const HUD_SIGNAL_INTERVAL := 0.1
 const FACING_TURN_SPEED := 8.0
 
 var arena := Rect2(54.0, 76.0, 1172.0, 590.0)
+var travel_corridor := Rect2()
 var active := false
 var max_health := 100.0
 var health := 100.0
@@ -32,8 +35,10 @@ var dash_direction := Vector2.ZERO
 var hit_flash := 0.0
 var ability_mode := "dash"
 var parry_flash := 0.0
-var ability_cooldown := 1.25
+var ability_cooldown := GameBalance.PHASE_DASH_COOLDOWN
 var stationary_time := 0.0
+var preserve_stationary_on_dash := false
+var stationary_grace := 0.0
 var mobile_controls_enabled := false
 var mobile_movement := Vector2.ZERO
 var mobile_ability_queued := false
@@ -64,7 +69,8 @@ func configure(meta_bonuses: Dictionary) -> void:
 	shield_recharge_timer = 0.0
 	ability_mode = String(meta_bonuses.get("ability", "dash"))
 	var cooldown_reduction := float(meta_bonuses.get("ability_mastery", 0.0)) * 0.015 + float(meta_bonuses.get("ability_cooldown", 0.0))
-	ability_cooldown = 1.25 * (1.0 - minf(0.55, cooldown_reduction))
+	var base_cooldown := 4.4 if ability_mode == "gravity_tether" else GameBalance.PHASE_DASH_COOLDOWN
+	ability_cooldown = base_cooldown * (1.0 - minf(0.55, cooldown_reduction))
 	health_changed.emit(health, max_health)
 
 
@@ -76,6 +82,7 @@ func _physics_process(delta: float) -> void:
 	dash_duration = maxf(0.0, dash_duration - delta)
 	hit_flash = maxf(0.0, hit_flash - delta)
 	parry_flash = maxf(0.0, parry_flash - delta)
+	stationary_grace = maxf(0.0, stationary_grace - delta)
 	if shield_charges < shield_capacity:
 		shield_recharge_timer = maxf(0.0, shield_recharge_timer - delta)
 		if shield_recharge_timer <= 0.0:
@@ -89,7 +96,12 @@ func _physics_process(delta: float) -> void:
 		_update_visual_if_due()
 		return
 	var input_vector := mobile_movement if mobile_controls_enabled else Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	stationary_time = stationary_time + delta if input_vector.length() <= 0.1 and dash_duration <= 0.0 else 0.0
+	if input_vector.length() <= 0.1 and dash_duration <= 0.0:
+		stationary_time += delta
+	elif preserve_stationary_on_dash and (dash_duration > 0.0 or stationary_grace > 0.0):
+		pass
+	else:
+		stationary_time = 0.0
 	if input_vector.length() > 0.1:
 		desired_facing_direction = input_vector.normalized()
 	var turn_weight := 1.0 - exp(-FACING_TURN_SPEED * delta)
@@ -103,19 +115,32 @@ func _physics_process(delta: float) -> void:
 			invulnerable = maxf(invulnerable, 0.16)
 			parry_requested.emit(global_position)
 			active_skill_used.emit("vector_parry", 18.0)
+		elif ability_mode == "gravity_tether":
+			dash_cooldown = ability_cooldown
+			parry_flash = 0.34
+			gravity_tether_requested.emit(global_position + facing_direction * 165.0)
+			active_skill_used.emit("gravity_tether", 24.0)
 		elif input_vector != Vector2.ZERO:
 			dash_direction = input_vector.normalized()
-			dash_duration = 0.18
+			dash_duration = GameBalance.PHASE_DASH_DURATION
+			var predicted_end := global_position + dash_direction * speed * GameBalance.PHASE_DASH_SPEED_MULTIPLIER * dash_duration
+			predicted_end.x = clampf(predicted_end.x, arena.position.x, arena.end.x)
+			predicted_end.y = clampf(predicted_end.y, arena.position.y, arena.end.y)
+			phase_lane_requested.emit(global_position, predicted_end)
+			if preserve_stationary_on_dash:
+				stationary_grace = GameBalance.PHASE_DASH_DURATION + 0.14
 			dash_cooldown = ability_cooldown
-			invulnerable = 0.30
+			invulnerable = GameBalance.PHASE_DASH_INVULNERABILITY
 			active_skill_used.emit("dash", 18.0)
 	if dash_duration > 0.0:
-		velocity = dash_direction * speed * 3.2
+		velocity = dash_direction * speed * GameBalance.PHASE_DASH_SPEED_MULTIPLIER
 	else:
 		velocity = input_vector.normalized() * speed if input_vector.length() > 0.1 else Vector2.ZERO
 	move_and_slide()
 	global_position.x = clampf(global_position.x, arena.position.x, arena.end.x)
 	global_position.y = clampf(global_position.y, arena.position.y, arena.end.y)
+	if travel_corridor.has_area() and global_position.x >= travel_corridor.position.x and global_position.x <= travel_corridor.end.x:
+		global_position.y = clampf(global_position.y, travel_corridor.position.y, travel_corridor.end.y)
 	_update_visual_if_due()
 
 
@@ -142,9 +167,34 @@ func clear_mobile_input() -> void:
 	mobile_ability_queued = false
 
 
+func clear_combat_presentation() -> void:
+	dash_duration = 0.0
+	dash_direction = Vector2.ZERO
+	invulnerable = 0.0
+	hit_flash = 0.0
+	parry_flash = 0.0
+	stationary_grace = 0.0
+	queue_redraw()
+
+
 func request_mobile_ability() -> void:
 	if mobile_controls_enabled:
 		mobile_ability_queued = true
+
+
+func set_preserve_stationary_on_dash(value: bool) -> void:
+	preserve_stationary_on_dash = value
+
+
+func set_combat_arena(bounds: Rect2) -> void:
+	arena = bounds.grow(-18.0)
+	travel_corridor = Rect2()
+
+
+func set_travel_corridor(from_arena: Rect2, to_arena: Rect2) -> void:
+	arena = from_arena.merge(to_arena).grow(-18.0)
+	var gap := to_arena.position.x - from_arena.end.x
+	travel_corridor = Rect2(from_arena.end.x, from_arena.get_center().y - 105.0, gap, 210.0).grow(-18.0) if gap > 0.0 else Rect2()
 
 
 func take_damage(amount: float) -> bool:
@@ -189,5 +239,15 @@ func _draw() -> void:
 			var radius := 31.0 + charge * 5.0
 			draw_arc(Vector2.ZERO, radius, -PI * 0.82, PI * 0.82, 28, Color(GamePalette.GREEN, 0.72), 2.0)
 	if parry_flash > 0.0:
-		draw_arc(Vector2.ZERO, 52.0 + parry_flash * 45.0, 0.0, TAU, 48, Color.WHITE, 5.0)
-		draw_arc(Vector2.ZERO, 60.0, 0.0, TAU, 48, Color(CYAN, parry_flash / 0.24), 2.0)
+		var effect_color := GamePalette.GREEN if ability_mode == "gravity_tether" else Color.WHITE
+		draw_arc(Vector2.ZERO, 52.0 + parry_flash * 45.0, 0.0, TAU, 48, effect_color, 5.0)
+		draw_arc(Vector2.ZERO, 60.0, 0.0, TAU, 48, Color(CYAN, minf(1.0, parry_flash / 0.24)), 2.0)
+
+
+func restore_shield_charge() -> bool:
+	if shield_charges >= shield_capacity:
+		return false
+	shield_charges += 1
+	shield_recharge_timer = 0.0 if shield_charges >= shield_capacity else 8.0
+	queue_redraw()
+	return true

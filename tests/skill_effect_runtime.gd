@@ -7,8 +7,8 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var profile := SaveProfile.new()
-	profile.data["skill_ranks"]["pulse_acceleration"] = 1
-	profile.data["skill_ranks"]["projectile_matrix"] = 1
+	profile.data["skill_ranks"]["threat_uplink"] = 1
+	profile.data["skill_ranks"]["breach_rounds"] = 1
 	profile.data["skill_ranks"]["splash_payload"] = 1
 	profile.data["skill_ranks"]["volatile_radius"] = 1
 	profile.data["skill_ranks"]["reactive_shield"] = 2
@@ -27,7 +27,7 @@ func _run() -> void:
 	player.active = false
 	player._physics_process(8.1)
 	assert(player.shield_charges == 2, "A shield charge should return after the undamaged recharge delay")
-	assert(player.ability_cooldown < 1.25, "Emergency Cycle should shorten active-skill recharge")
+	assert(player.ability_cooldown < GameBalance.PHASE_DASH_COOLDOWN, "Emergency Cycle should shorten active-skill recharge")
 
 	var enemy := NeonEnemy.new()
 	enemy.configure("drone", 1.0)
@@ -37,15 +37,17 @@ func _run() -> void:
 	root.add_child(weapon_system)
 	weapon_system.configure(player, profile, RunSession.new(), [enemy])
 	var projectile_specs: Array[Dictionary] = []
-	weapon_system.projectile_requested.connect(func(_origin, _direction, _damage, speed, _friendly, _weapon, _pierce, radius, _distant_bonus, _knockback, _max_range, splash_damage, splash_radius):
-		projectile_specs.append({"speed": speed, "radius": radius, "splash_damage": splash_damage, "splash_radius": splash_radius})
+	weapon_system.projectile_requested.connect(func(_origin, _direction, _damage, speed, _friendly, _weapon, pierce, radius, _distant_bonus, _knockback, max_range, splash_damage, splash_radius):
+		projectile_specs.append({"speed": speed, "pierce": pierce, "radius": radius, "max_range": max_range, "splash_damage": splash_damage, "splash_radius": splash_radius})
 	)
+	weapon_system.cycle_target_mode()
 	assert(weapon_system.fire_pulse(), "Pulse should fire at an enemy inside its targeting range")
 	assert(projectile_specs.size() == 1, "The base Pulse Cannon should emit one projectile")
 	var spec := projectile_specs[0]
-	assert(float(spec["speed"]) > float(WeaponCatalog.DEFAULTS["pulse"]["projectile_speed"]), "Pulse Accelerator should increase projectile speed")
-	assert(float(spec["radius"]) > 4.0, "Projectile Matrix should increase projectile size")
+	assert(float(spec["speed"]) == float(WeaponCatalog.DEFAULTS["pulse"]["projectile_speed"]) and float(spec["radius"]) == 4.0, "Removed speed and size nodes should not survive in runtime wiring")
+	assert(int(spec["pierce"]) == 1, "Breach Rounds should cross a visible multi-target threshold")
+	assert(float(spec["max_range"]) == float(WeaponCatalog.DEFAULTS["pulse"]["range"]) + 55.0, "Threat Uplink should extend tactical reach only in Ranged Threats mode")
 	assert(float(spec["splash_damage"]) > 0.0 and float(spec["splash_radius"]) > 72.0, "Splash branches should configure damage and radius")
 
-	print("SKILL_EFFECT_RUNTIME_OK shield, recharge, projectile speed, size, and splash wiring validated")
+	print("SKILL_EFFECT_RUNTIME_OK shield, recharge, threat reach, pierce, and splash wiring validated")
 	quit(0)

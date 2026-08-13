@@ -4,6 +4,7 @@ extends Node
 signal damage_dealt(weapon: String, amount: float, world_position: Vector2, target_id: int)
 signal enemy_defeated(kind: String)
 signal boss_defeated
+signal objective_target_defeated(objective_index: int)
 signal resonance_gained(amount: int)
 signal flux_gained(amount: int)
 signal repair_collected(amount: float)
@@ -15,12 +16,13 @@ const EnemyScene := preload("res://scripts/entities/enemy.gd")
 const ProjectileScene := preload("res://scripts/entities/projectile.gd")
 const PickupScene := preload("res://scripts/entities/pickup.gd")
 const BurstScene := preload("res://scripts/entities/burst.gd")
+const EncounterCatalog := preload("res://scripts/content/encounter_catalog.gd")
 const CONTACT_CHECK_INTERVAL := 1.0 / 30.0
 
 var player: NeonPlayer
 var profile: SaveProfile
 var session: RunSession
-var current_stage_id := "stage_1"
+var current_encounter_id := EncounterCatalog.ORDER[0]
 var arena := GameBalance.ARENA
 var rng := RandomNumberGenerator.new()
 var enemies: Array[NeonEnemy] = []
@@ -31,13 +33,17 @@ func _ready() -> void:
 	rng.randomize()
 
 
-func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession, stage_id: String = "stage_1") -> void:
+func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession, encounter_id: String = EncounterCatalog.ORDER[0]) -> void:
 	player = run_player
 	profile = save_profile
 	session = run_session
-	current_stage_id = stage_id
+	current_encounter_id = encounter_id
 	enemies.clear()
 	contact_check_timer = 0.0
+
+
+func set_arena(bounds: Rect2) -> void:
+	arena = bounds if bounds.has_area() else GameBalance.ARENA
 
 
 func tick_contacts(delta: float) -> void:
@@ -49,6 +55,8 @@ func tick_contacts(delta: float) -> void:
 		return
 	for enemy: NeonEnemy in enemies:
 		if is_instance_valid(enemy) and enemy.active:
+			if enemy.contact_damage <= 0.0:
+				continue
 			var contact_radius := enemy.radius + 14.0
 			if enemy.global_position.distance_squared_to(player.global_position) >= contact_radius * contact_radius:
 				continue
@@ -59,12 +67,25 @@ func tick_contacts(delta: float) -> void:
 
 
 func spawn_enemy(kind: String, elite: bool) -> void:
+	_spawn_enemy_at(kind, elite, Vector2.INF, -1)
+
+
+func spawn_objective_enemy(kind: String, world_position: Vector2, objective_index: int) -> void:
+	_spawn_enemy_at(kind, false, world_position, objective_index)
+
+
+func _spawn_enemy_at(kind: String, elite: bool, world_position: Vector2, objective_index: int) -> void:
 	if enemies.size() >= GameBalance.MAX_ENEMIES or not is_instance_valid(player):
 		return
 	var enemy: NeonEnemy = EnemyScene.new()
-	enemy.configure(kind, GameBalance.enemy_difficulty(current_stage_id, session.elapsed), elite)
+	enemy.configure(kind, GameBalance.enemy_difficulty(current_encounter_id, session.encounter_elapsed()), elite)
+	enemy.arena = arena
+	enemy.objective_index = objective_index
 	enemy.target = player
-	enemy.global_position = Vector2(arena.get_center().x, arena.position.y + 112.0) if kind == "boss" else _random_edge_position()
+	if world_position != Vector2.INF:
+		enemy.global_position = world_position
+	else:
+		enemy.global_position = Vector2(arena.get_center().x, arena.position.y + 112.0) if kind == "boss" else _random_edge_position()
 	enemy.add_to_group("enemies")
 	enemy.add_to_group("run_entities")
 	enemy.destroyed.connect(_on_enemy_destroyed)
@@ -101,11 +122,55 @@ func parry_projectiles(origin: Vector2) -> void:
 		node.reflect(return_direction)
 		reflected += 1
 	if reflected > 0:
-		banner_requested.emit("VECTOR PARRY // %d RETURNED" % reflected, GamePalette.CYAN)
 		shake_requested.emit(4.0)
 		tone_requested.emit(760.0, 0.1, 0.18, 900.0)
 	else:
 		tone_requested.emit(240.0, 0.05, 0.08, -120.0)
+
+
+func gravity_tether(origin: Vector2) -> void:
+	var pulled := 0
+	var forward := origin - player.global_position if is_instance_valid(player) else Vector2.ZERO
+	for enemy: NeonEnemy in enemies:
+		if not is_instance_valid(enemy) or not enemy.active or enemy.kind in ["relay", "boss"]:
+			continue
+		if forward.length_squared() > 0.001 and (enemy.global_position - player.global_position).dot(forward) <= 0.0:
+			continue
+		if enemy.global_position.distance_squared_to(origin) <= 285.0 * 285.0:
+			enemy.apply_pull(origin, GameBalance.GRAVITY_TETHER_FORCE)
+			pulled += 1
+	spawn_burst(origin, GamePalette.GREEN, 125.0, 20)
+	shake_requested.emit(3.0 if pulled > 0 else 1.0)
+	tone_requested.emit(170.0, 0.18, 0.16, 720.0 if pulled > 0 else -80.0)
+
+
+func phase_dash_lane(from: Vector2, to: Vector2) -> void:
+	var hits := 0
+	for enemy: NeonEnemy in enemies:
+		if not is_instance_valid(enemy) or not enemy.active:
+			continue
+		if _distance_to_segment(enemy.global_position, from, to) > GameBalance.PHASE_DASH_LANE_RADIUS + enemy.radius:
+			continue
+		var dealt := enemy.take_damage(GameBalance.PHASE_DASH_LANE_DAMAGE, "dash")
+		if dealt > 0.0:
+			enemy.apply_knockback(from, 115.0)
+			damage_dealt.emit("dash", dealt, enemy.global_position, enemy.get_instance_id())
+			hits += 1
+	for bullet: Node in get_tree().get_nodes_in_group("enemy_projectiles"):
+		if is_instance_valid(bullet) and _distance_to_segment(bullet.global_position, from, to) <= GameBalance.PHASE_DASH_LANE_RADIUS:
+			bullet.queue_free()
+	spawn_burst(from, GamePalette.CYAN, 46.0, 10)
+	spawn_burst(to, GamePalette.CYAN, 72.0, 14)
+	shake_requested.emit(4.0 if hits > 0 else 2.0)
+	tone_requested.emit(340.0, 0.12, 0.16, 980.0)
+
+
+func _distance_to_segment(point: Vector2, from: Vector2, to: Vector2) -> float:
+	var segment := to - from
+	if segment.length_squared() <= 0.001:
+		return point.distance_to(from)
+	var ratio := clampf((point - from).dot(segment) / segment.length_squared(), 0.0, 1.0)
+	return point.distance_to(from + segment * ratio)
 
 
 func spawn_projectile(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int = 0, radius: float = 4.0, distant_bonus: float = 0.0, knockback: float = 0.0, max_range: float = INF, splash_damage: float = 0.0, splash_radius: float = 72.0) -> void:
@@ -170,23 +235,32 @@ func _on_enemy_attack_requested(pattern: String, origin: Vector2, direction: Vec
 
 func _on_boss_module_broken(world_position: Vector2, remaining: int) -> void:
 	spawn_burst(world_position, GamePalette.ORANGE, 105.0, 18)
-	banner_requested.emit("ARRAY MODULE SEVERED // %d REMAIN" % remaining, GamePalette.ORANGE)
+	banner_requested.emit("ARRAY MODULE DESTROYED — %d REMAINING" % remaining, GamePalette.ORANGE)
 	shake_requested.emit(9.0)
 
 
-func _on_enemy_destroyed(_enemy: NeonEnemy, kind: String, flux: int, resonance: int, world_position: Vector2) -> void:
+func _on_enemy_destroyed(enemy: NeonEnemy, kind: String, flux: int, resonance: int, world_position: Vector2) -> void:
 	enemy_defeated.emit(kind)
 	resonance_gained.emit(resonance)
 	var fortune_bonus := profile.skill_effect("fortune")
 	var awarded_flux := maxi(1, int(round(flux * session.combo * (1.0 + fortune_bonus))))
 	flux_gained.emit(awarded_flux)
+	if enemy.objective_index >= 0:
+		objective_target_defeated.emit(enemy.objective_index)
 	if rng.randf() < 0.018 * (1.0 + fortune_bonus):
 		_spawn_repair(world_position, 12)
 	spawn_burst(world_position, GamePalette.MAGENTA if kind != "boss" else GamePalette.ORANGE, 70.0 if kind == "boss" else 26.0, 14 if kind == "boss" else 7)
 	if kind == "boss":
 		boss_defeated.emit()
-		banner_requested.emit("OVERSEER ERASED // +%d FLUX" % awarded_flux, GamePalette.YELLOW)
+		banner_requested.emit("OVERSEER DESTROYED — +%d FLUX" % awarded_flux, GamePalette.YELLOW)
 		shake_requested.emit(11.0)
+	elif kind == "carrier":
+		call_deferred("_spawn_carrier_fragments", world_position)
+
+
+func _spawn_carrier_fragments(world_position: Vector2) -> void:
+	for angle in [-0.75, 0.75]:
+		_spawn_enemy_at("drone", false, world_position + Vector2.from_angle(angle) * 34.0, -1)
 
 
 func _spawn_repair(world_position: Vector2, amount: int) -> void:

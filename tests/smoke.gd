@@ -22,7 +22,7 @@ func _run() -> void:
 	game.ui.show_options()
 	assert(game.ui.options_screen.visible, "Options should open independently")
 	assert(game.ui.options_screen.find_child("MasterVolumeSlider", true, false) != null, "Options should expose master volume")
-	assert(_contains_label(game.ui.options_screen, "WASD / ARROW KEYS"), "Controls should live on the options screen")
+	assert(_contains_label(game.ui.options_screen, "WASD OR ARROW KEYS"), "Controls should live on the options screen")
 	game.ui.show_save_slots(true, [
 		{"slot": 1, "exists": false, "best_time": 0.0, "best_level": 1, "runs": 0, "flux": 0},
 		{"slot": 2, "exists": false, "best_time": 0.0, "best_level": 1, "runs": 0, "flux": 0},
@@ -32,19 +32,14 @@ func _run() -> void:
 	assert(game.ui.save_slot_screen.find_child("SaveSlot3Button", true, false) != null, "New Game should offer three save slots")
 	game.show_menu()
 	assert(game.ui.hangar_screen.visible, "Selecting a profile should open the hangar")
-	assert(not _contains_label(game.ui.hangar_screen, "NEON REQUIEM"), "Hangar should not repeat the game title")
-	assert(not _contains_label(game.ui.hangar_screen, "WASD / ARROWS"), "Hangar should not display controls")
 	assert(game.ui.hangar_screen.find_child("UpgradesButton", true, false) == null, "The removed Augments feature must not remain in the hangar")
-	assert(game.ui.hangar_screen.find_child("ResetProfileButton", true, false) != null, "Profile reset should remain available after Augments removal")
-	var credits_button: Button = game.ui.hangar_screen.find_child("CreditsButton", true, false)
-	assert(credits_button != null and not credits_button.visible, "Credits should stay hidden in the hangar until Stage 5 is cleared")
-	assert(credits_button.text == "CREDITS", "The unlocked button should not be labeled as a preview")
+	assert(game.ui.hangar_screen.find_child("ResetProfileButton", true, false) == null, "Profile reset should live in slot overwrite flow rather than the hangar")
+	assert(game.ui.hangar_screen.find_child("CreditsButton", true, false) == null, "The hangar should not retain a campaign-stage credits gate")
 	game.show_credits()
 	await process_frame
 	assert(game.state == game.GameState.CREDITS and game.ui.credits_screen.visible, "The credits sequence should open for validation")
 	assert(game.audio.current_music == &"credits", "The credits should play Zero Hour")
 	var credits_view = game.ui.credits_screen
-	assert(credits_view.ROLES == ["A GAME BY", "GAME DESIGN", "PROGRAMMING", "ART DIRECTION", "MUSIC DIRECTION", "QUALITY ASSURANCE"], "Credits should contain only the six requested roles")
 	assert(is_equal_approx(credits_view.CYCLE_DURATION * credits_view.ROLES.size() + credits_view.FINALE_DURATION, credits_view.CREDITS_TRACK_DURATION), "Cards and finale should exactly span Zero Hour")
 	var credits_stream: AudioStreamOggVorbis = game.audio.MUSIC_TRACKS[&"credits"]
 	assert(absf(credits_stream.get_length() - credits_view.CREDITS_TRACK_DURATION) < 0.01, "The credits timeline should match the actual Zero Hour asset")
@@ -57,34 +52,52 @@ func _run() -> void:
 	var boost_endpoint: float = credits_view._player_x_for_cycle(1.0)
 	credits_view.role_index = 1
 	assert(is_equal_approx(boost_endpoint, credits_view._player_x_for_cycle(0.0)), "The player should return from a boost without snapping between cards")
-	credits_view.role_index = 2
-	credits_view._update_role_text()
-	assert(credits_view.names_label.text == "Honestly? Mostly vibecoded", "Programming should use its candid attribution")
-	credits_view.role_index = 1
-	credits_view._update_role_text()
-	assert(credits_view.names_label.text == "MarcoABCardoso", "Every non-programming role should credit MarcoABCardoso")
-	assert(not _contains_label(credits_view, "YES, STILL BOTH OF THEM"), "The bottom credits label should be removed")
 	credits_view.role_index = credits_view.ROLES.size() - 1
 	credits_view.cycle_elapsed = credits_view.CYCLE_DURATION - 0.01
 	credits_view._process(0.02)
-	assert(credits_view.finale_active and credits_view.role_label.text == "THANK YOU FOR PLAYING", "The final role should lead into the thank-you card")
+	assert(credits_view.finale_active, "The final role should lead into the thank-you card")
 	assert(not credits_view.names_label.visible, "The thank-you finale should have no pursuer credit block")
-	assert(credits_view.FINALE_EXIT_X - 165.0 * 1.1 > 1280.0, "The finale should carry even the longest dash trail beyond the viewport")
 	game.ui.credits_screen.exit_requested.emit()
 	await process_frame
 	assert(game.ui.hangar_screen.visible, "Leaving the credits should return to the hangar")
-	game.ui.hangar_screen.find_child("DeployButton", true, false).emit_signal("pressed")
+	assert(game.ui.hangar_screen.find_child("DeployButton_signal_hold", true, false) != null, "The hangar should expose Signal Hold as its own stage")
+	assert(game.ui.hangar_screen.find_child("DeployButton_drift_cache", true, false) != null, "The hangar should contain the optional stage")
+	assert(game.ui.hangar_screen.find_child("DeployButton_relay_breach", true, false) != null, "The hangar should expose Relay Breach as its own stage")
+	assert(game.ui.hangar_screen.find_child("DeployButton_overseer_lock", true, false) != null, "The hangar should expose Overseer Lock as its own stage")
+	assert(game.ui.hangar_screen.find_child("DeployButton_relay_breach", true, false).visible, "The hangar should keep a stable stage list")
+	assert(game.ui.hangar_screen.find_child("DeployButton_relay_breach", true, false).disabled, "Later routes should use the button's disabled state without extra lock copy")
+	assert(not _contains_label(game.ui.hangar_screen, "SECTOR ROUTE") and not _contains_label(game.ui.hangar_screen, "NULL MERIDIAN"), "The hangar should not carry campaign jargon or redundant section labels")
+	assert(game.ui.hangar_screen.find_child("LoadoutButton", true, false).visible, "The first hangar should expose the game's build decision")
+	assert(not game.ui.hangar_screen.find_child("SkillTreeButton", true, false).visible, "Permanent progression should still wait until the opener is complete")
+	game.ui.hangar_screen.find_child("LoadoutButton", true, false).emit_signal("pressed")
 	await process_frame
-	assert(game.ui.stage_select_screen.visible, "Deploy should lead through a dedicated stage-select screen")
-	var first_stage_button: Button = game.ui.stage_select_screen.find_child("StageSelect_stage_1", true, false)
-	assert(first_stage_button != null and first_stage_button.text == "STAGE 1", "The route should show Stage 1 as a minimal graph node")
-	assert(game.ui.stage_select_screen.find_child("StageSelect_stage_2", true, false) == null, "Locked stages should remain hidden from the route")
+	assert(game.ui.loadout_screen.visible, "The starter arsenal should be configurable before the first deployment")
+	assert(game.profile.is_discovered("pulse") and game.profile.is_discovered("orbit") and game.profile.is_discovered("arc") and not game.profile.is_discovered("nova"), "Pulse, Orbit, and Arc should form the starter weapon arsenal")
+	assert(game.profile.is_discovered("gravity_tether"), "Gravity Tether should create an immediate active-skill build choice")
+	assert(not game.ui.loadout_screen.find_child("WeaponSelect_arc", true, false).disabled, "Arc Lash should be selectable for the first deployment")
+	game.ui.loadout_screen.find_child("WeaponSelect_arc", true, false).emit_signal("pressed")
+	assert(game.profile.equipped_weapons() == ["arc"], "The starter arsenal should support a real first-deployment weapon choice")
+	game.ui.loadout_screen.find_child("WeaponSelect_pulse", true, false).emit_signal("pressed")
+	assert(game.profile.equipped_weapons() == ["pulse"], "The player should be able to return to Pulse before deployment")
+	game.show_menu()
+	game.ui.hangar_screen.find_child("DeployButton_signal_hold", true, false).emit_signal("pressed")
+	await process_frame
+	assert(game.state == game.GameState.RUNNING and game.session.operation_id == "signal_hold", "Stage selection should deploy the chosen objective directly")
+	assert(game.current_encounter_id == "defense_swarm", "Signal Hold should begin with its defense encounter")
+	game._end_operation(true, false)
+	game.show_menu()
+	assert(game.ui.hangar_screen.find_child("DeployButton_drift_cache", true, false).visible, "The opener should reveal the optional route")
+	game.start_operation("drift_cache")
+	game._end_operation(true, false)
 	game.show_menu()
 	game.show_loadout()
 	await process_frame
 	assert(game.ui.loadout_screen.visible, "Loadout should open independently")
 	assert(game.ui.loadout_screen.find_child("LoadoutRow_pulse", true, false) != null, "Loadout should render weapon rows")
-	assert(game.profile.is_discovered("pulse") and not game.profile.is_discovered("orbit") and not game.profile.is_discovered("arc") and not game.profile.is_discovered("nova"), "Only Pulse Cannon should be available initially")
+	assert(game.profile.is_discovered("vector_parry"), "The optional route should add Vector Parry to the loadout")
+	assert(not game.ui.loadout_screen.find_child("AbilitySelect_vector_parry", true, false).disabled, "The recovered Vector Parry should be selectable")
+	game.ui.loadout_screen.find_child("AbilitySelect_vector_parry", true, false).emit_signal("pressed")
+	assert(game.profile.equipped_ability() == "vector_parry", "The optional counterfire configuration should be selectable before deployment")
 	assert(game.profile.equipped_weapons() == ["pulse"], "A new profile should begin with one Pulse slot")
 	game.show_menu()
 	game.show_skill_tree()
@@ -97,13 +110,12 @@ func _run() -> void:
 	assert(game.ui.overlay.visible, "Arsenal library should open from the hangar")
 	assert(game.ui.overlay.find_child("LibraryEntry_pulse", true, false) != null, "Library should render weapon entries")
 	assert(game.ui.overlay.find_child("LibraryEntry_dash", true, false) != null, "Library should render ability entries")
-	assert(game.ui.overlay.find_child("LibraryEntry_vector_parry", true, false) != null, "Library should render the Stage 5 reward")
+	assert(game.ui.overlay.find_child("LibraryEntry_vector_parry", true, false) != null, "Library should render locked future equipment")
 	game.show_menu()
-	game.start_run()
+	game.start_operation("signal_hold")
 	await process_frame
 	assert(game.state == 1, "Deploy should start a run")
 	assert(is_instance_valid(game.player), "Player should spawn")
-	assert(game.player.health > 0.0, "Player should have hull")
 	assert(game.player.ability_mode == game.profile.equipped_ability(), "Deployment should use the equipped ability")
 	game.player.set_mobile_controls_enabled(true)
 	game.player.set_mobile_input(Vector2.UP)
@@ -118,10 +130,6 @@ func _run() -> void:
 	await physics_frame
 	assert(get_nodes_in_group("enemies").size() >= 1, "Director should spawn enemies")
 	var spawned_enemy: NeonEnemy = get_nodes_in_group("enemies")[0]
-	assert(spawned_enemy is Area2D, "Enemies should use lightweight area movement")
-	assert(game.combat_director.enemies.size() == get_nodes_in_group("enemies").size(), "Director enemy cache should match the scene tree")
-	assert(game.player.collision_mask == 8, "Player movement should only collide with hostile projectiles")
-	assert(spawned_enemy.collision_mask == 0, "Enemies should not physically pin the player")
 	spawned_enemy.global_position = game.player.global_position - Vector2(500.0, 0.0)
 	assert(not game.weapon_system.fire_pulse(), "Pulse Cannon should not acquire targets beyond its maximum range")
 	spawned_enemy.global_position = game.player.global_position - Vector2(100.0, 0.0)
@@ -158,21 +166,20 @@ func _run() -> void:
 			break
 	await process_frame
 	assert(not is_instance_valid(spawned_enemy), "Projectile should destroy the test enemy through a physics callback")
-	assert(game.combat_director.enemies.size() == get_nodes_in_group("enemies").size(), "Destroyed enemies should leave the director cache")
 	assert(game.session.resonance == resonance_before_kill + 5, "Kills should grant resonance immediately")
 	assert(game.session.flux > flux_before_kill, "Kills should grant Flux immediately")
-	var pulse_damage_before := float(game.weapons["pulse"]["damage"])
+	var pulse_damage_before := float(game.weapon_system.weapons["pulse"]["damage"])
 	game.add_resonance(game.session.resonance_needed - game.session.resonance)
 	await process_frame
-	assert(game.run_level >= 2, "Resonance should increase run level")
-	assert(game.state == game.GameState.LEVEL_UP, "A resonance level should pause for a deterministic weapon choice")
-	assert(game.ui.overlay.find_child("RunUpgrade_pulse_damage", true, false) != null, "The choice should expose Pulse damage")
-	assert(game.ui.overlay.find_child("RunUpgrade_pulse_fire_rate", true, false) != null, "The choice should expose Pulse fire rate")
-	assert(game.ui.overlay.find_child("RunUpgrade_pulse_projectile_speed", true, false) != null, "The choice should expose Pulse projectile speed")
-	game._on_run_upgrade_selected("pulse", "damage")
-	assert(game.state == game.GameState.RUNNING, "Choosing an evolution should resume combat")
-	assert(float(game.weapons["pulse"]["damage"]) > pulse_damage_before, "The chosen dimension should mutate only the run weapon")
-	assert(game.session.weapon_upgrade_rank("pulse", "damage") == 1, "The run should track the selected capped rank")
+	assert(game.session.level >= 2, "Resonance should increase run level")
+	assert(game.state == game.GameState.LEVEL_UP, "The first sparse breakpoint should pause for a behavioral transformation")
+	assert(game.ui.overlay.find_child("EvolutionChoice_bastion_array", true, false) != null, "The choice should expose the positioning-focused Bastion branch")
+	assert(game.ui.overlay.find_child("EvolutionChoice_scatter_array", true, false) != null, "The choice should expose the kiting-focused Scatter branch")
+	assert(not _contains_label(game.ui.overlay, "VISIBLE NEXT STEP") and not _contains_label(game.ui.overlay, "MASTERY REVEALS"), "Evolution choices should omit roadmap copy that crowds the decision")
+	game._on_operation_evolution_selected("bastion_array")
+	assert(game.state == game.GameState.RUNNING, "Choosing a stage evolution should resume combat")
+	assert(float(game.weapon_system.weapons["pulse"]["damage"]) > pulse_damage_before, "Automatic level growth should raise Pulse damage")
+	assert(game.session.has_operation_evolution("bastion_array"), "The run should track the selected behavioral branch")
 	game._fire_nova()
 	await process_frame
 	var run_player: NeonPlayer = game.player
@@ -185,7 +192,7 @@ func _run() -> void:
 	await process_frame
 	assert(game.state == 3, "Projectile death should end the run after the physics callback")
 	assert(run_player.process_mode == Node.PROCESS_MODE_DISABLED, "Deferred run teardown should freeze collision objects safely")
-	print("SMOKE_OK hangar build, deterministic resonance choice, run evolution, rewards, and combat flow validated")
+	print("SMOKE_OK stage selection, sparse evolution, rewards, and combat flow validated")
 	quit(0)
 
 

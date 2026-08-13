@@ -1,16 +1,19 @@
 extends SceneTree
 
-const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
+const EncounterCatalog := preload("res://scripts/content/encounter_catalog.gd")
+const OperationCatalog := preload("res://scripts/content/operation_catalog.gd")
+const OperationEvolutionCatalog := preload("res://scripts/content/operation_evolution_catalog.gd")
 
 
 func _initialize() -> void:
 	_validate_enemies()
-	_validate_stages()
+	_validate_encounters()
+	_validate_operations()
+	_validate_operation_evolutions()
 	_validate_weapons()
-	_validate_run_upgrades()
 	_validate_skill_tree()
 	_validate_library()
-	print("CATALOG_OK stages, enemies, loadout, deterministic run upgrades, expanded skill tree, and mastery validated")
+	print("CATALOG_OK opening sector, encounters, rewards, sparse evolutions, loadout, skill tree, and mastery validated")
 	quit(0)
 
 
@@ -24,19 +27,99 @@ func _validate_enemies() -> void:
 		assert(float(definition["radius"]) > 0.0, "Enemy radius must be positive")
 
 
-func _validate_stages() -> void:
-	assert(StageCatalog.ORDER.size() == 5, "The campaign should expose five selectable stages")
-	for id: String in StageCatalog.ORDER:
-		var definition := StageCatalog.definition(id)
-		for field: String in ["number", "name", "duration", "description", "health_base", "health_growth", "spawn_base", "spawn_min", "spawn_pressure", "double_spawn_at", "elite_interval", "boss"]:
-			assert(definition.has(field), "Stage %s is missing %s" % [id, field])
-		assert(float(definition["duration"]) > 0.0, "Stage duration must be positive")
-		assert(SaveProfile.DEFAULT_DATA["stages_cleared"].has(id), "Save defaults are missing %s" % id)
-	assert(StageCatalog.choose_standard("stage_1", 999.0, 0.0) == "drone", "Stage 1 should contain drones only")
-	assert(StageCatalog.choose_standard("stage_2", 20.0, 0.0) == "striker", "Stage 2 should introduce strikers")
-	assert(float(StageCatalog.definition("stage_2")["elite_interval"]) == 0.0, "Elites should remain absent from Stage 2")
-	assert(float(StageCatalog.definition("stage_3")["elite_interval"]) > 0.0, "Stage 3 should introduce elites")
-	assert(not bool(StageCatalog.definition("stage_4")["boss"]) and bool(StageCatalog.definition("stage_5")["boss"]), "The boss should be reserved for Stage 5")
+func _validate_encounters() -> void:
+	assert(EncounterCatalog.ORDER.size() == 4, "The opening sector should own four encounter profiles")
+	for id: String in EncounterCatalog.ORDER:
+		var definition := EncounterCatalog.definition(id)
+		for field: String in ["duration", "health_base", "health_growth", "spawn_base", "spawn_min", "spawn_pressure", "double_spawn_at", "elite_interval", "boss"]:
+			assert(definition.has(field), "Encounter %s is missing %s" % [id, field])
+		assert(float(definition["duration"]) > 0.0, "Encounter duration must be positive")
+	assert(not bool(EncounterCatalog.definition("defense_swarm")["boss"]), "Signal Defense should remain a focused opener")
+	assert(not bool(EncounterCatalog.definition("cache_pressure")["boss"]), "The optional cache should remain objective-driven")
+	assert(not bool(EncounterCatalog.definition("relay_breach")["boss"]), "The relay mission should end through its objective")
+	assert(bool(EncounterCatalog.definition("overseer_lock")["boss"]), "Overseer Lock should own the boss encounter")
+	assert(EncounterCatalog.choose_standard("defense_swarm", 999.0, 0.0) == "drone", "Signal Defense should use its focused drone pressure")
+	assert(EncounterCatalog.choose_standard("cache_pressure", 20.0, 0.0) == "gunner", "The exposed cache should introduce ranged pressure")
+	assert(EncounterCatalog.choose_standard("relay_breach", 20.0, 0.0) == "striker", "The breach should use Strikers to pressure relay approaches")
+	assert(EncounterCatalog.choose_standard("overseer_lock", 10.0, 0.0) == "gunner", "The finale should expose projectiles before the Overseer")
+	assert(EncounterCatalog.choose_standard("overseer_lock", 10.0, 0.25) == "carrier", "The finale should mix in formation-splitting Carriers for build comparison")
+
+
+func _validate_operations() -> void:
+	assert(OperationCatalog.ORDER == ["signal_hold", "drift_cache", "relay_breach", "overseer_lock"], "Chapter 2 should expose the complete opening-sector route")
+	var referenced_encounters: Array[String] = []
+	for stage_id: String in OperationCatalog.ORDER:
+		var stage := OperationCatalog.definition(stage_id)
+		var mission := OperationCatalog.mission(stage_id)
+		assert(stage.has("name") and stage.has("description") and stage.has("mission") and stage.has("prerequisites"), "Stage %s should own one focused mission and route requirements" % stage_id)
+		assert(stage.has("required") and stage.has("route_position") and stage.has("first_clear_flux") and stage.has("first_clear_discoveries"), "Stage %s should expose its campaign role, route position, and first-clear reward" % stage_id)
+		var route_position: Vector2 = stage["route_position"]
+		assert(route_position.x > 0.0 and route_position.x < 1.0 and route_position.y > 0.0 and route_position.y < 1.0, "Stage %s should remain inside the route view" % stage_id)
+		for prerequisite: String in stage["prerequisites"]:
+			assert(OperationCatalog.DEFINITIONS.has(prerequisite), "Stage %s should reference an existing route prerequisite" % stage_id)
+		assert(mission.has("id") and mission.has("name") and mission.has("rhythm") and mission.has("lifecycle") and mission.has("encounter_id"), "Stage missions should contain their lifecycle and encounter data")
+		assert(mission.has("music"), "Every opening-sector mission should carry representative music")
+		assert(not mission.has("speaker") and not mission.has("transmission"), "Mission dialogue should wait for a deliberate narrative treatment")
+		assert(float(mission.get("time_limit", 0.0)) > 0.0, "Every mission should expose a content-defined anti-farming deadline")
+		assert(EncounterCatalog.ORDER.has(String(mission["encounter_id"])), "Stage missions should reference an existing encounter profile")
+		referenced_encounters.append(String(mission["encounter_id"]))
+	assert(referenced_encounters == EncounterCatalog.ORDER, "Each encounter profile should belong to one sector stage")
+	var hold := OperationCatalog.mission("signal_hold")
+	assert(String(hold["lifecycle"]) == "survival" and not hold.has("objectives"), "Signal Hold should teach survival before introducing objective vocabulary")
+	assert(float(hold["duration"]) == float(hold["time_limit"]) and float(hold["duration"]) == 60.0, "The opener should be one legible sixty-second survival timer")
+	assert(OperationCatalog.mission_arenas("signal_hold") == [GameBalance.ARENA], "The survival opener should use one fixed combat arena")
+	var breach := OperationCatalog.mission("relay_breach")
+	var breach_objectives := breach["objectives"] as Array
+	assert(String(breach["lifecycle"]) == "objective_sequence" and breach_objectives.size() == 3, "Relay Breach should reveal three relay groups sequentially")
+	for objective: Dictionary in breach_objectives:
+		assert(String(objective["lifecycle"]) == "relay_breach" and (objective["relay_positions"] as Array).size() == 2, "Each breach step should expose a readable relay pair")
+		var objective_arena: Rect2 = objective["arena_rect"]
+		for relay_position: Vector2 in objective["relay_positions"]:
+			assert(objective_arena.has_point(relay_position), "Relay pairs should remain inside their active chamber")
+	assert(String((breach_objectives[2]["reinforcements"] as Array)[0]["kind"]) == "carrier", "The final breach chamber should introduce a crowd-control build check")
+	assert(String(OperationCatalog.mission("overseer_lock")["lifecycle"]) == "boss", "Overseer Lock should be a focused boss stage")
+	assert(OperationCatalog.mission_arenas("overseer_lock") == [GameBalance.ARENA], "The boss should retain one constrained gauntlet arena")
+	var cache := OperationCatalog.mission("drift_cache")
+	var cache_objectives := cache["objectives"] as Array
+	assert(String(cache["lifecycle"]) == "objective_sequence" and cache_objectives.size() == 2, "The optional cache should progress from approach to extraction")
+	assert(String(cache_objectives[0]["lifecycle"]) == "signal_defense", "Drift Cache should introduce Signal Defense after the survival opener")
+	var fresh_clears: Dictionary = SaveProfile.DEFAULT_DATA["stage_clears"].duplicate(true)
+	assert(OperationCatalog.is_unlocked("signal_hold", fresh_clears), "Signal Hold should be the only entry stage")
+	assert(not OperationCatalog.is_unlocked("drift_cache", fresh_clears) and not OperationCatalog.is_unlocked("relay_breach", fresh_clears), "Later routes should wait for the opener")
+	fresh_clears["signal_hold"] = 1
+	assert(OperationCatalog.is_unlocked("drift_cache", fresh_clears) and OperationCatalog.is_unlocked("relay_breach", fresh_clears), "The opener should reveal required and optional branches together")
+	assert(not OperationCatalog.is_unlocked("overseer_lock", fresh_clears), "The boss should wait for the required breach")
+	var signal_position: Vector2 = OperationCatalog.definition("signal_hold")["route_position"]
+	var relay_position: Vector2 = OperationCatalog.definition("relay_breach")["route_position"]
+	var boss_position: Vector2 = OperationCatalog.definition("overseer_lock")["route_position"]
+	var cache_position: Vector2 = OperationCatalog.definition("drift_cache")["route_position"]
+	assert(is_equal_approx(signal_position.y, relay_position.y) and is_equal_approx(relay_position.y, boss_position.y), "Required stages should form one visible route spine")
+	assert(cache_position.y > relay_position.y and is_equal_approx(cache_position.x, relay_position.x), "Drift Cache should sit visibly off the required route")
+	assert(OperationCatalog.first_clear_flux("drift_cache") >= SkillTreeCatalog.cost_for_rank("core_damage", 0), "The optional route should fund meaningful permanent growth")
+	assert(OperationCatalog.first_clear_discoveries("drift_cache") == ["vector_parry"], "The optional cache should unlock a boss-relevant configuration")
+	assert(OperationCatalog.retreat_flux("signal_hold", 101) == 75, "Retreat should recover 75% of earned Flux, rounded down")
+	assert(OperationCatalog.defeat_flux("overseer_lock", 101) == 50, "Defeat should recover only half of earned Flux, rounded down")
+
+
+func _validate_operation_evolutions() -> void:
+	assert(OperationEvolutionCatalog.tier_for_level(2) == 1 and OperationEvolutionCatalog.tier_for_level(5) == 2, "Operation evolution breakpoints should remain sparse and separated")
+	assert(OperationEvolutionCatalog.tier_for_level(3) == 0 and OperationEvolutionCatalog.tier_for_level(4) == 0, "Ordinary resonance levels should not interrupt combat")
+	assert(OperationEvolutionCatalog.choices_for(1, []) == ["bastion_array", "scatter_array"], "The first transformation should choose between Bastion and Scatter behavior")
+	assert(OperationEvolutionCatalog.choices_for(2, ["bastion_array"]) == ["gravity_well"], "A fresh Bastion should expose its standard follow-up")
+	assert(OperationEvolutionCatalog.choices_for(2, ["bastion_array"], "pulse", 1) == ["gravity_well", "phase_mooring"], "Pulse mastery should reveal Phase Mooring as a revisitation choice")
+	assert(OperationEvolutionCatalog.choices_for(1, [], "orbit") == ["razor_orbit", "aegis_orbit"], "Orbit should choose between pursuit and projectile-screen identities")
+	assert(OperationEvolutionCatalog.choices_for(1, [], "arc") == ["storm_chain", "execution_arc"], "Arc should choose between formation clearing and priority execution")
+	assert(OperationEvolutionCatalog.choices_for(1, [], "nova") == ["gravity_nova", "purge_nova"], "Nova should choose between setup and projectile-clearing identities")
+	assert(OperationEvolutionCatalog.ORDER.size() == OperationEvolutionCatalog.DEFINITIONS.size(), "Every named transformation should be ordered exactly once")
+	for id: String in OperationEvolutionCatalog.ORDER:
+		var definition := OperationEvolutionCatalog.definition(id)
+		for field: String in ["weapon", "name", "tier", "branch", "requires", "build", "description", "future", "mastery"]:
+			assert(definition.has(field), "Evolution %s is missing %s" % [id, field])
+	var loadout := WeaponCatalog.fresh_loadout(["pulse"])
+	var projectile_speed := float(loadout["pulse"]["projectile_speed"])
+	OperationEvolutionCatalog.apply_automatic_growth(loadout, 1)
+	assert(float(loadout["pulse"]["damage"]) > 5.0 and float(loadout["pulse"]["interval"]) < 0.34, "Automatic growth should raise baseline Pulse output")
+	assert(float(loadout["pulse"]["projectile_speed"]) == projectile_speed, "Projectile speed should not return as a generic growth axis")
 
 
 func _validate_weapons() -> void:
@@ -45,63 +128,50 @@ func _validate_weapons() -> void:
 	for id: String in WeaponCatalog.ORDER:
 		assert(loadout.has(id), "Missing weapon definition: %s" % id)
 		assert(SaveProfile.DEFAULT_DATA["mastery_xp"].has(id), "Save mastery defaults are missing %s" % id)
-		assert(loadout[id].has("level"), "Weapon %s needs a level" % id)
-		assert(loadout[id].has("damage"), "Weapon %s needs damage" % id)
-	assert(loadout["pulse"].has("projectile_speed"), "Pulse needs a tunable projectile speed")
-	assert(float(loadout["pulse"]["damage"]) == 5.0, "Pulse should deal 5 base damage")
-	assert(float(loadout["pulse"]["range"]) == 190.0, "Pulse should use its intentionally short auto-aim range")
+		assert(loadout[id].has("level") and loadout[id].has("damage"), "Weapon %s needs level and damage values" % id)
+	assert(float(loadout["pulse"]["damage"]) == 5.0 and float(loadout["pulse"]["range"]) == 190.0, "Pulse should keep its short-range baseline")
 	var drone_health := float(EnemyCatalog.DEFINITIONS["drone"]["health"])
-	var stage_one_end_health := drone_health * GameBalance.enemy_difficulty("stage_1", float(StageCatalog.definition("stage_1")["duration"]))
-	var stage_two_start_health := drone_health * GameBalance.enemy_difficulty("stage_2", 0.0)
-	assert(float(loadout["pulse"]["damage"]) * 2.0 < stage_one_end_health, "Stage 1 Drones should survive two base Pulse hits")
-	assert(float(loadout["pulse"]["damage"]) * 3.0 >= stage_one_end_health, "Stage 1 Drones should fall to three base Pulse hits")
-	assert(float(loadout["pulse"]["damage"]) < stage_two_start_health, "Stage 2 Drones should require multiple base Pulse hits")
-
-
-func _validate_run_upgrades() -> void:
-	for weapon: String in WeaponCatalog.ORDER:
-		var choices: Array = RunUpgradeCatalog.choices_for(weapon)
-		assert(choices.size() == 3, "Weapon %s should expose exactly three deterministic dimensions" % weapon)
-		for dimension: String in choices:
-			var definition := RunUpgradeCatalog.definition(weapon, dimension)
-			assert(definition.has("name") and definition.has("description"), "Run upgrade %s/%s needs player-facing copy" % [weapon, dimension])
-	var loadout := WeaponCatalog.fresh_loadout(["pulse", "orbit", "arc", "nova"])
-	for weapon: String in WeaponCatalog.ORDER:
-		for dimension: String in RunUpgradeCatalog.choices_for(weapon):
-			assert(RunUpgradeCatalog.apply(weapon, dimension, loadout), "Run upgrade %s/%s must mutate its weapon" % [weapon, dimension])
+	var defense_end_health := drone_health * GameBalance.enemy_difficulty("defense_swarm", float(EncounterCatalog.definition("defense_swarm")["duration"]))
+	assert(float(loadout["pulse"]["damage"]) * 2.0 < defense_end_health and float(loadout["pulse"]["damage"]) * 3.0 >= defense_end_health, "Defense Drones should fall to three base Pulse hits")
 
 
 func _validate_skill_tree() -> void:
 	assert(SkillTreeCatalog.ORDER.size() == SkillTreeCatalog.DEFINITIONS.size(), "Skill order and definitions must match")
-	assert(SkillTreeCatalog.ORDER.size() >= 16, "The skill graph should provide a substantial permanent progression path")
-	var staged_nodes := 0
 	for id: String in SkillTreeCatalog.ORDER:
 		var definition := SkillTreeCatalog.definition(id)
 		assert(SaveProfile.DEFAULT_DATA["skill_ranks"].has(id), "Save defaults are missing skill %s" % id)
 		for field in ["name", "description", "max_rank", "costs", "effect", "value", "position"]:
 			assert(definition.has(field), "Skill %s is missing %s" % [id, field])
 		assert(int(definition["max_rank"]) == definition["costs"].size(), "Skill %s needs one cost per rank" % id)
-		var requirements: Dictionary = definition.get("requires", {})
-		for prerequisite: String in requirements:
+		for prerequisite: String in definition.get("requires", {}):
 			assert(SkillTreeCatalog.DEFINITIONS.has(prerequisite), "Skill %s references missing prerequisite %s" % [id, prerequisite])
-		var stage := String(definition.get("stage", ""))
-		if not stage.is_empty():
-			staged_nodes += 1
-			assert(StageCatalog.ORDER.has(stage), "Skill %s references missing stage %s" % [id, stage])
-	assert(staged_nodes >= 8, "The expanded tree should use stage gates across multiple tiers")
-	assert(not SaveProfile.DEFAULT_DATA.has("upgrades"), "Permanent augments should no longer be stored in profiles")
-	assert(SaveProfile._legacy_augment_refund({"damage": 2}) == 49, "Removed augment ranks should be refunded during save migration")
+	assert(not ["projectile_speed", "projectile_size"].has(SkillTreeCatalog.definition("threat_uplink")["effect"]), "The automatic-targeting tree should not restore imperceptible projectile axes")
+	for removed_effect: String in ["projectile_speed", "projectile_size"]:
+		for id: String in SkillTreeCatalog.ORDER:
+			assert(String(SkillTreeCatalog.definition(id)["effect"]) != removed_effect, "Permanent nodes should replace dead %s bonuses" % removed_effect)
 
 
 func _validate_library() -> void:
 	assert(LibraryCatalog.ORDER.size() == LibraryCatalog.DEFINITIONS.size(), "Library order and definitions must match")
 	for id: String in LibraryCatalog.ORDER:
-		assert(LibraryCatalog.DEFINITIONS.has(id), "Library is missing %s" % id)
 		assert(SaveProfile.DEFAULT_DATA["discovered"].has(id), "Save discovery defaults are missing %s" % id)
-		for field in ["kind", "name", "role", "mechanics", "acquisition", "clue"]:
+		for field in ["kind", "name", "role", "mechanics", "plans", "acquisition", "clue"]:
 			assert(LibraryCatalog.DEFINITIONS[id].has(field), "Library entry %s is missing %s" % [id, field])
-	assert(SaveProfile.DEFAULT_DATA["equipped_ability"] == "dash", "Phase Dash should remain the default ability")
-	assert(SaveProfile.DEFAULT_DATA["equipped_weapons"] == ["pulse"], "The profile should begin with one equipped weapon")
-	assert(not SaveProfile.DEFAULT_DATA["discovered"]["orbit"] and not SaveProfile.DEFAULT_DATA["discovered"]["arc"], "Only Pulse Cannon should be available from the beginning")
-	assert(not SaveProfile.DEFAULT_DATA["discovered"]["nova"], "Nova should begin progression-locked")
-	assert(not SaveProfile.DEFAULT_DATA["discovered"]["vector_parry"], "Vector Parry should begin locked")
+	assert(SaveProfile.DEFAULT_DATA["equipped_ability"] == "dash" and SaveProfile.DEFAULT_DATA["equipped_weapons"] == ["pulse"], "A profile should begin with Pulse and Phase Dash")
+	for id: String in ["pulse", "orbit", "arc", "dash", "gravity_tether"]:
+		assert(bool(SaveProfile.DEFAULT_DATA["discovered"][id]), "The starter arsenal should immediately expose %s" % id)
+	assert(not bool(SaveProfile.DEFAULT_DATA["discovered"]["nova"]), "Nova should remain the Overseer reward")
+	assert(not bool(SaveProfile.DEFAULT_DATA["discovered"]["vector_parry"]), "Vector Parry should begin as an optional-route reward")
+	for stage_id: String in OperationCatalog.ORDER:
+		assert(SaveProfile.DEFAULT_DATA["stage_clears"].has(stage_id), "Save defaults should track stage %s" % stage_id)
+	assert(SaveProfile.new().unlocked_weapon_slots() == 1, "The stage prototype should expose one weapon slot")
+	var profile := SaveProfile.new()
+	var opening_rewards := profile.bank_run(10, 1.0, 1, 0, {}, "signal_hold")
+	assert(bool(opening_rewards["first_clear"]) and int(profile.data["flux"]) == 70, "First clears should bank earned and catalog reward Flux")
+	var repeat_rewards := profile.bank_run(0, 1.0, 1, 0, {}, "signal_hold")
+	assert(not bool(repeat_rewards["first_clear"]) and int(profile.data["flux"]) == 70, "First-clear rewards should not repeat")
+	profile.bank_run(0, 1.0, 1, 0, {}, "drift_cache")
+	assert(profile.is_discovered("vector_parry"), "Clearing the optional cache should discover Vector Parry")
+	profile.bank_run(0, 1.0, 1, 0, {}, "overseer_lock")
+	assert(OperationCatalog.first_clear_discoveries("overseer_lock") == ["nova"], "The Overseer should add one advanced weapon to the starter build language")
+	assert(profile.is_discovered("nova"), "Clearing the Overseer should discover Nova Burst")

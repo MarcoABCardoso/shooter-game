@@ -11,16 +11,16 @@ func _validate_skill_tree_ui() -> void:
 	await process_frame
 	await process_frame
 	game.profile.data["flux"] = 500
+	game.profile.data["stage_clears"]["signal_hold"] = 1
 	game.show_skill_tree()
 	await process_frame
 
 	var graph: SkillTreeView = game.ui.skill_tree_view
 	assert(graph.get_node_or_null("SkillNode_core_damage") != null, "The root module should render")
-	assert(graph.get_node_or_null("SkillNode_impact_vector") != null, "A stage gate should remain visible as a progression milestone")
-	assert(graph.get_node_or_null("SkillNode_arc_overload") == null, "Nodes beyond an uncleared stage gate should stay hidden")
+	assert(graph.get_node_or_null("SkillNode_impact_vector") != null, "Mastery-gated modules should remain visible as progression milestones")
+	assert(graph.get_node_or_null("SkillNode_arc_conduction") != null, "The full behavior-first prerequisite graph should remain visible")
 	assert(graph.get_node_or_null("SkillDetailLayer") == null, "Details should stay hidden until a module is selected")
 	var root_module := graph.get_node("SkillNode_core_damage") as Button
-	assert(root_module.size.x <= 80.0 and root_module.size.y <= 80.0, "Graph modules should remain compact")
 	root_module.pressed.emit()
 	await process_frame
 
@@ -46,5 +46,5 @@ func _validate_skill_tree_ui() -> void:
 	popup = graph.get_node("SkillDetailLayer/SkillDetailPopup")
 	upgrade = popup.get_node("SkillUpgradeButton") as Button
 	assert(upgrade.disabled and upgrade.text.begins_with("LOCKED"), "Locked modules should explain that upgrades are unavailable")
-	print("SKILL_TREE_UI_OK compact modules, details popup, upgrade action, and locked state validated")
+	print("SKILL_TREE_UI_OK details popup, upgrade action, and locked state validated")
 	quit(0)

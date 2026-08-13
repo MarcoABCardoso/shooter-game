@@ -41,6 +41,8 @@ var boss_modules := 3
 var knockback_velocity := Vector2.ZERO
 var velocity := Vector2.ZERO
 var visual_update_timer := 0.0
+var objective_index := -1
+var arena := GameBalance.ARENA
 
 
 func configure(enemy_kind: String, difficulty: float, is_elite: bool = false) -> void:
@@ -89,7 +91,7 @@ func _physics_process(delta: float) -> void:
 		velocity = velocity.move_toward(disperse_direction * 430.0, delta * 520.0)
 		position += velocity * delta
 		modulate.a = maxf(0.0, modulate.a - delta * 0.7)
-		if not GameBalance.ARENA.grow(90.0).has_point(global_position):
+		if not arena.grow(90.0).has_point(global_position):
 			queue_free()
 		_update_visual_if_due()
 		return
@@ -104,23 +106,25 @@ func _physics_process(delta: float) -> void:
 		facing_direction = direction
 		facing_angle = direction.angle()
 	match kind:
-		"gunner":
+		"relay":
+			velocity = Vector2.ZERO
+		"gunner", "carrier":
 			velocity = (direction + direction.rotated(PI * 0.5) * sin(phase * 1.7) * 0.45).normalized() * speed
 		"boss":
 			_update_boss(delta, direction)
 		_:
 			velocity = direction * speed
 	velocity += knockback_velocity
-	knockback_velocity = knockback_velocity.move_toward(Vector2.ZERO, delta * 420.0)
+	knockback_velocity = knockback_velocity.move_toward(Vector2.ZERO, delta * GameBalance.ENEMY_IMPULSE_DECELERATION)
 	position += velocity * delta
 	if kind == "boss":
-		var boss_bounds := GameBalance.ARENA.grow(-radius)
+		var boss_bounds := arena.grow(-radius)
 		global_position.x = clampf(global_position.x, boss_bounds.position.x, boss_bounds.end.x)
 		global_position.y = clampf(global_position.y, boss_bounds.position.y, boss_bounds.end.y)
 	shoot_timer -= delta
-	if shoot_timer <= 0.0 and kind == "gunner":
+	if shoot_timer <= 0.0 and kind in ["gunner", "carrier"]:
 		shoot_timer += shoot_interval
-		fired.emit(global_position, direction, 8.0, 260.0, 1)
+		fired.emit(global_position, direction, 8.0, 260.0, 6 if kind == "carrier" else 1)
 	_update_visual_if_due()
 
 
@@ -137,7 +141,7 @@ func begin_disperse() -> void:
 	dispersing = true
 	active = false
 	collision_layer = 0
-	var from_center := global_position - GameBalance.ARENA.get_center()
+	var from_center := global_position - arena.get_center()
 	disperse_direction = from_center.normalized() if from_center.length_squared() > 1.0 else Vector2.from_angle(randf() * TAU)
 	velocity = disperse_direction * 90.0
 
@@ -224,13 +228,28 @@ func take_damage(amount: float, source_weapon: String) -> float:
 
 
 func apply_knockback(origin: Vector2, amount: float) -> void:
-	if not active or amount <= 0.0:
+	if not active or amount <= 0.0 or kind == "relay":
 		return
 	var direction := global_position - origin
 	if direction.length_squared() <= 0.001:
 		return
 	var resistance := 0.18 if kind == "boss" else 1.0
 	knockback_velocity += direction.normalized() * amount * resistance
+
+
+func apply_pull(destination: Vector2, amount: float) -> void:
+	if not active or kind in ["relay", "boss"] or amount <= 0.0:
+		return
+	var direction := destination - global_position
+	var travel_distance := maxf(0.0, direction.length() - GameBalance.GRAVITY_TETHER_STOP_RADIUS)
+	if travel_distance > 0.001:
+		# Cap the impulse at the velocity that can decelerate before the enemy
+		# crosses the tether point. Replacing the prior impulse also prevents
+		# chained pulls from accumulating into a slingshot.
+		# Enemy pursuit continues during the pull, so reserve stopping distance for
+		# its own movement as well as the decaying tether impulse.
+		var stopping_velocity := sqrt(speed * speed + 2.0 * GameBalance.ENEMY_IMPULSE_DECELERATION * travel_distance) - speed
+		knockback_velocity = direction.normalized() * minf(amount, stopping_velocity)
 
 
 func _draw() -> void:
@@ -245,9 +264,17 @@ func _draw() -> void:
 			_shape(PackedVector2Array([Vector2(radius * 1.3, 0), Vector2(-radius, radius * 0.8), Vector2(-radius * 0.3, 0), Vector2(-radius, -radius * 0.8)]), c)
 		"gunner":
 			_shape(_regular_polygon(6, radius, phase * 0.15), c)
+		"carrier":
+			_shape(_regular_polygon(8, radius, phase * -0.12), c)
+			draw_arc(Vector2.ZERO, radius * 0.62, phase, phase + PI * 1.5, 20, Color(GamePalette.GREEN, 0.78), 3.0)
 		"tank":
 			_shape(_regular_polygon(4, radius, PI * 0.25), c)
 			draw_rect(Rect2(-radius * 0.42, -radius * 0.42, radius * 0.84, radius * 0.84), Color(c, 0.22), true)
+		"relay":
+			_shape(_regular_polygon(6, radius, phase * 0.1), ORANGE)
+			draw_arc(Vector2.ZERO, radius * 0.62, -phase, TAU - phase, 28, Color(GamePalette.YELLOW, 0.9), 3.0)
+			for spoke in 3:
+				draw_line(Vector2.from_angle(phase + TAU * spoke / 3.0) * 8.0, Vector2.from_angle(phase + TAU * spoke / 3.0) * (radius + 12.0), Color(GamePalette.MAGENTA, 0.72), 3.0)
 		"boss":
 			_draw_boss(c)
 	if elite:

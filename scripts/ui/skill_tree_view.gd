@@ -5,24 +5,24 @@ signal purchase_requested(id: String)
 
 const NODE_SIZE := Vector2(74, 74)
 const GRAPH_MARGIN := Vector2(76, 48)
-const NODE_SIGILS := {
-	"core_damage": "DMG",
-	"distant_power": "RNG",
-	"anchored_power": "STL",
-	"pulse_acceleration": "VEL",
-	"salvage_protocol": "FLX",
-	"impact_vector": "KNO",
-	"surrounded_power": "CQC",
-	"projectile_matrix": "SIZ",
-	"reinforced_core": "HUL",
-	"arc_overload": "KN2",
-	"orbit_overdrive": "ORB",
-	"splash_payload": "SPL",
-	"reactive_shield": "SHD",
-	"nova_reactor": "DM2",
-	"siege_posture_2": "ST2",
-	"volatile_radius": "RAD",
-	"emergency_cycle": "CDR",
+const NODE_ICONS := {
+	"core_damage": "✦",
+	"distant_power": "◎",
+	"anchored_power": "▣",
+	"threat_uplink": "⌁",
+	"salvage_protocol": "◆",
+	"impact_vector": "↗",
+	"surrounded_power": "◉",
+	"breach_rounds": "⇥",
+	"reinforced_core": "◇",
+	"arc_conduction": "↟",
+	"orbit_formation": "◌",
+	"splash_payload": "✹",
+	"reactive_shield": "◈",
+	"arc_reach": "⌁",
+	"orbit_intercept": "▣",
+	"volatile_radius": "◍",
+	"emergency_cycle": "↻",
 }
 
 var profile: SaveProfile
@@ -59,11 +59,11 @@ func _build_node(id: String) -> void:
 	var max_rank := int(definition["max_rank"])
 	var button := Button.new()
 	button.name = "SkillNode_" + id
-	button.text = String(NODE_SIGILS.get(id, "SKL"))
+	button.text = String(NODE_ICONS.get(id, "◆"))
 	button.position = center - NODE_SIZE * 0.5
 	button.size = NODE_SIZE
 	button.focus_mode = Control.FOCUS_ALL
-	button.tooltip_text = "%s  //  %s" % [definition["name"], _node_status(id)]
+	button.tooltip_text = "%s — %s" % [definition["name"], _node_status(id)]
 	button.add_theme_font_size_override("font_size", 16)
 	button.add_theme_color_override("font_color", _node_color(id))
 	button.add_theme_color_override("font_hover_color", GamePalette.WHITE)
@@ -159,7 +159,7 @@ func _build_detail_popup(id: String) -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	detail_layer.add_child(panel)
 
-	var eyebrow := UIFactory.label("SKILL MODULE  //  %s" % _node_status(id), 10, Color(_node_color(id), 0.72))
+	var eyebrow := UIFactory.label(_node_status(id), 10, Color(_node_color(id), 0.72))
 	eyebrow.position = Vector2(30, 22)
 	eyebrow.size = Vector2(460, 20)
 	panel.add_child(eyebrow)
@@ -169,13 +169,13 @@ func _build_detail_popup(id: String) -> void:
 	title.size = Vector2(475, 38)
 	panel.add_child(title)
 
-	var close := UIFactory.button("X", Vector2(522, 18), Vector2(42, 42))
+	var close := UIFactory.button("×", Vector2(522, 18), Vector2(42, 42))
 	close.name = "SkillDetailClose"
 	close.tooltip_text = "Close skill details"
 	close.pressed.connect(_close_detail)
 	panel.add_child(close)
 
-	var rank_caption := UIFactory.label("RANK  %02d / %02d" % [rank, max_rank], 14, GamePalette.YELLOW)
+	var rank_caption := UIFactory.label("RANK %02d OF %02d" % [rank, max_rank], 14, GamePalette.YELLOW)
 	rank_caption.position = Vector2(30, 88)
 	rank_caption.size = Vector2(180, 24)
 	panel.add_child(rank_caption)
@@ -231,7 +231,7 @@ func _node_status(id: String) -> String:
 	var definition := SkillTreeCatalog.definition(id)
 	var rank := profile.skill_rank(id)
 	if rank >= int(definition["max_rank"]):
-		return "MAXED"
+		return "MAXIMUM RANK"
 	if rank > 0:
 		return "ACTIVE"
 	if profile.skill_available(id):
@@ -240,21 +240,12 @@ func _node_status(id: String) -> String:
 
 
 func _node_visible(id: String) -> bool:
-	var definition := SkillTreeCatalog.definition(id)
-	var requirements: Dictionary = definition.get("requires", {})
-	for parent_id: String in requirements:
-		var parent := SkillTreeCatalog.definition(parent_id)
-		var parent_stage := String(parent.get("stage", ""))
-		if not parent_stage.is_empty() and not profile.stage_cleared(parent_stage):
-			return false
-		if not _node_visible(parent_id):
-			return false
-	return true
+	return SkillTreeCatalog.DEFINITIONS.has(id)
 
 
 func _node_color(id: String) -> Color:
 	var status := _node_status(id)
-	if status == "MAXED":
+	if status == "MAXIMUM RANK":
 		return GamePalette.YELLOW
 	if status == "ACTIVE":
 		return GamePalette.GREEN
@@ -305,21 +296,18 @@ func _can_purchase(id: String) -> bool:
 
 func _upgrade_button_text(id: String, rank: int, max_rank: int) -> String:
 	if rank >= max_rank:
-		return "MODULE MAXED"
+		return "MAXIMUM RANK"
 	if not profile.skill_available(id):
-		return "LOCKED  //  REQUIREMENTS NOT MET"
+		return "LOCKED\nREQUIREMENTS NOT MET"
 	var cost := profile.skill_cost(id)
 	if int(profile.data["flux"]) < cost:
-		return "INSUFFICIENT FLUX  //  %d REQUIRED" % cost
-	return "INCREASE TO RANK %02d  //  %d FLUX" % [rank + 1, cost]
+		return "INSUFFICIENT FLUX\n%d REQUIRED" % cost
+	return "UPGRADE TO RANK %02d\n%d FLUX" % [rank + 1, cost]
 
 
 func _requirement_text(id: String) -> String:
 	var definition := SkillTreeCatalog.definition(id)
 	var requirements: Array[String] = []
-	var stage := String(definition.get("stage", ""))
-	if not stage.is_empty() and not profile.stage_cleared(stage):
-		requirements.append(stage.replace("_", " ").to_upper() + " CLEAR")
 	var nodes: Dictionary = definition.get("requires", {})
 	for node_id: String in nodes:
 		if profile.skill_rank(node_id) < int(nodes[node_id]):
@@ -328,13 +316,13 @@ func _requirement_text(id: String) -> String:
 	for item: String in mastery:
 		if profile.mastery_level(item) < int(mastery[item]):
 			requirements.append("%s MASTERY %d" % [item.to_upper(), int(mastery[item])])
-	return "ALL REQUIREMENTS MET" if requirements.is_empty() else "  //  ".join(requirements)
+	return "ALL REQUIREMENTS MET" if requirements.is_empty() else "\n".join(requirements)
 
 
 func _rank_bar(rank: int, max_rank: int) -> String:
 	var segments: Array[String] = []
 	for index in max_rank:
-		segments.append("O" if index < rank else "-")
+		segments.append("●" if index < rank else "○")
 	return " ".join(segments)
 
 

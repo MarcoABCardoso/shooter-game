@@ -1,14 +1,12 @@
 class_name SaveProfile
 extends RefCounted
 
-const LEGACY_SAVE_PATH := "user://neon_requiem_save.json"
-const SAVE_PATH := LEGACY_SAVE_PATH
+const OperationCatalog := preload("res://scripts/content/operation_catalog.gd")
 const SAVE_SLOT_PATH := "user://neon_requiem_save_%d.json"
 const SLOT_COUNT := 3
-const SAVE_VERSION := 9
+const SAVE_VERSION := 14
 const MASTERY_MAX := 20
 const MASTERY_BONUS_PER_POINT := 0.025
-const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
 const DEFAULT_DATA := {
 	"version": SAVE_VERSION,
 	"flux": 0,
@@ -16,12 +14,11 @@ const DEFAULT_DATA := {
 	"best_level": 1,
 	"total_kills": 0,
 	"runs": 0,
-	"stages_cleared": {
-		"stage_1": false,
-		"stage_2": false,
-		"stage_3": false,
-		"stage_4": false,
-		"stage_5": false,
+	"stage_clears": {
+		"signal_hold": 0,
+		"drift_cache": 0,
+		"relay_breach": 0,
+		"overseer_lock": 0,
 	},
 	"equipped_weapons": ["pulse"],
 	"equipped_ability": "dash",
@@ -29,18 +26,18 @@ const DEFAULT_DATA := {
 		"core_damage": 0,
 		"distant_power": 0,
 		"anchored_power": 0,
-		"pulse_acceleration": 0,
+		"threat_uplink": 0,
 		"salvage_protocol": 0,
 		"impact_vector": 0,
 		"surrounded_power": 0,
-		"projectile_matrix": 0,
+		"breach_rounds": 0,
 		"reinforced_core": 0,
-		"arc_overload": 0,
-		"orbit_overdrive": 0,
+		"arc_conduction": 0,
+		"orbit_formation": 0,
 		"splash_payload": 0,
 		"reactive_shield": 0,
-		"nova_reactor": 0,
-		"siege_posture_2": 0,
+		"arc_reach": 0,
+		"orbit_intercept": 0,
 		"volatile_radius": 0,
 		"emergency_cycle": 0,
 	},
@@ -51,14 +48,16 @@ const DEFAULT_DATA := {
 		"nova": 0.0,
 		"dash": 0.0,
 		"vector_parry": 0.0,
+		"gravity_tether": 0.0,
 	},
 	"discovered": {
 		"pulse": true,
-		"orbit": false,
-		"arc": false,
+		"orbit": true,
+		"arc": true,
 		"nova": false,
 		"dash": true,
 		"vector_parry": false,
+		"gravity_tether": true,
 	},
 }
 
@@ -79,25 +78,18 @@ func load_slot(slot: int) -> bool:
 	data = DEFAULT_DATA.duplicate(true)
 	var path := slot_path(slot)
 	if not FileAccess.file_exists(path):
-		if slot == 1 and FileAccess.file_exists(LEGACY_SAVE_PATH):
-			path = LEGACY_SAVE_PATH
-		else:
-			return false
+		return false
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return false
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	if not parsed is Dictionary:
 		return false
-	var previous_version := int(parsed.get("version", 0))
-	var legacy_upgrades: Dictionary = parsed.get("upgrades", {}) if parsed.get("upgrades", {}) is Dictionary else {}
+	if int(parsed.get("version", 0)) != SAVE_VERSION:
+		data = DEFAULT_DATA.duplicate(true)
+		return save_profile()
 	_merge_known(data, parsed)
-	if previous_version < 9:
-		data["flux"] = int(data["flux"]) + _legacy_augment_refund(legacy_upgrades)
-	data["version"] = SAVE_VERSION
-	_repair_profile(previous_version)
-	if previous_version < SAVE_VERSION or path == LEGACY_SAVE_PATH:
-		save_profile()
+	_repair_profile()
 	return true
 
 
@@ -116,7 +108,7 @@ static func slot_path(slot: int) -> String:
 static func slot_exists(slot: int) -> bool:
 	if slot < 1 or slot > SLOT_COUNT:
 		return false
-	return FileAccess.file_exists(slot_path(slot)) or (slot == 1 and FileAccess.file_exists(LEGACY_SAVE_PATH))
+	return FileAccess.file_exists(slot_path(slot))
 
 
 static func slot_summaries() -> Array[Dictionary]:
@@ -124,10 +116,7 @@ static func slot_summaries() -> Array[Dictionary]:
 	for slot in range(1, SLOT_COUNT + 1):
 		var summary := {"slot": slot, "exists": slot_exists(slot), "best_time": 0.0, "best_level": 1, "runs": 0, "flux": 0}
 		if bool(summary["exists"]):
-			var path := slot_path(slot)
-			if not FileAccess.file_exists(path) and slot == 1:
-				path = LEGACY_SAVE_PATH
-			var file := FileAccess.open(path, FileAccess.READ)
+			var file := FileAccess.open(slot_path(slot), FileAccess.READ)
 			if file != null:
 				var parsed: Variant = JSON.parse_string(file.get_as_text())
 				if parsed is Dictionary:
@@ -156,6 +145,22 @@ func is_discovered(id: String) -> bool:
 	return bool(data["discovered"].get(id, false))
 
 
+func stage_clear_count(id: String) -> int:
+	return int(data["stage_clears"].get(id, 0))
+
+
+func is_stage_unlocked(id: String) -> bool:
+	return OperationCatalog.is_unlocked(id, data["stage_clears"])
+
+
+func sector_one_completed() -> bool:
+	return OperationCatalog.sector_completed(data["stage_clears"])
+
+
+func hangar_systems_unlocked() -> bool:
+	return stage_clear_count("signal_hold") > 0
+
+
 func discover_entries(ids: Array[String]) -> bool:
 	var changed := false
 	for id: String in ids:
@@ -167,34 +172,8 @@ func discover_entries(ids: Array[String]) -> bool:
 	return changed
 
 
-func stage_cleared(id: String) -> bool:
-	return bool(data["stages_cleared"].get(id, false))
-
-
-func stage_unlocked(id: String) -> bool:
-	var index := StageCatalog.ORDER.find(id)
-	return index == 0 or (index > 0 and stage_cleared(StageCatalog.ORDER[index - 1]))
-
-
-func clear_stage(id: String) -> bool:
-	if not StageCatalog.ORDER.has(id):
-		return false
-	var first_clear := not stage_cleared(id)
-	data["stages_cleared"][id] = true
-	if id == "stage_1":
-		data["discovered"]["orbit"] = true
-	elif id == "stage_5":
-		data["discovered"]["vector_parry"] = true
-	save_profile()
-	return first_clear
-
-
-func clear_stage_one() -> bool:
-	return clear_stage("stage_1")
-
-
 func unlocked_weapon_slots() -> int:
-	return 2 if stage_cleared("stage_5") else 1
+	return 1
 
 
 func equipped_weapons() -> Array[String]:
@@ -233,7 +212,7 @@ func equipped_ability() -> String:
 
 
 func equip_ability(id: String) -> bool:
-	if id not in ["dash", "vector_parry"] or not is_discovered(id):
+	if id not in LibraryCatalog.ABILITY_ORDER or not is_discovered(id):
 		return false
 	data["equipped_ability"] = id
 	save_profile()
@@ -270,9 +249,6 @@ func skill_cost(id: String) -> int:
 func skill_available(id: String) -> bool:
 	var definition := SkillTreeCatalog.definition(id)
 	if definition.is_empty() or skill_rank(id) >= int(definition["max_rank"]):
-		return false
-	var stage := String(definition.get("stage", ""))
-	if not stage.is_empty() and not stage_cleared(stage):
 		return false
 	var prerequisites: Dictionary = definition.get("requires", {})
 	for prerequisite: String in prerequisites:
@@ -319,14 +295,28 @@ func skill_effect(effect: String) -> float:
 	return total
 
 
-func bank_run(flux: int, elapsed: float, level: int, kills: int, mastery: Dictionary) -> void:
+func bank_run(flux: int, elapsed: float, level: int, kills: int, mastery: Dictionary, completed_stage: String = "") -> Dictionary:
+	var rewards := {"first_clear": false, "bonus_flux": 0, "discoveries": []}
 	data["flux"] = int(data["flux"]) + flux
 	data["best_time"] = maxf(float(data["best_time"]), elapsed)
 	data["best_level"] = maxi(int(data["best_level"]), level)
 	data["total_kills"] = int(data["total_kills"]) + kills
 	data["runs"] = int(data["runs"]) + 1
 	_apply_mastery_rewards(mastery)
+	if OperationCatalog.ORDER.has(completed_stage):
+		var previous_clears := stage_clear_count(completed_stage)
+		data["stage_clears"][completed_stage] = previous_clears + 1
+		if previous_clears == 0:
+			rewards["first_clear"] = true
+			rewards["bonus_flux"] = OperationCatalog.first_clear_flux(completed_stage)
+			data["flux"] = int(data["flux"]) + int(rewards["bonus_flux"])
+			var discoveries: Array[String] = OperationCatalog.first_clear_discoveries(completed_stage)
+			rewards["discoveries"] = discoveries
+			for id: String in discoveries:
+				if data["discovered"].has(id):
+					data["discovered"][id] = true
 	save_profile()
+	return rewards
 
 
 func _apply_mastery_rewards(mastery: Dictionary) -> void:
@@ -345,27 +335,19 @@ func _merge_known(target: Dictionary, source: Dictionary) -> void:
 			target[key] = source[key]
 
 
-static func _legacy_augment_refund(upgrades: Dictionary) -> int:
-	var refund := 0
-	for id: String in ["damage", "hull", "thrusters", "magnet", "fortune"]:
-		var rank := clampi(int(upgrades.get(id, 0)), 0, 10)
-		for purchased_rank in rank:
-			refund += int(round(18.0 * pow(1.7, purchased_rank)))
-	return refund
-
-
-func _repair_profile(previous_version: int) -> void:
+func _repair_profile() -> void:
 	data["discovered"]["pulse"] = true
 	data["discovered"]["dash"] = true
-	data["discovered"]["orbit"] = stage_cleared("stage_1")
-	data["discovered"]["arc"] = false
-	data["discovered"]["nova"] = false
-	data["discovered"]["vector_parry"] = stage_cleared("stage_5")
-	if not bool(data["discovered"]["vector_parry"]):
+	data["discovered"]["orbit"] = true
+	data["discovered"]["arc"] = true
+	data["discovered"]["gravity_tether"] = true
+	data["discovered"]["nova"] = stage_clear_count("overseer_lock") > 0
+	data["discovered"]["vector_parry"] = stage_clear_count("drift_cache") > 0
+	if not is_discovered(String(data.get("equipped_ability", "dash"))):
 		data["equipped_ability"] = "dash"
-	if previous_version < 6:
-		data["equipped_weapons"] = ["pulse"]
-	var repaired := equipped_weapons()
-	while repaired.size() > unlocked_weapon_slots():
-		repaired.pop_back()
-	data["equipped_weapons"] = repaired
+	var repaired_weapons: Array[String] = []
+	for value: Variant in data.get("equipped_weapons", ["pulse"]):
+		var id := String(value)
+		if WeaponCatalog.ORDER.has(id) and is_discovered(id) and not repaired_weapons.has(id):
+			repaired_weapons.append(id)
+	data["equipped_weapons"] = repaired_weapons if not repaired_weapons.is_empty() else ["pulse"]

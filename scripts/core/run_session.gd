@@ -4,6 +4,7 @@ extends RefCounted
 signal level_gained(count: int)
 
 var elapsed := 0.0
+var mission_elapsed := 0.0
 var level := 1
 var resonance := 0
 var resonance_needed := 25
@@ -11,18 +12,16 @@ var flux := 0
 var kills := 0
 var combo := 1.0
 var combo_timer := 0.0
-var pending_levels := 0
-var mastery := {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0, "dash": 0.0, "vector_parry": 0.0}
-var weapon_upgrades := {
-	"pulse": {"damage": 0, "fire_rate": 0, "projectile_speed": 0},
-	"orbit": {"damage": 0, "blade_count": 0, "orbit_speed": 0},
-	"arc": {"damage": 0, "fire_rate": 0, "chain_count": 0},
-	"nova": {"damage": 0, "fire_rate": 0, "blast_radius": 0},
-}
+var operation_id := ""
+var operation_evolutions: Array[String] = []
+var pending_evolution_tiers: Array[int] = []
+var automatic_growth_levels := 0
+var mastery := {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0, "dash": 0.0, "vector_parry": 0.0, "gravity_tether": 0.0}
 
 
 func reset() -> void:
 	elapsed = 0.0
+	mission_elapsed = 0.0
 	level = 1
 	resonance = 0
 	resonance_needed = 25
@@ -30,21 +29,51 @@ func reset() -> void:
 	kills = 0
 	combo = 1.0
 	combo_timer = 0.0
-	pending_levels = 0
-	mastery = {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0, "dash": 0.0, "vector_parry": 0.0}
-	weapon_upgrades = {
-		"pulse": {"damage": 0, "fire_rate": 0, "projectile_speed": 0},
-		"orbit": {"damage": 0, "blade_count": 0, "orbit_speed": 0},
-		"arc": {"damage": 0, "fire_rate": 0, "chain_count": 0},
-		"nova": {"damage": 0, "fire_rate": 0, "blast_radius": 0},
-	}
+	operation_id = ""
+	operation_evolutions.clear()
+	pending_evolution_tiers.clear()
+	automatic_growth_levels = 0
+	mastery = {"pulse": 0.0, "orbit": 0.0, "arc": 0.0, "nova": 0.0, "dash": 0.0, "vector_parry": 0.0, "gravity_tether": 0.0}
 
 
 func tick(delta: float) -> void:
 	elapsed += delta
+	mission_elapsed += delta
 	combo_timer = maxf(0.0, combo_timer - delta)
 	if combo_timer <= 0.0:
 		combo = move_toward(combo, 1.0, delta * 1.8)
+
+
+func encounter_elapsed() -> float:
+	return mission_elapsed if not operation_id.is_empty() else elapsed
+
+
+func begin_operation(id: String) -> void:
+	reset()
+	operation_id = id
+	mission_elapsed = 0.0
+
+
+func queue_evolution_tier(tier: int) -> void:
+	if tier > 0:
+		pending_evolution_tiers.append(tier)
+
+
+func pending_evolution_tier() -> int:
+	return pending_evolution_tiers[0] if not pending_evolution_tiers.is_empty() else 0
+
+
+func register_operation_evolution(id: String) -> bool:
+	if operation_evolutions.has(id):
+		return false
+	operation_evolutions.append(id)
+	if not pending_evolution_tiers.is_empty():
+		pending_evolution_tiers.pop_front()
+	return true
+
+
+func has_operation_evolution(id: String) -> bool:
+	return operation_evolutions.has(id)
 
 
 func add_resonance(amount: int) -> void:
@@ -54,7 +83,6 @@ func add_resonance(amount: int) -> void:
 		resonance -= resonance_needed
 		level += 1
 		resonance_needed = int(round(25.0 + pow(level, 1.32) * 11.0))
-		pending_levels += 1
 		gained += 1
 	if gained > 0:
 		level_gained.emit(gained)
@@ -78,18 +106,3 @@ func record_damage(weapon: String, amount: float) -> void:
 func record_mastery(item: String, amount: float) -> void:
 	if amount > 0.0 and mastery.has(item):
 		mastery[item] = float(mastery[item]) + amount
-
-
-func weapon_upgrade_rank(weapon: String, dimension: String) -> int:
-	return int(weapon_upgrades.get(weapon, {}).get(dimension, 0))
-
-
-func can_upgrade_weapon(weapon: String, dimension: String) -> bool:
-	return weapon_upgrades.has(weapon) and weapon_upgrades[weapon].has(dimension) and weapon_upgrade_rank(weapon, dimension) < RunUpgradeCatalog.MAX_RANK
-
-
-func register_weapon_upgrade(weapon: String, dimension: String) -> bool:
-	if not can_upgrade_weapon(weapon, dimension):
-		return false
-	weapon_upgrades[weapon][dimension] = weapon_upgrade_rank(weapon, dimension) + 1
-	return true

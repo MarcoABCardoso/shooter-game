@@ -3,36 +3,30 @@ extends Node2D
 # Composition root: owns lifecycle and wires independent systems together.
 # Gameplay rules, content, rendering, and widgets live in their own modules.
 
-enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, STAGE_CLEAR, LEVEL_UP, CREDITS }
+enum GameState { MENU, RUNNING, PAUSED, GAME_OVER, LEVEL_UP, CREDITS, STAGE_CLEAR }
 
 const PlayerScene := preload("res://scripts/entities/player.gd")
 const AudioScene := preload("res://scripts/audio.gd")
-const StageCatalog := preload("res://scripts/content/stage_catalog.gd")
+const ObjectiveDirectorScene := preload("res://scripts/systems/objective_director.gd")
+const OperationCatalog := preload("res://scripts/content/operation_catalog.gd")
+const OperationEvolutionCatalog := preload("res://scripts/content/operation_evolution_catalog.gd")
 const HUD_UPDATE_INTERVAL := 0.1
 
 var state := GameState.MENU
 var profile := SaveProfile.new()
 var session := RunSession.new()
 var player: NeonPlayer
-var selected_stage := "stage_1"
+var current_encounter_id := ""
 
 var audio: NeonAudio
 var arena_view: ArenaView
 var spawn_director: SpawnDirector
 var combat_director: CombatDirector
+var objective_director
 var weapon_system: WeaponSystem
 var ui: GameUI
 var hud_update_timer := 0.0
-
-# Read-only compatibility views are useful for the console and test harness.
-var elapsed: float:
-	get: return session.elapsed
-	set(value): session.elapsed = value
-var run_level: int:
-	get: return session.level
-var weapons: Dictionary:
-	get: return weapon_system.weapons
-
+var mission_outro_timer := 0.0
 
 func _ready() -> void:
 	_build_modules()
@@ -47,18 +41,37 @@ func _process(_delta: float) -> void:
 			pause_game()
 		elif state == GameState.PAUSED:
 			resume_game()
+	if state == GameState.RUNNING and not session.operation_id.is_empty() and Input.is_action_just_pressed("cycle_target"):
+		var mode_name := weapon_system.cycle_target_mode()
+		ui.show_banner("TARGET MODE — " + mode_name, GamePalette.YELLOW)
+		ui.update_hud(session, weapon_system.weapons, _current_encounter_label(), mode_name)
 
 
 func _physics_process(delta: float) -> void:
 	if state == GameState.RUNNING:
 		session.tick(delta)
+		if mission_outro_timer > 0.0:
+			mission_outro_timer = maxf(0.0, mission_outro_timer - delta)
+			if is_instance_valid(player):
+				arena_view.follow_player(player.global_position)
+			if mission_outro_timer <= 0.0:
+				_complete_operation_mission()
+			return
+		if _mission_timed_out():
+			_end_operation(false, true)
+			return
+		if objective_director.traveling and is_instance_valid(player):
+			combat_director.set_arena(Rect2(player.global_position.x - GameBalance.ARENA.size.x * 0.5, GameBalance.ARENA.position.y, GameBalance.ARENA.size.x, GameBalance.ARENA.size.y))
 		spawn_director.tick(delta)
 		weapon_system.tick(delta)
 		combat_director.tick_contacts(delta)
+		objective_director.tick(delta)
+		if is_instance_valid(player):
+			arena_view.follow_player(player.global_position)
 		hud_update_timer -= delta
 		if hud_update_timer <= 0.0:
 			hud_update_timer += HUD_UPDATE_INTERVAL
-			ui.update_hud(session, weapon_system.weapons, selected_stage)
+			ui.update_hud(session, weapon_system.weapons, _current_encounter_label(), weapon_system.target_mode_name())
 
 
 func _build_modules() -> void:
@@ -70,6 +83,8 @@ func _build_modules() -> void:
 	add_child(spawn_director)
 	combat_director = CombatDirector.new()
 	add_child(combat_director)
+	objective_director = ObjectiveDirectorScene.new()
+	add_child(objective_director)
 	audio = AudioScene.new()
 	add_child(audio)
 	ui = GameUI.new()
@@ -80,7 +95,7 @@ func _connect_modules() -> void:
 	session.level_gained.connect(_on_level_gained)
 	spawn_director.spawn_requested.connect(combat_director.spawn_enemy)
 	spawn_director.swarm_evacuation_requested.connect(combat_director.begin_swarm_evacuation)
-	spawn_director.stage_completed.connect(_complete_stage)
+	spawn_director.encounter_completed.connect(_complete_operation_mission)
 	spawn_director.boss_started.connect(_on_boss_started)
 	spawn_director.banner_requested.connect(ui.show_banner)
 	spawn_director.shake_requested.connect(arena_view.shake)
@@ -92,12 +107,23 @@ func _connect_modules() -> void:
 	combat_director.damage_dealt.connect(_on_damage_dealt)
 	combat_director.enemy_defeated.connect(_on_enemy_defeated)
 	combat_director.boss_defeated.connect(_on_boss_defeated)
+	combat_director.objective_target_defeated.connect(objective_director.register_objective_target_defeated)
 	combat_director.resonance_gained.connect(add_resonance)
 	combat_director.flux_gained.connect(session.add_flux)
 	combat_director.repair_collected.connect(_repair_player)
 	combat_director.banner_requested.connect(ui.show_banner)
 	combat_director.shake_requested.connect(arena_view.shake)
 	combat_director.tone_requested.connect(audio.tone)
+	objective_director.mission_completed.connect(_complete_operation_mission)
+	objective_director.objective_updated.connect(arena_view.show_signal_objective)
+	objective_director.relay_network_updated.connect(arena_view.show_relay_network)
+	objective_director.objective_target_requested.connect(combat_director.spawn_objective_enemy)
+	objective_director.objective_hidden.connect(arena_view.hide_objective)
+	objective_director.objective_completed.connect(arena_view.animate_objective_completion)
+	objective_director.mission_outro_started.connect(_on_mission_outro_started)
+	objective_director.combat_arena_changed.connect(_on_objective_arena_changed)
+	objective_director.travel_started.connect(_on_objective_travel_started)
+	objective_director.banner_requested.connect(ui.show_banner)
 	ui.new_game_requested.connect(_show_new_game_slots)
 	ui.load_game_requested.connect(_show_load_game_slots)
 	ui.options_requested.connect(ui.show_options)
@@ -105,34 +131,27 @@ func _connect_modules() -> void:
 	ui.set_master_volume(audio.master_volume)
 	ui.title_requested.connect(show_title)
 	ui.slot_selected.connect(_select_save_slot)
-	ui.deploy_requested.connect(show_stage_select)
-	ui.stage_selected.connect(_on_stage_selected)
+	ui.deploy_requested.connect(_deploy_operation)
 	ui.resume_requested.connect(resume_game)
-	ui.abandon_requested.connect(_abandon_run)
-	ui.retry_requested.connect(start_run)
+	ui.retry_requested.connect(_retry_current_deployment)
 	ui.menu_requested.connect(show_menu)
 	ui.reset_requested.connect(_reset_profile)
 	ui.library_requested.connect(_show_library)
 	ui.loadout_requested.connect(show_loadout)
 	ui.skills_requested.connect(show_skill_tree)
-	ui.credits_requested.connect(show_credits)
 	ui.credits_finished.connect(_on_credits_finished)
 	ui.weapon_selected.connect(_on_weapon_selected)
 	ui.ability_selected.connect(_on_ability_selected)
 	ui.skill_purchase_requested.connect(_buy_skill)
 	ui.skills_respec_requested.connect(_respec_skills)
-	ui.run_upgrade_requested.connect(_on_run_upgrade_selected)
+	ui.operation_evolution_requested.connect(_on_operation_evolution_selected)
 	ui.mobile_input_changed.connect(_on_mobile_input_changed)
 	ui.mobile_ability_requested.connect(_on_mobile_ability_requested)
 	ui.mobile_pause_requested.connect(_on_mobile_pause_requested)
+	ui.retreat_operation_requested.connect(_retreat_operation)
 
 
-func start_run() -> void:
-	if not profile.stage_unlocked(selected_stage):
-		selected_stage = "stage_1"
-	_set_run_entities_paused(false)
-	_clear_run()
-	session.reset()
+func _spawn_player() -> void:
 	player = PlayerScene.new()
 	player.add_to_group("run_entities")
 	player.global_position = GameBalance.ARENA.get_center()
@@ -141,6 +160,8 @@ func start_run() -> void:
 	player.health_changed.connect(ui.set_health)
 	player.dash_changed.connect(ui.set_dash)
 	player.parry_requested.connect(combat_director.parry_projectiles)
+	player.gravity_tether_requested.connect(combat_director.gravity_tether)
+	player.phase_lane_requested.connect(combat_director.phase_dash_lane)
 	player.active_skill_used.connect(session.record_mastery)
 	player.configure({
 		"damage": profile.skill_effect("general_damage"),
@@ -152,18 +173,6 @@ func start_run() -> void:
 	})
 	player.set_mobile_controls_enabled(ui.mobile_controls_available)
 	add_child(player)
-	combat_director.configure(player, profile, session, selected_stage)
-	weapon_system.configure(player, profile, session, combat_director.enemies)
-	spawn_director.configure(session, selected_stage)
-	player.active = true
-	state = GameState.RUNNING
-	ui.show_run()
-	ui.set_ability(profile.equipped_ability())
-	ui.show_banner("%s // SIGNAL ACQUIRED" % StageCatalog.display_name(selected_stage), GamePalette.CYAN)
-	hud_update_timer = HUD_UPDATE_INTERVAL
-	ui.update_hud(session, weapon_system.weapons, selected_stage)
-	audio.play_music(&"stage_5" if selected_stage == "stage_5" else &"combat")
-	audio.tone(220.0, 0.18, 0.2, 600.0)
 
 
 func show_menu() -> void:
@@ -184,7 +193,7 @@ func show_title() -> void:
 
 
 func show_credits() -> void:
-	if state != GameState.MENU and state != GameState.STAGE_CLEAR:
+	if state != GameState.MENU:
 		return
 	_set_run_entities_paused(false)
 	state = GameState.CREDITS
@@ -226,26 +235,83 @@ func show_loadout() -> void:
 
 
 func show_skill_tree() -> void:
-	if state == GameState.MENU:
+	if state == GameState.MENU and profile.hangar_systems_unlocked():
 		ui.show_skill_tree(profile)
 
 
-func show_stage_select() -> void:
-	if state == GameState.MENU:
-		ui.show_stage_select(profile)
+func _deploy_operation(id: String) -> void:
+	if state == GameState.MENU and profile.is_stage_unlocked(id):
+		start_operation(id)
 
 
-func _on_stage_selected(id: String) -> void:
-	if state != GameState.MENU or not profile.stage_unlocked(id):
+func start_operation(id: String) -> void:
+	if not OperationCatalog.ORDER.has(id) or not profile.is_stage_unlocked(id):
 		return
-	selected_stage = id
-	start_run()
+	_set_run_entities_paused(false)
+	_clear_run()
+	session.begin_operation(id)
+	_spawn_player()
+	weapon_system.configure(player, profile, session, combat_director.enemies)
+	_start_current_operation_mission()
+
+
+func _start_current_operation_mission() -> void:
+	var mission := OperationCatalog.mission(session.operation_id)
+	if mission.is_empty():
+		return
+	current_encounter_id = String(mission["encounter_id"])
+	_clear_mission_entities()
+	var mission_arenas := OperationCatalog.mission_arenas(session.operation_id)
+	if mission_arenas.is_empty():
+		mission_arenas.append(GameBalance.ARENA)
+	var starting_arena := mission_arenas[0]
+	arena_view.configure_mission(mission_arenas)
+	player.global_position = starting_arena.get_center()
+	player.set_combat_arena(starting_arena)
+	weapon_system.sync_player_position()
+	combat_director.set_arena(starting_arena)
+	combat_director.configure(player, profile, session, current_encounter_id)
+	spawn_director.configure(session, current_encounter_id, mission)
+	objective_director.configure(mission, player)
+	state = GameState.RUNNING
+	_set_combat_active(true)
+	ui.show_run()
+	ui.set_ability(profile.equipped_ability())
+	ui.show_banner(_current_encounter_label(), GamePalette.CYAN)
+	hud_update_timer = HUD_UPDATE_INTERVAL
+	ui.update_hud(session, weapon_system.weapons, _current_encounter_label(), weapon_system.target_mode_name())
+	audio.play_music(mission.get("music", &"combat") as StringName)
+	audio.tone(220.0, 0.18, 0.2, 600.0)
+	if not session.pending_evolution_tiers.is_empty():
+		call_deferred("_open_next_operation_evolution")
+
+
+func _on_objective_arena_changed(arena: Rect2) -> void:
+	if not arena.has_area():
+		return
+	player.set_combat_arena(arena)
+	combat_director.set_arena(arena)
+	spawn_director.spawning_enabled = true
+	arena_view.set_active_arena(arena)
+
+
+func _on_objective_travel_started(travel_bounds: Rect2, destination_arena: Rect2) -> void:
+	if not travel_bounds.has_area() or not destination_arena.has_area():
+		return
+	player.set_travel_corridor(objective_director.current_arena, destination_arena)
+	spawn_director.spawning_enabled = true
+	arena_view.set_active_arena(destination_arena, true)
+
+
+func _on_mission_outro_started() -> void:
+	spawn_director.spawning_enabled = false
+	combat_director.begin_swarm_evacuation()
 
 
 func pause_game() -> void:
 	state = GameState.PAUSED
 	_set_combat_active(false)
-	ui.show_pause()
+	ui.show_operation_pause()
 
 
 func resume_game() -> void:
@@ -254,26 +320,10 @@ func resume_game() -> void:
 	ui.show_run()
 
 
-func _abandon_run() -> void:
-	_end_run(false)
-
-
 func _on_player_died() -> void:
 	# Player death can be emitted from an Area2D body_entered callback. Defer the
 	# run teardown so collision objects are disabled after physics query flushing.
-	call_deferred("_end_run", true)
-
-
-func _end_run(defeated: bool) -> void:
-	if state == GameState.GAME_OVER:
-		return
-	state = GameState.GAME_OVER
-	_set_combat_active(false)
-	profile.bank_run(session.flux, session.elapsed, session.level, session.kills, session.mastery)
-	ui.show_run_end(defeated, session)
-	audio.stop_music()
-	if defeated:
-		audio.play_stinger(&"defeat")
+	call_deferred("_end_operation", false, true)
 
 
 func _set_combat_active(value: bool) -> void:
@@ -296,29 +346,75 @@ func _on_enemy_defeated(_kind: String) -> void:
 
 
 func _on_boss_defeated() -> void:
-	call_deferred("_complete_stage")
+	if state != GameState.RUNNING or mission_outro_timer > 0.0:
+		return
+	mission_outro_timer = GameBalance.MISSION_OUTRO_DURATION
+	_on_mission_outro_started()
 
 
 func _on_boss_started() -> void:
-	if state == GameState.RUNNING and selected_stage == "stage_5":
+	if state == GameState.RUNNING:
 		audio.play_music(&"boss")
 
 
-func _complete_stage() -> void:
+func _complete_operation_mission() -> void:
 	if state not in [GameState.RUNNING, GameState.LEVEL_UP]:
 		return
-	session.pending_levels = 0
-	state = GameState.STAGE_CLEAR
 	_set_combat_active(false)
-	var first_clear := profile.clear_stage(selected_stage)
-	var first_clear_bonus := session.flux if first_clear else 0
-	profile.bank_run(session.flux + first_clear_bonus, session.elapsed, session.level, session.kills, session.mastery)
-	if selected_stage == "stage_5":
-		show_credits()
+	objective_director.clear()
+	_clear_mission_entities()
+	_end_operation(true, false)
+
+
+func _retreat_operation() -> void:
+	if session.operation_id.is_empty() or state not in [GameState.RUNNING, GameState.PAUSED, GameState.LEVEL_UP]:
 		return
-	ui.show_stage_clear(selected_stage, session, first_clear, first_clear_bonus)
+	_end_operation(false, false)
+
+
+func _end_operation(completed: bool, defeated: bool) -> void:
+	if state in [GameState.GAME_OVER, GameState.STAGE_CLEAR]:
+		return
+	state = GameState.STAGE_CLEAR if completed else GameState.GAME_OVER
+	_set_combat_active(false)
+	_clear_combat_presentation()
+	var banked_flux := session.flux
+	if not completed:
+		banked_flux = OperationCatalog.defeat_flux(session.operation_id, session.flux) if defeated else OperationCatalog.retreat_flux(session.operation_id, session.flux)
+	var rewards := profile.bank_run(banked_flux, session.elapsed, session.level, session.kills, session.mastery, session.operation_id if completed else "")
+	ui.show_operation_end(session.operation_id, session, banked_flux, completed, defeated, rewards)
 	audio.stop_music()
-	audio.play_stinger(&"clear")
+	if defeated:
+		audio.play_stinger(&"defeat")
+	elif completed:
+		audio.play_stinger(&"clear")
+
+
+func _retry_current_deployment() -> void:
+	start_operation(session.operation_id if OperationCatalog.ORDER.has(session.operation_id) else OperationCatalog.ORDER[0])
+
+
+func _current_encounter_label() -> String:
+	var mission := OperationCatalog.mission(session.operation_id)
+	var label: String = objective_director.objective_label() if is_instance_valid(objective_director) else ""
+	if label.is_empty():
+		label = String(mission.get("name", "UNKNOWN"))
+	var time_limit := float(mission.get("time_limit", 0.0))
+	if time_limit > 0.0:
+		var seconds_left := maxi(0, int(ceil(time_limit - session.mission_elapsed)))
+		label += "   %02d:%02d" % [seconds_left / 60, seconds_left % 60]
+	return label
+
+
+func _mission_timed_out() -> bool:
+	var mission := OperationCatalog.mission(session.operation_id)
+	if String(mission.get("lifecycle", "")) == "survival":
+		# Survival completes through SpawnDirector at its advertised duration. It
+		# must get the completion tick instead of losing to the generic deadline
+		# check at the same timestamp.
+		return false
+	var time_limit := float(mission.get("time_limit", 0.0))
+	return time_limit > 0.0 and session.mission_elapsed >= time_limit
 
 
 func _on_ability_selected(id: String) -> void:
@@ -343,39 +439,51 @@ func add_resonance(amount: int) -> void:
 	session.add_resonance(amount)
 
 
-func _on_level_gained(_count: int) -> void:
+func _on_level_gained(count: int) -> void:
 	if state != GameState.RUNNING:
 		return
-	# Resonance may be awarded from a projectile collision callback. Defer UI and
-	# process-mode changes until physics has finished flushing the query.
-	call_deferred("_open_next_run_upgrade")
+	weapon_system.apply_operation_growth(count)
+	for gained_level in range(session.level - count + 1, session.level + 1):
+		var tier := OperationEvolutionCatalog.tier_for_level(gained_level)
+		if tier > 0:
+			session.queue_evolution_tier(tier)
+	call_deferred("_open_next_operation_evolution")
 
 
-func _open_next_run_upgrade() -> void:
+func _open_next_operation_evolution() -> void:
 	if state not in [GameState.RUNNING, GameState.LEVEL_UP]:
 		return
-	if session.pending_levels <= 0:
-		_resume_after_run_upgrade()
+	var tier := session.pending_evolution_tier()
+	if tier <= 0:
+		state = GameState.RUNNING
+		_set_combat_active(true)
+		ui.show_run()
+		ui.show_banner("RESONANCE LEVEL %02d — AUTOMATIC POWER +10%%" % session.level, GamePalette.GREEN)
 		return
-	if not weapon_system.has_available_run_upgrade():
-		session.pending_levels = 0
-		_resume_after_run_upgrade()
-		ui.show_banner("ALL WEAPON DIMENSIONS CAPPED", GamePalette.YELLOW)
+	var equipped_weapon := profile.equipped_weapons()[0]
+	var choices := OperationEvolutionCatalog.choices_for(tier, session.operation_evolutions, equipped_weapon, profile.mastery_level(equipped_weapon))
+	if choices.is_empty():
+		session.pending_evolution_tiers.pop_front()
+		_open_next_operation_evolution()
 		return
 	state = GameState.LEVEL_UP
 	_set_combat_active(false)
-	ui.show_run_upgrade(session, weapon_system.weapons)
-	audio.tone(360.0 + session.level * 8.0, 0.14, 0.18, 900.0)
+	ui.show_operation_evolution(session, choices)
+	audio.tone(430.0 + tier * 70.0, 0.18, 0.2, 1000.0)
 
 
-func _on_run_upgrade_selected(weapon: String, dimension: String) -> void:
-	if state != GameState.LEVEL_UP or not weapon_system.apply_run_upgrade(weapon, dimension):
+func _on_operation_evolution_selected(id: String) -> void:
+	if state != GameState.LEVEL_UP or session.operation_id.is_empty():
 		return
-	session.pending_levels = maxi(0, session.pending_levels - 1)
-	if session.pending_levels > 0:
-		_open_next_run_upgrade()
-	else:
-		_resume_after_run_upgrade()
+	if not weapon_system.apply_operation_evolution(id):
+		return
+	if not session.pending_evolution_tiers.is_empty():
+		_open_next_operation_evolution()
+		return
+	state = GameState.RUNNING
+	_set_combat_active(true)
+	ui.show_run()
+	ui.show_banner(String(OperationEvolutionCatalog.definition(id)["name"]) + " ONLINE", GamePalette.GREEN)
 
 
 func _on_mobile_input_changed(movement: Vector2) -> void:
@@ -391,13 +499,6 @@ func _on_mobile_ability_requested() -> void:
 func _on_mobile_pause_requested() -> void:
 	if state == GameState.RUNNING:
 		pause_game()
-
-
-func _resume_after_run_upgrade() -> void:
-	state = GameState.RUNNING
-	_set_combat_active(true)
-	ui.show_run()
-	ui.show_banner("SIGNAL LEVEL %02d // BUILD UPDATED" % session.level, GamePalette.GREEN)
 
 
 func _on_weapon_selected(id: String) -> void:
@@ -440,8 +541,23 @@ func _fire_nova() -> void:
 
 
 func _clear_run() -> void:
-	weapon_system.active = false
+	mission_outro_timer = 0.0
+	weapon_system.clear_combat_presentation()
+	if is_instance_valid(objective_director):
+		objective_director.clear()
 	for node: Node in get_tree().get_nodes_in_group("run_entities"):
 		if is_instance_valid(node):
 			node.queue_free()
 	player = null
+
+
+func _clear_combat_presentation() -> void:
+	weapon_system.clear_combat_presentation()
+	if is_instance_valid(player):
+		player.clear_combat_presentation()
+
+
+func _clear_mission_entities() -> void:
+	for node: Node in get_tree().get_nodes_in_group("run_entities"):
+		if is_instance_valid(node) and node != player:
+			node.queue_free()

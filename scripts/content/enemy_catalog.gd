@@ -16,9 +16,17 @@ const DEFINITIONS := {
 		"health": 45.0, "speed": 78.0, "contact_damage": 9.0,
 		"flux": 3, "resonance": 10, "radius": 15.0, "shoot_interval": 1.7,
 	},
+	"carrier": {
+		"health": 92.0, "speed": 66.0, "contact_damage": 12.0,
+		"flux": 6, "resonance": 20, "radius": 21.0, "shoot_interval": 2.8,
+	},
 	"tank": {
 		"health": 135.0, "speed": 52.0, "contact_damage": 22.0,
 		"flux": 5, "resonance": 18, "radius": 23.0, "shoot_interval": 0.0,
+	},
+	"relay": {
+		"health": 260.0, "speed": 0.0, "contact_damage": 0.0,
+		"flux": 10, "resonance": 32, "radius": 28.0, "shoot_interval": 0.0,
 	},
 	"boss": {
 		"health": 1650.0, "speed": 48.0, "contact_damage": 28.0,
