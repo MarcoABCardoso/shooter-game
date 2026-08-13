@@ -5,7 +5,7 @@ const ORDER: Array[String] = ["defense_swarm", "cache_pressure", "relay_breach",
 
 const DEFINITIONS := {
 	"defense_swarm": {
-		"duration": 55.0,
+		"duration": 60.0,
 		"health_base": 0.68, "health_growth": 500.0,
 		"spawn_base": 0.90, "spawn_min": 0.58, "spawn_pressure": 180.0,
 		"double_spawn_at": INF, "elite_interval": 0.0, "boss": false,

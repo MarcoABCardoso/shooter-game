@@ -25,62 +25,57 @@ func _run() -> void:
 	var cache_button := game.ui.hangar_screen.find_child("DeployButton_drift_cache", true, false) as Button
 	assert(is_equal_approx(signal_button.position.y, relay_button.position.y) and is_equal_approx(relay_button.position.y, boss_button.position.y), "Required stages should render as one route spine")
 	assert(cache_button.position.y > relay_button.position.y, "The optional cache should render as a side branch")
-	assert(not game.ui.hangar_screen.find_child("LoadoutButton", true, false).visible, "The opening hangar should not present loadout choices before they matter")
+	assert(game.ui.hangar_screen.find_child("LoadoutButton", true, false).visible, "The opening hangar should present the primary build choice before deployment")
+	assert(not game.ui.hangar_screen.find_child("SkillTreeButton", true, false).visible, "The opening hangar should defer permanent progression while exposing equipment")
 	assert(not _contains_label(game.ui.hangar_screen, "//"), "The opening hangar should use plain language instead of separator-heavy copy")
 	game.ui.hangar_screen.find_child("DeployButton_signal_hold", true, false).emit_signal("pressed")
 	await process_frame
 	assert(game.state == game.GameState.RUNNING, "A selected stage should begin in combat")
 	assert(game.session.operation_id == "signal_hold", "Stage selection should preserve the chosen content identity")
 	assert(game.current_encounter_id == "defense_swarm", "Signal Hold should enter its defense encounter")
-	assert(game.arena_view.background.mission_arenas.size() == 3 and game.arena_view.camera.limit_right > 1280, "Signal Hold should configure a horizontally scrolling three-chamber world")
+	assert(game.spawn_director.objective_driven == false and game.objective_director.objectives.is_empty(), "Signal Hold should teach survival without an objective director")
+	assert(game.arena_view.background.mission_arenas == [GameBalance.ARENA] and game.arena_view.camera.limit_right <= 1280, "Signal Hold should keep the opening survival lesson inside one fixed arena")
 	var locked_camera_x: float = game.arena_view.camera.position.x
 	game.arena_view.follow_player(game.player.global_position + Vector2(280.0, 0.0))
-	assert(is_equal_approx(game.arena_view.camera.position.x, locked_camera_x), "The camera should remain fixed while a combat chamber is locked")
-	assert(_contains_label(game.ui.hud, "1/3  CAPTURE THE CARRIER"), "The HUD should present only the current objective and its place in the sequence")
-	assert(_contains_label(game.ui.hud, "03:00"), "The HUD should show the longer overall mission deadline")
+	assert(is_equal_approx(game.arena_view.camera.position.x, locked_camera_x), "The survival camera should remain fixed")
+	assert(_contains_label(game.ui.hud, "SIGNAL HOLD") and _contains_label(game.ui.hud, "01:00"), "The opener HUD should present only the stage and survival timer")
 	assert(game.ui.hud.find_child("MissionTransmission", true, false) == null, "The HUD should not retain an unsupported floating dialogue line")
 	assert(not _contains_label(game.ui.hud, "//"), "The combat HUD should avoid decorative double slashes")
 	game.spawn_enemy("drone", false)
 	var pressure_enemy: NeonEnemy = game.combat_director.enemies[game.combat_director.enemies.size() - 1]
-	var first_hold_position: Vector2 = game.objective_director.world_position
-	game.player.global_position = first_hold_position
-	game.session.tick(game.objective_director.hold_duration + 0.01)
-	game.objective_director.tick(game.objective_director.hold_duration + 0.01)
-	assert(game.state == game.GameState.RUNNING and game.objective_director.completing, "A completed objective should animate before opening forward travel")
-	assert(game.arena_view.background.completion_time > 0.0 and game.arena_view.background.objective_visible, "A completed objective should remain visible during its completion animation")
-	assert(not pressure_enemy.dispersing and game.spawn_director.spawning_enabled, "Intermediate completion should retain enemy pressure")
-	game.objective_director.tick(game.objective_director.OBJECTIVE_TRANSITION_DELAY + 0.01)
-	assert(game.objective_director.traveling and game.objective_director.objective_label() == "2/3  FOLLOW THE SIGNAL", "Travel should name the next forward movement beat")
-	assert(game.spawn_director.spawning_enabled and not pressure_enemy.dispersing, "Enemy pressure should continue through transit")
-	assert(game.player.travel_corridor.has_area() and game.arena_view.background.traveling, "Travel should constrain the connecting corridor and open its world presentation")
-	game.arena_view.follow_player(Vector2(game.player.global_position.x + 300.0, game.player.global_position.y))
-	assert(game.arena_view.camera.position.x > locked_camera_x and game.arena_view.camera.position.x < game.player.global_position.x + 300.0, "Transit should scroll through a dead zone instead of hard-locking the camera to the player")
-	game.player.global_position = game.objective_director.destination_arena.position + Vector2(100.0, 284.0)
-	game.objective_director.tick(0.01)
-	assert(not game.objective_director.traveling and game.objective_director.objective_index == 1, "Entering the next chamber should begin its objective")
-	assert(game.objective_director.world_position != first_hold_position and game.objective_director.objective_label() == "2/3  TRACE THE SIGNAL", "The next objective should appear in the new chamber with clear sequence progress")
-	assert(game.combat_director.arena == game.objective_director.current_arena and game.spawn_director.spawning_enabled, "Entering a chamber should move enemy spawning and restore pressure")
-	assert(is_equal_approx(game.arena_view.camera.position.x, game.objective_director.current_arena.get_center().x), "Entering a locked chamber should anchor the camera at its center")
 	game.session.flux = 123
 	game.session.record_mastery("pulse", 12.0)
+	game.weapon_system.arc_visuals.append({"points": [Vector2.ZERO, Vector2.ONE], "life": 1.0})
+	game.weapon_system.nova_visual = 1.0
+	game.weapon_system.anchor_charge = 1.0
+	game.player.dash_duration = 1.0
+	game.player.parry_flash = 1.0
 
 	_complete_current_stage(game)
 	assert(game.state == game.GameState.STAGE_CLEAR, "Signal Hold should end and bank independently")
-	assert(not is_instance_valid(pressure_enemy) or pressure_enemy.dispersing, "Final mission completion should evacuate remaining enemies before the end screen")
+	assert(not game.weapon_system.visible and game.weapon_system.arc_visuals.is_empty() and game.weapon_system.nova_visual == 0.0 and game.weapon_system.anchor_charge == 0.0, "Stage completion should remove every weapon presentation before another loadout is configured")
+	assert(game.player.dash_duration == 0.0 and game.player.parry_flash == 0.0, "Stage completion should clear transient player effects from the battlefield")
+	assert(game.ui.overlay.find_child("ResultPrimaryButton", true, false) == null and game.ui.overlay.find_child("ResultHangarButton", true, false) != null, "A completed stage should offer only the normal return to hangar")
+	assert(not _contains_label(game.ui.overlay, "MASTERY"), "Victory copy should stay compact instead of reporting persistence details")
+	assert(not is_instance_valid(pressure_enemy) or pressure_enemy.dispersing, "Surviving the timer should evacuate remaining enemies before the end screen")
 	assert(int(game.profile.data["flux"]) == 183, "The opening first clear should bank earned Flux plus its route reward")
 	assert(float(game.profile.data["mastery_xp"]["pulse"]) == 12.0, "A cleared stage should bank earned mastery")
 	assert(game.profile.stage_clear_count("signal_hold") == 1, "The profile should remember the opening clear")
 	assert(game.profile.is_stage_unlocked("drift_cache") and game.profile.is_stage_unlocked("relay_breach"), "The opener should reveal required and optional routes")
 
 	game.show_menu()
-	assert(game.ui.hangar_screen.find_child("LoadoutButton", true, false).visible, "The hangar should reveal build systems after the opener")
+	assert(game.ui.hangar_screen.find_child("SkillTreeButton", true, false).visible, "The opener should reveal permanent build allocation")
 	game.ui.hangar_screen.find_child("DeployButton_drift_cache", true, false).emit_signal("pressed")
 	await process_frame
+	assert(game.weapon_system.visible, "A new deployment should restore only the newly configured weapon presentation")
 	assert(game.session.operation_id == "drift_cache" and game.current_encounter_id == "cache_pressure", "The optional cache should deploy its distinct encounter composition")
 	assert(game.objective_director.world_position == OperationCatalog.mission("drift_cache")["objectives"][0]["objective_position"], "The optional defense should begin at its content-defined approach")
 	_complete_current_stage(game)
 	assert(int(game.profile.data["flux"]) == 283, "The optional first clear should provide enough Flux for meaningful power growth")
 	assert(game.profile.is_discovered("vector_parry"), "The optional cache should unlock Vector Parry")
+	assert(game.ui.overlay.find_child("UnlockReveal", true, false) != null, "A deterministic equipment reward should replace the generic result card with an unlock reveal")
+	assert((game.ui.overlay.find_child("UnlockName", true, false) as Label).text == "VECTOR PARRY", "The optional reward reveal should name Vector Parry prominently")
+	assert(not _contains_button(game.ui.overlay, "PLAY AGAIN"), "Equipment unlock completion should return through the hangar instead of offering an unusual replay shortcut")
 
 	game.show_menu()
 	game.ui.hangar_screen.find_child("DeployButton_relay_breach", true, false).emit_signal("pressed")
@@ -124,7 +119,8 @@ func _run() -> void:
 	await process_frame
 	assert(game.state == game.GameState.STAGE_CLEAR, "Defeating the Overseer should clear only its selected stage")
 	assert(game.profile.sector_one_completed(), "Defeating the Overseer should secure the opening sector")
-	assert(game.profile.is_discovered("orbit"), "The sector clear should point forward with a new weapon reward")
+	assert(game.profile.is_discovered("nova"), "The sector clear should add the advanced Nova weapon")
+	assert((game.ui.overlay.find_child("UnlockName", true, false) as Label).text == "NOVA BURST", "The sector reward should receive a prominent Nova unlock reveal")
 	assert(int(game.profile.data["flux"]) == 473, "The boss first clear should bank its sector reward")
 
 	game.start_operation("signal_hold")
@@ -139,9 +135,9 @@ func _run() -> void:
 	assert(game.state == game.GameState.GAME_OVER, "Defeat should end the active stage")
 	assert(int(game.profile.data["flux"]) == 552, "Defeat should bank only half of earned Flux")
 
-	game.start_operation("signal_hold")
-	var opening_mission := OperationCatalog.mission("signal_hold")
-	game.session.mission_elapsed = float(opening_mission["time_limit"]) - 0.01
+	game.start_operation("relay_breach")
+	var timed_mission := OperationCatalog.mission("relay_breach")
+	game.session.mission_elapsed = float(timed_mission["time_limit"]) - 0.01
 	game._physics_process(0.02)
 	assert(game.state == game.GameState.GAME_OVER, "Exceeding a stage deadline should prevent farming")
 	print("OPERATION_SPINE_OK opening-sector route, optional growth, build reconfiguration, objectives, and rewards validated")
@@ -171,6 +167,7 @@ func _complete_current_stage(game: Node) -> void:
 		return
 	var duration := float(game.spawn_director.encounter_spec["duration"])
 	game.session.mission_elapsed = duration
+	game.session.elapsed = duration
 	game.spawn_director.tick(0.01)
 	game.spawn_director.tick(GameBalance.BOSS_INTRO_DURATION + 0.01)
 	if bool(game.spawn_director.encounter_spec["boss"]):
@@ -181,5 +178,12 @@ func _complete_current_stage(game: Node) -> void:
 func _contains_label(root_node: Node, text_fragment: String) -> bool:
 	for child: Node in root_node.find_children("*", "Label", true, false):
 		if text_fragment in String(child.text):
+			return true
+	return false
+
+
+func _contains_button(root_node: Node, text_fragment: String) -> bool:
+	for child: Node in root_node.find_children("*", "Button", true, false):
+		if String((child as Button).text).contains(text_fragment):
 			return true
 	return false

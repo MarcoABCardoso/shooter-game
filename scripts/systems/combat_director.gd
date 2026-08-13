@@ -130,15 +130,47 @@ func parry_projectiles(origin: Vector2) -> void:
 
 func gravity_tether(origin: Vector2) -> void:
 	var pulled := 0
+	var forward := origin - player.global_position if is_instance_valid(player) else Vector2.ZERO
 	for enemy: NeonEnemy in enemies:
 		if not is_instance_valid(enemy) or not enemy.active or enemy.kind in ["relay", "boss"]:
 			continue
+		if forward.length_squared() > 0.001 and (enemy.global_position - player.global_position).dot(forward) <= 0.0:
+			continue
 		if enemy.global_position.distance_squared_to(origin) <= 285.0 * 285.0:
-			enemy.apply_pull(origin, 620.0)
+			enemy.apply_pull(origin, GameBalance.GRAVITY_TETHER_FORCE)
 			pulled += 1
 	spawn_burst(origin, GamePalette.GREEN, 125.0, 20)
 	shake_requested.emit(3.0 if pulled > 0 else 1.0)
 	tone_requested.emit(170.0, 0.18, 0.16, 720.0 if pulled > 0 else -80.0)
+
+
+func phase_dash_lane(from: Vector2, to: Vector2) -> void:
+	var hits := 0
+	for enemy: NeonEnemy in enemies:
+		if not is_instance_valid(enemy) or not enemy.active:
+			continue
+		if _distance_to_segment(enemy.global_position, from, to) > GameBalance.PHASE_DASH_LANE_RADIUS + enemy.radius:
+			continue
+		var dealt := enemy.take_damage(GameBalance.PHASE_DASH_LANE_DAMAGE, "dash")
+		if dealt > 0.0:
+			enemy.apply_knockback(from, 115.0)
+			damage_dealt.emit("dash", dealt, enemy.global_position, enemy.get_instance_id())
+			hits += 1
+	for bullet: Node in get_tree().get_nodes_in_group("enemy_projectiles"):
+		if is_instance_valid(bullet) and _distance_to_segment(bullet.global_position, from, to) <= GameBalance.PHASE_DASH_LANE_RADIUS:
+			bullet.queue_free()
+	spawn_burst(from, GamePalette.CYAN, 46.0, 10)
+	spawn_burst(to, GamePalette.CYAN, 72.0, 14)
+	shake_requested.emit(4.0 if hits > 0 else 2.0)
+	tone_requested.emit(340.0, 0.12, 0.16, 980.0)
+
+
+func _distance_to_segment(point: Vector2, from: Vector2, to: Vector2) -> float:
+	var segment := to - from
+	if segment.length_squared() <= 0.001:
+		return point.distance_to(from)
+	var ratio := clampf((point - from).dot(segment) / segment.length_squared(), 0.0, 1.0)
+	return point.distance_to(from + segment * ratio)
 
 
 func spawn_projectile(origin: Vector2, direction: Vector2, damage: float, speed: float, friendly: bool, weapon: String, pierce: int = 0, radius: float = 4.0, distant_bonus: float = 0.0, knockback: float = 0.0, max_range: float = INF, splash_damage: float = 0.0, splash_radius: float = 72.0) -> void:

@@ -6,6 +6,7 @@ signal health_changed(current: float, maximum: float)
 signal dash_changed(ratio: float)
 signal parry_requested(world_position: Vector2)
 signal gravity_tether_requested(world_position: Vector2)
+signal phase_lane_requested(from: Vector2, to: Vector2)
 signal active_skill_used(id: String, mastery_xp: float)
 
 const CYAN := Color("45f3ff")
@@ -34,7 +35,7 @@ var dash_direction := Vector2.ZERO
 var hit_flash := 0.0
 var ability_mode := "dash"
 var parry_flash := 0.0
-var ability_cooldown := 1.25
+var ability_cooldown := GameBalance.PHASE_DASH_COOLDOWN
 var stationary_time := 0.0
 var preserve_stationary_on_dash := false
 var stationary_grace := 0.0
@@ -68,7 +69,7 @@ func configure(meta_bonuses: Dictionary) -> void:
 	shield_recharge_timer = 0.0
 	ability_mode = String(meta_bonuses.get("ability", "dash"))
 	var cooldown_reduction := float(meta_bonuses.get("ability_mastery", 0.0)) * 0.015 + float(meta_bonuses.get("ability_cooldown", 0.0))
-	var base_cooldown := 4.4 if ability_mode == "gravity_tether" else 1.25
+	var base_cooldown := 4.4 if ability_mode == "gravity_tether" else GameBalance.PHASE_DASH_COOLDOWN
 	ability_cooldown = base_cooldown * (1.0 - minf(0.55, cooldown_reduction))
 	health_changed.emit(health, max_health)
 
@@ -121,14 +122,18 @@ func _physics_process(delta: float) -> void:
 			active_skill_used.emit("gravity_tether", 24.0)
 		elif input_vector != Vector2.ZERO:
 			dash_direction = input_vector.normalized()
-			dash_duration = 0.18
+			dash_duration = GameBalance.PHASE_DASH_DURATION
+			var predicted_end := global_position + dash_direction * speed * GameBalance.PHASE_DASH_SPEED_MULTIPLIER * dash_duration
+			predicted_end.x = clampf(predicted_end.x, arena.position.x, arena.end.x)
+			predicted_end.y = clampf(predicted_end.y, arena.position.y, arena.end.y)
+			phase_lane_requested.emit(global_position, predicted_end)
 			if preserve_stationary_on_dash:
-				stationary_grace = 0.32
+				stationary_grace = GameBalance.PHASE_DASH_DURATION + 0.14
 			dash_cooldown = ability_cooldown
-			invulnerable = 0.30
+			invulnerable = GameBalance.PHASE_DASH_INVULNERABILITY
 			active_skill_used.emit("dash", 18.0)
 	if dash_duration > 0.0:
-		velocity = dash_direction * speed * 3.2
+		velocity = dash_direction * speed * GameBalance.PHASE_DASH_SPEED_MULTIPLIER
 	else:
 		velocity = input_vector.normalized() * speed if input_vector.length() > 0.1 else Vector2.ZERO
 	move_and_slide()
@@ -160,6 +165,16 @@ func set_mobile_input(movement: Vector2) -> void:
 func clear_mobile_input() -> void:
 	mobile_movement = Vector2.ZERO
 	mobile_ability_queued = false
+
+
+func clear_combat_presentation() -> void:
+	dash_duration = 0.0
+	dash_direction = Vector2.ZERO
+	invulnerable = 0.0
+	hit_flash = 0.0
+	parry_flash = 0.0
+	stationary_grace = 0.0
+	queue_redraw()
 
 
 func request_mobile_ability() -> void:

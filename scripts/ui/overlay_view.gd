@@ -22,9 +22,9 @@ func show_operation_evolution(session: RunSession, choices: Array[String]) -> vo
 	var title := UIFactory.label("RESONANCE TRANSFORMATION", 28, GamePalette.CYAN)
 	title.position = Vector2(30, 20)
 	panel.add_child(title)
-	var subtitle := UIFactory.label("LEVEL %02d  •  BASELINE POWER INCREASED AUTOMATICALLY\nChoose a behavior. The commitment lasts for this stage." % session.level, 12, Color(GamePalette.GREEN, 0.78))
+	var subtitle := UIFactory.label("LEVEL %02d  •  CHOOSE THIS STAGE'S BUILD" % session.level, 12, Color(GamePalette.GREEN, 0.78))
 	subtitle.position = Vector2(32, 58)
-	subtitle.size = Vector2(1035, 48)
+	subtitle.size = Vector2(1035, 24)
 	panel.add_child(subtitle)
 	var card_width := 490.0 if choices.size() <= 2 else 322.0
 	var gap := 18.0
@@ -43,24 +43,21 @@ func show_operation_evolution(session: RunSession, choices: Array[String]) -> vo
 		heading.position = Vector2(20, 48)
 		heading.size = Vector2(card_width - 40, 34)
 		card.add_child(heading)
-		var description := UIFactory.label(String(definition["description"]), 15, Color.WHITE)
+		var description_text := String(definition["description"])
+		var sentence_end := description_text.find(".")
+		if sentence_end >= 0:
+			description_text = description_text.left(sentence_end + 1)
+		if description_text.length() > 82:
+			description_text = description_text.left(79).strip_edges() + "…"
+		var description := UIFactory.label(description_text, 15, Color.WHITE)
 		description.position = Vector2(20, 94)
-		description.size = Vector2(card_width - 40, 82)
+		description.size = Vector2(card_width - 40, 105)
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		card.add_child(description)
-		var future := UIFactory.label("VISIBLE NEXT STEP\n" + String(definition["future"]), 11, Color(GamePalette.GREEN, 0.68))
-		future.position = Vector2(20, 184)
-		future.size = Vector2(card_width - 40, 48)
-		card.add_child(future)
-		var choose := UIFactory.button("COMMIT", Vector2(20, 242), Vector2(card_width - 40, 44))
+		var choose := UIFactory.button("COMMIT", Vector2(20, 230), Vector2(card_width - 40, 48))
 		choose.name = "EvolutionChoice_" + id
 		choose.pressed.connect(operation_evolution_requested.emit.bind(id))
 		card.add_child(choose)
-	var tree_note := UIFactory.label("MASTERY REVEALS THE SECOND FOLLOW-UP FOR EACH NAMED BUILD", 12, Color(GamePalette.CYAN, 0.65))
-	tree_note.position = Vector2(28, 520)
-	tree_note.size = Vector2(1044, 30)
-	tree_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	panel.add_child(tree_note)
 
 
 func show_library(profile: SaveProfile) -> void:
@@ -117,12 +114,73 @@ func show_message(title_text: String, body_text: String, primary_text: String, p
 	body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	message_panel.add_child(body)
-	var primary := UIFactory.button(primary_text, Vector2(55, 250), Vector2(225, 55))
-	primary.pressed.connect(primary_action)
-	message_panel.add_child(primary)
-	var secondary := UIFactory.button(secondary_text, Vector2(320, 250), Vector2(225, 55))
+	if not primary_text.is_empty():
+		var primary := UIFactory.button(primary_text, Vector2(55, 250), Vector2(225, 55))
+		primary.name = "ResultPrimaryButton"
+		primary.pressed.connect(primary_action)
+		message_panel.add_child(primary)
+	var secondary_x := 187.0 if primary_text.is_empty() else 320.0
+	var secondary := UIFactory.button(secondary_text, Vector2(secondary_x, 250), Vector2(225, 55))
+	secondary.name = "ResultHangarButton" if primary_text.is_empty() else "ResultSecondaryButton"
 	secondary.pressed.connect(secondary_action)
 	message_panel.add_child(secondary)
+
+
+func show_unlock_reveal(stage_title: String, equipment_id: String, summary: String, hangar_action: Callable) -> void:
+	clear()
+	visible = true
+	_add_shade(0.93)
+	var definition := LibraryCatalog.definition(equipment_id)
+	var panel := UIFactory.panel(Vector2(250, 92), Vector2(780, 540), Color(GamePalette.YELLOW, 0.72))
+	panel.name = "UnlockReveal"
+	add_child(panel)
+	var eyebrow := UIFactory.label(stage_title + "  •  ARSENAL SIGNAL RECOVERED", 13, Color(GamePalette.YELLOW, 0.82))
+	eyebrow.position = Vector2(30, 24)
+	eyebrow.size = Vector2(720, 24)
+	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(eyebrow)
+	var flare := Control.new()
+	flare.name = "UnlockFlare"
+	flare.position = Vector2(390, 128)
+	panel.add_child(flare)
+	for radius in [92.0, 70.0, 48.0]:
+		var ring := UIFactory.panel(Vector2(-radius, -radius), Vector2(radius * 2.0, radius * 2.0), Color(GamePalette.CYAN, 0.18 + (92.0 - radius) * 0.006))
+		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		flare.add_child(ring)
+	var kind := UIFactory.label(String(definition.get("kind", "EQUIPMENT")), 12, GamePalette.GREEN)
+	kind.position = Vector2(250, 82)
+	kind.size = Vector2(280, 24)
+	kind.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(kind)
+	var name := UIFactory.label(String(definition.get("name", equipment_id.to_upper())), 38, Color.WHITE)
+	name.name = "UnlockName"
+	name.position = Vector2(40, 117)
+	name.size = Vector2(700, 52)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(name)
+	var role := UIFactory.label(String(definition.get("role", "")), 18, GamePalette.CYAN)
+	role.position = Vector2(70, 184)
+	role.size = Vector2(640, 30)
+	role.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(role)
+	var mechanics := UIFactory.label(String(definition.get("mechanics", "")), 15, Color.WHITE)
+	mechanics.position = Vector2(80, 230)
+	mechanics.size = Vector2(620, 74)
+	mechanics.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mechanics.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mechanics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(mechanics)
+	var secured := UIFactory.label(summary, 13, Color(GamePalette.GREEN, 0.78))
+	secured.position = Vector2(70, 326)
+	secured.size = Vector2(640, 58)
+	secured.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	secured.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	secured.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(secured)
+	var hangar := UIFactory.button("OPEN HANGAR", Vector2(260, 436), Vector2(260, 58))
+	hangar.name = "UnlockHangarButton"
+	hangar.pressed.connect(hangar_action)
+	panel.add_child(hangar)
 
 
 func clear() -> void:

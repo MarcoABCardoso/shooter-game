@@ -6,26 +6,25 @@ This section is the handoff point between work sessions. Read it before starting
 implementation and update it before ending a session that changes the game or
 the plan.
 
-- **Overall status:** Chapters 1 and 2 are complete. Chapter 3 implementation is
-  ready for its mandatory creator play: the opening sector now unlocks four
-  weapon families, three active skills, eight named weapon plans, mastery-revealed
-  follow-ups, and a behavior-first permanent graph.
-- **Active chapter:** Chapter 3 - Establish build breadth (mandatory play pending).
+- **Overall status:** Chapters 1 through 3 are complete. The opening sector now
+  starts with a broad arsenal, supports eight behaviorally distinct named plans,
+  and introduces objectives only after a one-minute survival lesson.
+- **Active chapter:** Chapter 4 - Complete the campaign (not started).
 - **Working branch:** `codex/master-plan`
-- **Last updated:** 2026-08-11
+- **Last updated:** 2026-08-12
 
 | Chapter | Status | Playable outcome |
 |---|---|---|
 | 1. Prove focused stages | Complete | Three focused stages and distinct builds worth optimizing for them |
 | 2. Rebuild the opening sector | Complete | A compact but complete first sector using the full-game structure |
-| 3. Establish build breadth | Play gate | Multiple behaviorally distinct builds worth revisiting |
+| 3. Establish build breadth | Complete | Multiple behaviorally distinct builds worth revisiting |
 | 4. Complete the campaign | Not started | Three-sector campaign, final stage, and definitive ending |
 | 5. Open the post-game | Not started | Threats and challenges that transform the campaign |
 | 6. Finish the product | Not started | Coherent, reliable release candidate for the chosen platforms |
 
 ### Current handoff
 
-- **Last completed:** The Chapter 3 implementation comparison is assembled.
+- **Last completed:** Chapter 3 is complete. The implementation comparison established
   Pulse supports Sentinel and Harrier, Orbit supports Interceptor and Aegis, Arc
   supports Conduit and Executioner, and Nova supports Singularity and Purifier.
   Native mastery reveals an alternate follow-up for each plan. Gravity Tether
@@ -34,17 +33,20 @@ the plan.
   pierce, chain, blade, and interception thresholds. Carriers add a formation
   problem to the final Breach chamber and Overseer approach. The Library explains
   the resulting plans. A separate chassis layer was omitted because it currently
-  duplicates weapon transformation rules.
-- **In progress:** Mandatory Chapter 3 creator play and numerical duplicate audit.
-- **Next action:** Equip several named builds and replay Relay Breach under the
-  same objective, corridor, and Carrier pressure. Include at least one focused build (Sentinel or Executioner), one
-  formation build (Conduit or Singularity), and one close/defensive build
-  (Interceptor, Aegis, Harrier, or Purifier). Record which plan changes movement,
-  targeting, timing, or risk; which mastery follow-up invites a replay; and any
-  branch that still feels like a numerical duplicate. Use an Overseer replay as
-  an optional focused-fire check, not as the common comparison. Do not begin Chapter 4
-  content before that judgment is recorded.
-- **Blockers:** Chapter 3 stops at its mandatory play gate by design.
+  duplicates weapon transformation rules. The initial post-Overseer unlock plan
+  was rejected because it delayed the game's primary build fantasy. Loadout is
+  now available before the first deployment with three weapon and two active-skill
+  options; Drift Cache retains Parry and the Overseer now adds only Nova. Signal
+  Hold is now a one-minute fixed-arena survival stage; Drift Cache introduces
+  Signal Defense and Relay Breach introduces destructible target objectives. The
+  final presentation pass clears transient combat effects at stage end, shortens
+  evolution and result copy, and routes successful runs back through the hangar
+  without an immediate replay shortcut.
+- **In progress:** None.
+- **Next action:** Begin Chapter 4 by mapping the remaining two sectors, their
+  distinct combat theses, the final stage, and the definitive ending before
+  producing encounters.
+- **Blockers:** None.
 - **Verification:** The ten Godot tests, including `build_breadth.gd`, pass on
   Godot 4.7.1. `git diff --check` passes. Known ObjectDB and resource-leak
   warnings remain visible on some clean exits.
@@ -65,14 +67,19 @@ the plan.
   approach.
 - [x] Expand the Arsenal Library around named plans and future mastery choices.
 - [x] Add deterministic regression coverage for the Chapter 3 contracts.
-- [ ] Complete the mandatory same-boss named-build play and record the design
-  judgment before Chapter 4.
+- [x] Complete the mandatory same-stage named-build play and record the design
+  judgment.
+- [x] Confirm the Pulse, Dash, Tether, and unlock-presentation revisions before
+  Chapter 4.
+- [x] Confirm the survival opener teaches combat cleanly before Drift Cache and
+  Relay Breach introduce objectives.
 
 ### Active checklist: Chapter 2
 
 - [x] Turn the proven focused stages into a visible, gated opening-sector route.
 - [x] Keep the first required route clearable without permanent grinding.
-- [x] Reveal loadout and permanent skill allocation after the first deployment.
+- [x] Offer the starter loadout before the first deployment and reveal permanent
+  skill allocation after the opener.
 - [x] Add an optional route that provides meaningful power and a boss-relevant
   equipment configuration without blocking the required path.
 - [x] Keep the hangar limited to stage names and deadlines, express campaign
@@ -234,6 +241,41 @@ the plan.
 
 ### Session log
 
+- **2026-08-12:** Closed Chapter 3 after the final presentation and lifecycle
+  pass. Successful stages now remove transient player and weapon effects, use
+  compact evolution and victory copy, and offer only the normal return to the
+  hangar. Retry remains available after defeat or retreat. Chapter 4 is ready.
+- **2026-08-12:** Simplified the opening teaching order before the final Chapter
+  3 confirmation. Signal Hold is now a one-minute fixed-arena survival stage with
+  no objective director or traversal. It teaches the chosen loadout, movement,
+  automatic combat, and avoiding damage. Drift Cache now owns the first Signal
+  Defense lesson, followed by Relay Breach's destructible target groups. No
+  tutorial copy was added; formal discoverability remains Chapter 6 work.
+- **2026-08-12:** Completed the mandatory Chapter 3 creator comparison. Three
+  starter weapons and two active skills are broad without being overwhelming;
+  their behaviors read differently. Gravity Tether is loved as useful and unique,
+  Vector Parry is a meaningful optional boss tool, and Nova is an interesting
+  sector reward. Arc plus Gravity Tether is the preferred build. The first hangar
+  still needs later tutorial guidance; equipment unlocks were too quiet; Pulse
+  and Dash felt weak beside the new options; and Tether could catapult enemies
+  into the player. The revision adds Pulse Focus, a damaging projectile-clearing
+  Dash lane, braking-aware Tether convergence, and dedicated arsenal unlock
+  reveals. A short revision play remains before Chapter 3 closes.
+- **2026-08-12:** The first revision check validates Pulse Focus, the Parry reveal,
+  the Nova reveal, and Tether's braking, but asks Dash to travel much farther,
+  deal less damage, and recharge more slowly. It also finds that Tether can pull
+  rear enemies across the ship even when its convergence braking is correct.
+  Dash now moves for 0.36 seconds, deals 12 lane damage, remains phased for 0.46
+  seconds, and cycles in 2.5 seconds. Tether now filters to the forward half-plane.
+  Only these two adjustments remain to confirm.
+- **2026-08-12:** Rejected the first Chapter 3 reward pacing because placing
+  Orbit, Arc, Nova, and Gravity Tether behind the entire opening sector delayed
+  the game's build-engineering premise. A fresh profile now sees Loadout in the
+  first hangar and can choose Pulse, Orbit, or Arc plus Dash or Gravity Tether.
+  Drift Cache still grants Vector Parry; the Overseer now grants Nova alone.
+  Permanent skills remain gated until after Signal Hold so the opening choice is
+  broad without front-loading the progression graph. The mandatory Chapter 3
+  comparison remains pending after this correction.
 - **2026-08-11:** Passed the refined Chapter 2 traversal play. The creator reports
   that the slice now scans and feels like a true game rather than adjacent
   activities. It still needs finishing treatment, particularly presentation,

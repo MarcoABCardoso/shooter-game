@@ -129,7 +129,7 @@ func show_menu(profile: SaveProfile) -> void:
 	hangar_slot_label.text = "SAVE SLOT %02d" % profile.active_slot if profile.active_slot > 0 else "TEMPORARY PROFILE"
 	start_flux_label.text = "◆  %d" % int(profile.data["flux"])
 	sector_route_view.rebuild(profile)
-	loadout_button.visible = profile.hangar_systems_unlocked()
+	loadout_button.visible = true
 	skills_button.visible = profile.hangar_systems_unlocked()
 
 
@@ -192,22 +192,27 @@ func show_operation_end(operation_id: String, session: RunSession, banked_flux: 
 		title = "STAGE LOST" if defeated else "STAGE RETREATED"
 	elif operation_id == "overseer_lock" and bool(rewards.get("first_clear", false)):
 		title = "SECTOR 01 SECURED"
-	var recovery_percent := OperationCatalog.defeat_flux_percent(operation_id) if defeated else OperationCatalog.retreat_flux_percent(operation_id)
-	var reward_note := "Stage rewards secured." if completed else "Partial recovery secured  •  %d%% of earned Flux." % recovery_percent
-	if completed:
-		reward_note = String(OperationCatalog.definition(operation_id).get("completion_copy", reward_note))
-	if bool(rewards.get("first_clear", false)):
-		reward_note += "\nFirst clear: +%d Flux." % int(rewards.get("bonus_flux", 0))
-		var discoveries: Array = rewards.get("discoveries", [])
-		for value: Variant in discoveries:
-			reward_note += "\nUnlocked: %s." % String(LibraryCatalog.definition(String(value)).get("name", String(value).to_upper()))
-	var body := "Finished in %s\n%d hostiles destroyed  •  %d Flux banked\n\n%s\nMastery progress saved." % [
+	var discoveries: Array = rewards.get("discoveries", [])
+	var body := "TIME %s  •  KILLS %d\n%s %d" % [
 		_format_time(session.elapsed),
 		session.kills,
+		"FLUX BANKED" if completed else "FLUX RECOVERED",
 		banked_flux,
-		reward_note,
 	]
-	_show_message(title, body, "PLAY AGAIN", retry_requested.emit, "BACK TO HANGAR", menu_requested.emit)
+	if completed and bool(rewards.get("first_clear", false)):
+		body += "  •  FIRST CLEAR +%d" % int(rewards.get("bonus_flux", 0))
+	if completed and not discoveries.is_empty():
+		hud.set_controls_active(false)
+		var unlock_summary := "+%d FIRST-CLEAR FLUX  •  %d RUN FLUX" % [
+			int(rewards.get("bonus_flux", 0)),
+			banked_flux,
+		]
+		overlay.show_unlock_reveal(title, String(discoveries[0]), unlock_summary, menu_requested.emit)
+		return
+	if completed:
+		_show_message(title, body, "", Callable(), "BACK TO HANGAR", menu_requested.emit)
+	else:
+		_show_message(title, body, "PLAY AGAIN", retry_requested.emit, "BACK TO HANGAR", menu_requested.emit)
 
 
 func show_operation_pause() -> void:

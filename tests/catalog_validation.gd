@@ -65,24 +65,9 @@ func _validate_operations() -> void:
 		referenced_encounters.append(String(mission["encounter_id"]))
 	assert(referenced_encounters == EncounterCatalog.ORDER, "Each encounter profile should belong to one sector stage")
 	var hold := OperationCatalog.mission("signal_hold")
-	var hold_objectives := hold["objectives"] as Array
-	assert(String(hold["lifecycle"]) == "objective_sequence" and hold_objectives.size() == 3, "Signal Hold should progress through three sequential objectives")
-	var total_hold_time := 0.0
-	var previous_hold_position := Vector2.ZERO
-	var previous_hold_arena := Rect2()
-	for objective: Dictionary in hold_objectives:
-		assert(String(objective["lifecycle"]) == "signal_defense" and objective.has("name"), "Signal Hold objectives should deepen one readable defense rhythm")
-		assert(objective.has("arena_rect") and objective.has("objective_position") and objective.has("objective_radius") and objective.has("hold_duration") and objective.has("decay_rate"), "Every defense objective should own its chamber, field, and timing")
-		var objective_arena: Rect2 = objective["arena_rect"]
-		assert(objective_arena.has_point(objective["objective_position"]), "Every defense field should remain inside its objective chamber")
-		if previous_hold_arena.has_area():
-			assert(objective_arena.position.x > previous_hold_arena.end.x, "Sequential chambers should create meaningful forward travel")
-		assert(objective["objective_position"] != previous_hold_position, "Sequential defense objectives should advance across the arena")
-		previous_hold_position = objective["objective_position"]
-		previous_hold_arena = objective_arena
-		total_hold_time += float(objective["hold_duration"])
-	assert(float(hold["time_limit"]) >= total_hold_time * 2.0, "The fresh-profile opener should leave generous travel and recovery time")
-	assert(OperationCatalog.mission_arenas("signal_hold").size() == 3, "Signal Hold should expose three camera chambers")
+	assert(String(hold["lifecycle"]) == "survival" and not hold.has("objectives"), "Signal Hold should teach survival before introducing objective vocabulary")
+	assert(float(hold["duration"]) == float(hold["time_limit"]) and float(hold["duration"]) == 60.0, "The opener should be one legible sixty-second survival timer")
+	assert(OperationCatalog.mission_arenas("signal_hold") == [GameBalance.ARENA], "The survival opener should use one fixed combat arena")
 	var breach := OperationCatalog.mission("relay_breach")
 	var breach_objectives := breach["objectives"] as Array
 	assert(String(breach["lifecycle"]) == "objective_sequence" and breach_objectives.size() == 3, "Relay Breach should reveal three relay groups sequentially")
@@ -97,7 +82,7 @@ func _validate_operations() -> void:
 	var cache := OperationCatalog.mission("drift_cache")
 	var cache_objectives := cache["objectives"] as Array
 	assert(String(cache["lifecycle"]) == "objective_sequence" and cache_objectives.size() == 2, "The optional cache should progress from approach to extraction")
-	assert(cache_objectives[0]["objective_position"] != hold_objectives[0]["objective_position"], "The optional cache should recompose defense at a distinct arena position")
+	assert(String(cache_objectives[0]["lifecycle"]) == "signal_defense", "Drift Cache should introduce Signal Defense after the survival opener")
 	var fresh_clears: Dictionary = SaveProfile.DEFAULT_DATA["stage_clears"].duplicate(true)
 	assert(OperationCatalog.is_unlocked("signal_hold", fresh_clears), "Signal Hold should be the only entry stage")
 	assert(not OperationCatalog.is_unlocked("drift_cache", fresh_clears) and not OperationCatalog.is_unlocked("relay_breach", fresh_clears), "Later routes should wait for the opener")
@@ -173,6 +158,9 @@ func _validate_library() -> void:
 		for field in ["kind", "name", "role", "mechanics", "plans", "acquisition", "clue"]:
 			assert(LibraryCatalog.DEFINITIONS[id].has(field), "Library entry %s is missing %s" % [id, field])
 	assert(SaveProfile.DEFAULT_DATA["equipped_ability"] == "dash" and SaveProfile.DEFAULT_DATA["equipped_weapons"] == ["pulse"], "A profile should begin with Pulse and Phase Dash")
+	for id: String in ["pulse", "orbit", "arc", "dash", "gravity_tether"]:
+		assert(bool(SaveProfile.DEFAULT_DATA["discovered"][id]), "The starter arsenal should immediately expose %s" % id)
+	assert(not bool(SaveProfile.DEFAULT_DATA["discovered"]["nova"]), "Nova should remain the Overseer reward")
 	assert(not bool(SaveProfile.DEFAULT_DATA["discovered"]["vector_parry"]), "Vector Parry should begin as an optional-route reward")
 	for stage_id: String in OperationCatalog.ORDER:
 		assert(SaveProfile.DEFAULT_DATA["stage_clears"].has(stage_id), "Save defaults should track stage %s" % stage_id)
@@ -185,5 +173,5 @@ func _validate_library() -> void:
 	profile.bank_run(0, 1.0, 1, 0, {}, "drift_cache")
 	assert(profile.is_discovered("vector_parry"), "Clearing the optional cache should discover Vector Parry")
 	profile.bank_run(0, 1.0, 1, 0, {}, "overseer_lock")
-	for id: String in ["orbit", "arc", "nova", "gravity_tether"]:
-		assert(profile.is_discovered(id), "The Chapter 3 comparison arsenal should unlock after the Overseer: %s" % id)
+	assert(OperationCatalog.first_clear_discoveries("overseer_lock") == ["nova"], "The Overseer should add one advanced weapon to the starter build language")
+	assert(profile.is_discovered("nova"), "Clearing the Overseer should discover Nova Burst")

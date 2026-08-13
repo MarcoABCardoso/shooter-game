@@ -33,6 +33,9 @@ var target_mode_index := 0
 var anchor_charge := 0.0
 var last_player_position := Vector2.ZERO
 var orbit_intercepts := 0
+var pulse_focus_target_id := 0
+var pulse_focus_stacks := 0
+var pulse_focus_target: NeonEnemy
 
 
 func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: RunSession, tracked_enemies: Array[NeonEnemy]) -> void:
@@ -50,8 +53,26 @@ func configure(run_player: NeonPlayer, save_profile: SaveProfile, run_session: R
 	target_mode_index = 0
 	anchor_charge = 0.0
 	orbit_intercepts = 0
+	pulse_focus_target_id = 0
+	pulse_focus_stacks = 0
+	pulse_focus_target = null
 	last_player_position = player.global_position
 	active = true
+	visible = true
+	queue_redraw()
+
+
+func clear_combat_presentation() -> void:
+	active = false
+	visible = false
+	arc_visuals.clear()
+	nova_visual = 0.0
+	anchor_charge = 0.0
+	orbit_intercepts = 0
+	pulse_focus_target_id = 0
+	pulse_focus_stacks = 0
+	pulse_focus_target = null
+	queue_redraw()
 
 
 func apply_operation_growth(levels: int) -> void:
@@ -136,16 +157,20 @@ func fire_pulse() -> bool:
 	var spec: Dictionary = weapons["pulse"]
 	var target := select_target(player.global_position, targeting_range(pulse_range()), [])
 	if target == null:
+		_reset_pulse_focus()
 		return false
+	_update_pulse_focus(target)
 	var fire_direction := _direction_to(target)
 	var count := int(spec["count"])
 	var projectile_speed := float(spec["projectile_speed"])
 	var projectile_radius := 4.0
 	var splash_damage := profile.skill_effect("splash_damage")
 	var splash_radius := 72.0 * (1.0 + profile.skill_effect("splash_radius"))
+	var focused_damage := _scaled_damage("pulse", float(spec["damage"])) * pulse_focus_multiplier()
 	for i in count:
 		var offset := (float(i) - float(count - 1) * 0.5) * float(spec.get("spread", 0.13))
-		projectile_requested.emit(player.global_position + fire_direction * 24.0, fire_direction.rotated(offset), _scaled_damage("pulse", float(spec["damage"])), projectile_speed, true, "pulse", int(spec["pierce"]) + int(profile.skill_effect("pulse_pierce")), projectile_radius, profile.skill_effect("distant_damage"), pulse_knockback(), targeting_range(pulse_range()), splash_damage, splash_radius)
+		projectile_requested.emit(player.global_position + fire_direction * 24.0, fire_direction.rotated(offset), focused_damage, projectile_speed, true, "pulse", int(spec["pierce"]) + int(profile.skill_effect("pulse_pierce")), projectile_radius, profile.skill_effect("distant_damage"), pulse_knockback(), targeting_range(pulse_range()), splash_damage, splash_radius)
+	queue_redraw()
 	tone_requested.emit(520.0, 0.025, 0.06, 900.0)
 	return true
 
@@ -316,6 +341,28 @@ func pulse_knockback() -> float:
 	return result
 
 
+func pulse_focus_multiplier() -> float:
+	var spec: Dictionary = weapons["pulse"]
+	return 1.0 + pulse_focus_stacks * float(spec.get("focus_damage", 0.0))
+
+
+func _update_pulse_focus(target: NeonEnemy) -> void:
+	var target_id := target.get_instance_id()
+	if target_id == pulse_focus_target_id:
+		pulse_focus_stacks = mini(int(weapons["pulse"].get("focus_max", 0)), pulse_focus_stacks + 1)
+	else:
+		pulse_focus_target_id = target_id
+		pulse_focus_stacks = 0
+	pulse_focus_target = target
+
+
+func _reset_pulse_focus() -> void:
+	pulse_focus_target_id = 0
+	pulse_focus_stacks = 0
+	pulse_focus_target = null
+	queue_redraw()
+
+
 func anchor_charge_ratio() -> float:
 	if String(weapons["pulse"].get("evolution", "")) != "bastion":
 		return 0.0
@@ -384,7 +431,7 @@ func _update_visuals(delta: float) -> void:
 
 
 func _has_dynamic_visuals() -> bool:
-	return int(weapons["orbit"]["level"]) > 0 or not arc_visuals.is_empty() or nova_visual > 0.0 or not String(weapons["pulse"].get("evolution", "")).is_empty()
+	return int(weapons["orbit"]["level"]) > 0 or not arc_visuals.is_empty() or nova_visual > 0.0 or not String(weapons["pulse"].get("evolution", "")).is_empty() or is_instance_valid(pulse_focus_target)
 
 
 func _draw() -> void:
@@ -410,6 +457,9 @@ func _draw() -> void:
 	if nova_visual > 0.0:
 		var progress := 1.0 - nova_visual / 0.42
 		draw_arc(player.global_position, float(weapons["nova"]["radius"]) * progress, 0, TAU, 64, Color(GamePalette.GREEN, nova_visual / 0.42), 5.0)
+	if is_instance_valid(pulse_focus_target) and pulse_focus_target.active and pulse_focus_stacks > 0:
+		var focus_ratio := float(pulse_focus_stacks) / maxf(1.0, float(weapons["pulse"].get("focus_max", 1)))
+		draw_arc(pulse_focus_target.global_position, pulse_focus_target.radius + 9.0, -PI * 0.5, -PI * 0.5 + TAU * focus_ratio, 28, Color(GamePalette.CYAN, 0.55 + focus_ratio * 0.4), 3.0, true)
 	var pulse_evolution := String(weapons["pulse"].get("evolution", ""))
 	if pulse_evolution == "bastion":
 		var charge := anchor_charge_ratio()

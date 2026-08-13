@@ -27,7 +27,7 @@ func _run() -> void:
 	player.active = false
 	player._physics_process(8.1)
 	assert(player.shield_charges == 2, "A shield charge should return after the undamaged recharge delay")
-	assert(player.ability_cooldown < 1.25, "Emergency Cycle should shorten active-skill recharge")
+	assert(player.ability_cooldown < GameBalance.PHASE_DASH_COOLDOWN, "Emergency Cycle should shorten active-skill recharge")
 
 	var enemy := NeonEnemy.new()
 	enemy.configure("drone", 1.0)

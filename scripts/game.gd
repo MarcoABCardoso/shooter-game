@@ -161,6 +161,7 @@ func _spawn_player() -> void:
 	player.dash_changed.connect(ui.set_dash)
 	player.parry_requested.connect(combat_director.parry_projectiles)
 	player.gravity_tether_requested.connect(combat_director.gravity_tether)
+	player.phase_lane_requested.connect(combat_director.phase_dash_lane)
 	player.active_skill_used.connect(session.record_mastery)
 	player.configure({
 		"damage": profile.skill_effect("general_damage"),
@@ -229,7 +230,7 @@ func _select_save_slot(slot: int, create_new: bool) -> void:
 
 
 func show_loadout() -> void:
-	if state == GameState.MENU and profile.hangar_systems_unlocked():
+	if state == GameState.MENU:
 		ui.show_loadout(profile)
 
 
@@ -376,6 +377,7 @@ func _end_operation(completed: bool, defeated: bool) -> void:
 		return
 	state = GameState.STAGE_CLEAR if completed else GameState.GAME_OVER
 	_set_combat_active(false)
+	_clear_combat_presentation()
 	var banked_flux := session.flux
 	if not completed:
 		banked_flux = OperationCatalog.defeat_flux(session.operation_id, session.flux) if defeated else OperationCatalog.retreat_flux(session.operation_id, session.flux)
@@ -406,6 +408,11 @@ func _current_encounter_label() -> String:
 
 func _mission_timed_out() -> bool:
 	var mission := OperationCatalog.mission(session.operation_id)
+	if String(mission.get("lifecycle", "")) == "survival":
+		# Survival completes through SpawnDirector at its advertised duration. It
+		# must get the completion tick instead of losing to the generic deadline
+		# check at the same timestamp.
+		return false
 	var time_limit := float(mission.get("time_limit", 0.0))
 	return time_limit > 0.0 and session.mission_elapsed >= time_limit
 
@@ -535,13 +542,19 @@ func _fire_nova() -> void:
 
 func _clear_run() -> void:
 	mission_outro_timer = 0.0
-	weapon_system.active = false
+	weapon_system.clear_combat_presentation()
 	if is_instance_valid(objective_director):
 		objective_director.clear()
 	for node: Node in get_tree().get_nodes_in_group("run_entities"):
 		if is_instance_valid(node):
 			node.queue_free()
 	player = null
+
+
+func _clear_combat_presentation() -> void:
+	weapon_system.clear_combat_presentation()
+	if is_instance_valid(player):
+		player.clear_combat_presentation()
 
 
 func _clear_mission_entities() -> void:

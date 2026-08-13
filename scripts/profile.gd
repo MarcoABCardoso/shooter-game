@@ -4,7 +4,7 @@ extends RefCounted
 const OperationCatalog := preload("res://scripts/content/operation_catalog.gd")
 const SAVE_SLOT_PATH := "user://neon_requiem_save_%d.json"
 const SLOT_COUNT := 3
-const SAVE_VERSION := 13
+const SAVE_VERSION := 14
 const MASTERY_MAX := 20
 const MASTERY_BONUS_PER_POINT := 0.025
 const DEFAULT_DATA := {
@@ -52,12 +52,12 @@ const DEFAULT_DATA := {
 	},
 	"discovered": {
 		"pulse": true,
-		"orbit": false,
-		"arc": false,
+		"orbit": true,
+		"arc": true,
 		"nova": false,
 		"dash": true,
 		"vector_parry": false,
-		"gravity_tether": false,
+		"gravity_tether": true,
 	},
 }
 
@@ -338,13 +338,11 @@ func _merge_known(target: Dictionary, source: Dictionary) -> void:
 func _repair_profile() -> void:
 	data["discovered"]["pulse"] = true
 	data["discovered"]["dash"] = true
-	data["discovered"]["orbit"] = false
-	data["discovered"]["arc"] = false
-	data["discovered"]["nova"] = false
+	data["discovered"]["orbit"] = true
+	data["discovered"]["arc"] = true
+	data["discovered"]["gravity_tether"] = true
+	data["discovered"]["nova"] = stage_clear_count("overseer_lock") > 0
 	data["discovered"]["vector_parry"] = stage_clear_count("drift_cache") > 0
-	var arsenal_unlocked := stage_clear_count("overseer_lock") > 0
-	for id: String in ["orbit", "arc", "nova", "gravity_tether"]:
-		data["discovered"][id] = arsenal_unlocked
 	if not is_discovered(String(data.get("equipped_ability", "dash"))):
 		data["equipped_ability"] = "dash"
 	var repaired_weapons: Array[String] = []

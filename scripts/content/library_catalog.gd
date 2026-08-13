@@ -8,7 +8,7 @@ const ORDER: Array[String] = WEAPON_ORDER + ABILITY_ORDER
 const DEFINITIONS := {
 	"pulse": {
 		"kind": "WEAPON", "name": "PULSE CANNON", "role": "Automatic precision fire",
-		"mechanics": "Automatically fires precise shots at the nearest enemy in range. Mastery increases damage.",
+		"mechanics": "Automatically fires precise shots. Repeated volleys into the same target build Focus for up to +36% damage; switching targets resets it.",
 		"plans": "SENTINEL holds ground and stores force. HARRIER kites through close-range volleys.",
 		"acquisition": "Standard hangar equipment", "clue": "Standard hangar equipment.",
 	},
@@ -16,13 +16,13 @@ const DEFINITIONS := {
 		"kind": "WEAPON", "name": "ORBIT BLADES", "role": "Close-range contact defense",
 		"mechanics": "Two blades circle the ship and repeatedly damage enemies they touch.",
 		"plans": "INTERCEPTOR hunts at contact range. AEGIS turns the orbit into a projectile screen.",
-		"acquisition": "Overseer armory recovered", "clue": "The Overseer protects a close-defense weapon signal.",
+		"acquisition": "Standard hangar equipment", "clue": "Standard hangar equipment.",
 	},
 	"arc": {
 		"kind": "WEAPON", "name": "ARC LASH", "role": "Automatic chain lightning",
 		"mechanics": "Strikes a nearby enemy, then chains through additional targets.",
 		"plans": "CONDUIT exploits dense formations. EXECUTIONER waits for priority targets and exposed cores.",
-		"acquisition": "Overseer armory recovered", "clue": "A chained weapon signal is sealed inside the Overseer's armory.",
+		"acquisition": "Standard hangar equipment", "clue": "Standard hangar equipment.",
 	},
 	"nova": {
 		"kind": "WEAPON", "name": "NOVA BURST", "role": "Periodic radial clear",
@@ -32,8 +32,8 @@ const DEFINITIONS := {
 	},
 	"dash": {
 		"kind": "ACTIVE SKILL", "name": "PHASE DASH", "role": "Burst movement and evasion",
-		"mechanics": "Surge in your movement direction and briefly phase through damage. Mastery shortens recharge.",
-		"plans": "Reposition through danger; Phase Mooring lets a Sentinel move without surrendering charge.",
+		"mechanics": "Commit to a long surge through damage and cut a low-damage phase lane that erases hostile fire along the route. Mastery shortens its deliberate recharge.",
+		"plans": "Cut through a dangerous formation or escape across its fire; Phase Mooring lets a Sentinel move without surrendering charge.",
 		"acquisition": "Standard hangar equipment", "clue": "Standard hangar equipment.",
 	},
 	"vector_parry": {
@@ -44,9 +44,9 @@ const DEFINITIONS := {
 	},
 	"gravity_tether": {
 		"kind": "ACTIVE SKILL", "name": "GRAVITY TETHER", "role": "Formation setup without invulnerability",
-		"mechanics": "Project a gravity point ahead of the ship that drags nearby enemies into a compact formation. Mastery shortens recharge.",
+		"mechanics": "Project a gravity point ahead of the ship that drags enemies from the forward field into a compact formation. It never pulls threats through the ship from behind.",
 		"plans": "Prepare Arc chains, Nova detonations, Pulse splash, or an aggressive Orbit pass instead of escaping pressure.",
-		"acquisition": "Overseer armory recovered", "clue": "A formation-control signal is sealed inside the Overseer's armory.",
+		"acquisition": "Standard hangar equipment", "clue": "Standard hangar equipment.",
 	},
 }
 

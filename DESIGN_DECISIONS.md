@@ -189,11 +189,15 @@ the existing completion consequences create enough continuity without a restored
 mission dossier or isolated dialogue.
 
 The route revision read better, but the single-objective deployments ended
-before they could develop into missions. The current comparison gives Signal
-Hold three moving defense objectives, Drift Cache an approach and extraction,
-and Relay Breach three progressively revealed relay pairs. They share one
-generous mission deadline and preserve the hangar decision between different
-objective families.
+before they could develop into missions. The first traversal comparison gave
+Signal Hold three moving defense objectives, Drift Cache an approach and
+extraction, and Relay Breach three progressively revealed relay pairs. Direct
+Chapter 3 review later simplified the teaching order: Signal Hold is now a
+one-minute fixed-arena survival stage, so the player first learns movement,
+automatic combat, and avoiding damage. Drift Cache introduces Signal Defense
+through its approach and extraction fields; Relay Breach then introduces three
+progressively revealed relay pairs. The hangar decision remains between each
+focused family.
 
 Candidate mission families are Assault, Elite Hunt, Signal Defense, Breach,
 Salvage, Anomaly, and Boss. A family survives only if it makes builds prioritize,
@@ -315,6 +319,25 @@ plan. This keeps mastery intrinsic while making revisitation open a choice rathe
 than only increasing damage. The Arsenal Library exposes every discovered plan
 and its tactical use before deployment.
 
+The first Chapter 3 creator play validates the breadth: the starter quantity is
+comfortable, Pulse/Orbit/Arc feel different, Gravity Tether is useful and unique,
+optional Parry matters because it answers the boss, and Nova is an interesting
+sector reward. Arc plus Gravity Tether is the first preferred configuration.
+The same play rejects the initial baseline identities of Pulse and Dash and finds
+equipment unlocks too easy to miss. The revision gives Pulse a same-target Focus
+ramp, lets Dash cut a damaging projectile-clearing lane, and presents deterministic
+equipment rewards on a dedicated reveal. Tether impulses now reserve braking
+distance for both the pull and continued enemy pursuit so fast enemies converge
+without being launched through the player. First-hangar discoverability remains
+deferred tutorial work rather than a Chapter 3 build-system change.
+
+The final Chapter 3 presentation pass keeps evolution cards and victory results
+deliberately terse. Result screens do not explain persistence transactions the
+player does not need to decide, and successful stages return through the hangar
+instead of advertising an unusual immediate replay. Stage teardown also clears
+transient player and weapon visuals so a prior loadout cannot remain on the
+battlefield behind the result or the next deployment.
+
 ### H008: Onboarding follows stable structure
 
 System unlock timing felt correct to the creator, but discoverability remains
@@ -372,7 +395,7 @@ preserved so code, tests, and earlier discussion remain understandable.
 | **D012: Simulation-level pause** | Retained as T004 | The current resonance overlay may change, but whole-simulation pause remains correct. |
 | **D013: Native item mastery** | Expanded by C004 | Intrinsic, non-transferable mastery remains valuable. It may unlock transformations and interactions as well as bounded power. |
 | **D014: Bosses interrupt the crowd-control rhythm** | Principle retained | Bosses should create readable exploitation windows and test build understanding. The Overseer's exact attacks remain authored prototype content. |
-| **D015: Sparse equipment rewards plus first-clear Flux** | Active opening-sector hypothesis | Null Meridian now uses deterministic, non-repeating first-clear Flux. Its optional Drift Cache grants Vector Parry and enough Flux for meaningful permanent growth; the Overseer opens the Chapter 3 comparison arsenal: Orbit Blades, Arc Lash, Nova Burst, and Gravity Tether. The exact later-campaign schedule remains open. |
+| **D015: Sparse equipment rewards plus first-clear Flux** | Active opening-sector hypothesis | Null Meridian now uses deterministic, non-repeating first-clear Flux. A new profile can immediately engineer around Pulse, Orbit, Arc, Dash, or Gravity Tether; Drift Cache grants Vector Parry and enough Flux for meaningful permanent growth; the Overseer grants the advanced Nova Burst. The exact later-campaign schedule remains open. |
 
 ## Current prototype balance reference
 
@@ -384,11 +407,11 @@ tuning references, not targets for later sectors.
 | Player hull | 100 | Behavioral mutations; +12 permanent rank |
 | Player speed | 300 px/s | Fixed; movement physics are unaffected by facing and targeting |
 | Pulse Cannon | 5 damage / 0.34 s / 190 px range | Skill tree + 2.5% per native mastery rank |
-| Signal Defense | 18 s + 20 s + 22 s holds / 180 s deadline | Three horizontally separated chambers under fresh-profile Drone pressure |
-| Drift Cache | 22 s approach + 26 s extraction / 165 s deadline | Optional Striker/Gunner pressure; 100 first-clear Flux and Vector Parry |
+| Signal Hold | 60 s survival timer | One fixed arena under fresh-profile Drone pressure; no objective vocabulary |
+| Drift Cache | 22 s approach + 26 s extraction / 165 s deadline | First Signal Defense lesson; Striker/Gunner pressure, 100 first-clear Flux, and Vector Parry |
 | Relay Breach | 210 s deadline | Three sequential pairs progress across the arena under Drone/Striker pressure |
-| Overseer Lock | 180 s deadline | Gunner/Carrier screen followed by the multi-pattern boss; replayable with the post-clear comparison arsenal |
-| Phase Dash | 0.18 s movement, 0.30 s invulnerability | 1.25 s cooldown |
+| Overseer Lock | 180 s deadline | Gunner/Carrier screen followed by the multi-pattern boss; Nova unlocks on the first clear |
+| Phase Dash | 0.36 s movement, 0.46 s invulnerability, 12-damage clearing lane | 2.5 s cooldown |
 
 Current tuning locations remain:
 
@@ -409,10 +432,10 @@ The playable opening-sector candidate currently includes:
 - A gated Null Meridian route with partial retreat/defeat recovery: the required
   Signal Hold opener, optional Drift Cache power route, linked Relay Breach, and
   Overseer Lock. Each returns to the hangar before another deployment.
-- Content-defined objective sequences within the three non-boss missions. The
-  HUD shows the active step and sequence count; only the active field or relay
-  group is revealed, and one overall deadline governs the deployment.
-- Horizontal mission traversal between constrained combat chambers. Completing
+- A one-minute fixed-arena survival opener followed by content-defined objective
+  sequences in Drift Cache and Relay Breach. The HUD shows only the survival
+  timer or active objective step; one overall deadline governs each deployment.
+- Horizontal objective-mission traversal between constrained combat chambers. Completing
   an objective opens a narrow corridor while enemies and spawning continue, then
   activates the next chamber only after the player reaches it. The camera is
   fixed for chamber combat and uses a horizontal dead zone during transit.
@@ -423,9 +446,9 @@ The playable opening-sector candidate currently includes:
   the disabled state, and mission concepts are introduced by the mission itself.
 - A content-driven sector route that places the required stage spine and optional
   preparation branch spatially, with completed nodes and links changing state.
-- Deterministic first-clear Flux, optional Vector Parry recovery, a post-Overseer
-  comparison arsenal containing Orbit, Arc, Nova, and Gravity Tether, and a
-  compact sector-completion beat pointing deeper.
+- A starter build arsenal containing Pulse, Orbit, Arc, Dash, and Gravity Tether;
+  deterministic first-clear Flux; optional Vector Parry recovery; a Nova sector
+  reward; and a compact sector-completion beat pointing deeper.
 - Automatic resonance growth, two visible Pulse evolution tiers,
   Sentinel and Scatter positioning builds, and keyboard target-priority cycling.
 - Weapon and active-skill loadouts, eight named weapon plans with mastery-revealed

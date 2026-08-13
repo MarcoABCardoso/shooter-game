@@ -13,9 +13,10 @@ func _run() -> void:
 	await process_frame
 
 	game.profile.data["mastery_xp"]["pulse"] = 140.0
-	game.start_operation("signal_hold")
+	game.profile.data["stage_clears"]["signal_hold"] = 1
+	game.start_operation("drift_cache")
 	await process_frame
-	assert(game.objective_director.active and game.spawn_director.objective_driven, "Signal Breach should open with objective-driven Signal Defense")
+	assert(game.objective_director.active and game.spawn_director.objective_driven, "Drift Cache should introduce objective-driven Signal Defense")
 	assert(game.arena_view.background.objective_visible, "Signal Defense should render a readable arena field")
 	game.player.global_position = game.objective_director.world_position + Vector2(game.objective_director.radius + 20.0, 0.0)
 	game.objective_director.tick(1.0)
@@ -93,7 +94,7 @@ func _run() -> void:
 	game.weapon_system._update_anchor_charge(0.0)
 	assert(is_equal_approx(game.weapon_system.anchor_charge_ratio(), 1.0), "Phase Mooring should preserve charge across Dash displacement")
 
-	game.start_operation("signal_hold")
+	game.start_operation("drift_cache")
 	await process_frame
 	game.add_resonance(game.session.resonance_needed)
 	await process_frame

@@ -115,7 +115,7 @@ func _physics_process(delta: float) -> void:
 		_:
 			velocity = direction * speed
 	velocity += knockback_velocity
-	knockback_velocity = knockback_velocity.move_toward(Vector2.ZERO, delta * 420.0)
+	knockback_velocity = knockback_velocity.move_toward(Vector2.ZERO, delta * GameBalance.ENEMY_IMPULSE_DECELERATION)
 	position += velocity * delta
 	if kind == "boss":
 		var boss_bounds := arena.grow(-radius)
@@ -241,8 +241,15 @@ func apply_pull(destination: Vector2, amount: float) -> void:
 	if not active or kind in ["relay", "boss"] or amount <= 0.0:
 		return
 	var direction := destination - global_position
-	if direction.length_squared() > 0.001:
-		knockback_velocity += direction.normalized() * amount
+	var travel_distance := maxf(0.0, direction.length() - GameBalance.GRAVITY_TETHER_STOP_RADIUS)
+	if travel_distance > 0.001:
+		# Cap the impulse at the velocity that can decelerate before the enemy
+		# crosses the tether point. Replacing the prior impulse also prevents
+		# chained pulls from accumulating into a slingshot.
+		# Enemy pursuit continues during the pull, so reserve stopping distance for
+		# its own movement as well as the decaying tether impulse.
+		var stopping_velocity := sqrt(speed * speed + 2.0 * GameBalance.ENEMY_IMPULSE_DECELERATION * travel_distance) - speed
+		knockback_velocity = direction.normalized() * minf(amount, stopping_velocity)
 
 
 func _draw() -> void:
